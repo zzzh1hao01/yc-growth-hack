@@ -11,6 +11,7 @@ import { getSessionId, resetSession } from "@/lib/session";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { Agent, CompanyContext, Lead } from "@/types/lead";
 import { filterLeadsByImportance } from "@/lib/lead-utils";
+import { isClerkEnabled } from "@/lib/clerk-config";
 import { BoardLegend } from "./BoardLegend";
 import { ContractorContextPanel } from "./ContractorContextPanel";
 import { LeadFocusFilter } from "./LeadFocusFilter";
@@ -35,7 +36,7 @@ export function QuestBoard({
 
   const panelOpen = selectedLead != null;
   const headerVisible = !panelOpen || headerPeek;
-  const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const clerkEnabled = isClerkEnabled();
 
   const clearContractor = useMutation(api.contractors.clearContractor);
   const clearAgent = useMutation(api.agents.clearAgent);
