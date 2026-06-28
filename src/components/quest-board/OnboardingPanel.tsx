@@ -113,7 +113,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           disabled={loading}
           className="w-full rounded-xl bg-amber-900 px-4 py-2.5 text-sm font-bold text-amber-50 transition hover:bg-amber-800 disabled:opacity-60"
         >
-          {loading ? "Loading your board…" : "Start bounty board"}
+          {loading ? "Loading map…" : "Continue"}
         </button>
       </form>
     </aside>
