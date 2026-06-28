@@ -1,4 +1,4 @@
-# HouseholdIQ — 3-Minute Demo Script
+# BountyHunters — 3-Minute Demo Script
 
 **Target:** ~3 minutes spoken  
 **Live app:** [householdiq-insurance.vercel.app](https://householdiq-insurance.vercel.app/)  
