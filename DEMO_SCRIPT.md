@@ -1,7 +1,7 @@
 # HouseholdIQ — 3-Minute Demo Script
 
 **Target:** ~3 minutes spoken  
-**Live app:** [yc-growth-hack.vercel.app](https://yc-growth-hack.vercel.app)  
+**Live app:** [yc-growth-hack.vercel.app](https://householdiq-insurance.vercel.app/)  
 **Tip:** One sentence per line — read straight down.
 
 ---
