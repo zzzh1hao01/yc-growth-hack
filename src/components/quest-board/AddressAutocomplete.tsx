@@ -20,7 +20,6 @@ const SF_BOUNDS = {
 };
 
 export function AddressAutocomplete({
-  value,
   onChange,
   placeholder = "Start typing your address…",
   required,
@@ -28,7 +27,6 @@ export function AddressAutocomplete({
 }: AddressAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const onChangeRef = useRef(onChange);
-  const attachedRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -44,14 +42,13 @@ export function AddressAutocomplete({
     }
 
     const mapsKey = apiKey;
-
     let cancelled = false;
     let cleanup: (() => void) | undefined;
 
     async function init() {
       try {
         await loadGooglePlaces(mapsKey);
-        if (cancelled || !inputRef.current || attachedRef.current) return;
+        if (cancelled || !inputRef.current) return;
 
         const Autocomplete = window.google?.maps?.places?.Autocomplete;
         if (!Autocomplete) {
@@ -71,8 +68,6 @@ export function AddressAutocomplete({
           strictBounds: false,
         });
 
-        attachedRef.current = true;
-
         const listener = autocomplete.addListener("place_changed", () => {
           const place = autocomplete.getPlace();
           const address =
@@ -83,14 +78,12 @@ export function AddressAutocomplete({
           }
         });
 
-        cleanup = () => {
-          listener.remove();
-          attachedRef.current = false;
-        };
+        cleanup = () => listener.remove();
         setReady(true);
       } catch (err) {
         if (!cancelled) {
           setLoadError(formatGoogleMapsError(err));
+          setReady(true);
         }
       }
     }
@@ -103,45 +96,31 @@ export function AddressAutocomplete({
     };
   }, []);
 
-  useEffect(() => {
-    if (inputRef.current && inputRef.current.value !== value) {
-      inputRef.current.value = value;
-    }
-  }, [value]);
-
   return (
     <div className="relative z-50">
       <input
         ref={inputRef}
         type="text"
-        defaultValue={value}
+        name="businessAddress"
         placeholder={placeholder}
         autoComplete="off"
+        required={required}
         className={className}
-        onChange={(event) => onChangeRef.current(event.target.value)}
-        onBlur={(event) => onChangeRef.current(event.target.value.trim())}
+        onInput={(event) => onChangeRef.current(event.currentTarget.value)}
+        onBlur={(event) => onChangeRef.current(event.currentTarget.value.trim())}
       />
       {!ready && !loadError && (
         <p className="mt-1 text-[10px] text-amber-800/60">Loading address search…</p>
       )}
-      {ready && (
+      {ready && !loadError && (
         <p className="mt-1 text-[10px] text-amber-800/60">
-          Pick a San Francisco address from the dropdown.
+          Type an address — pick a suggestion or enter one manually.
         </p>
       )}
-      {required && (
-        <input
-          tabIndex={-1}
-          aria-hidden
-          required
-          value={value}
-          readOnly
-          className="pointer-events-none absolute h-0 w-0 opacity-0"
-          onChange={() => {}}
-        />
-      )}
       {loadError && (
-        <p className="mt-1 text-[10px] leading-snug text-red-800">{loadError}</p>
+        <p className="mt-1 text-[10px] leading-snug text-red-800">
+          {loadError} You can still type your address manually.
+        </p>
       )}
     </div>
   );
