@@ -18,7 +18,7 @@ For the full spoken script with timestamps, see **[DEMO_SCRIPT.md](./DEMO_SCRIPT
 
 ## Step 1 — Open the map (0:00–0:10)
 
-1. Open **https://yc-growth-hack.vercel.app**
+1. Open **https://householdiq-insurance.vercel.app/**
 2. **Say:** *"This is HouseholdIQ — a bounty board of scored SF households for home service contractors."*
 3. **Point out:** **Bounty Board** header · San Francisco
 4. **Point out:** Color legend — green = hot, yellow = warm, red = cold · `!` = urgent
