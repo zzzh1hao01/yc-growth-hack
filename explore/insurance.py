@@ -1,31 +1,50 @@
 """
-Insurance Intelligence Layer — appreciation gap (Step 2, assessor-only fallback).
+Insurance Intelligence Layer — scores SF homeowner parcels by underinsurance likelihood.
 
-Computes a per-parcel "appreciation gap" from the SF Assessor secured roll ALONE,
-with no deed/transaction data. Reuses the validated fetch layer in sources.py.
+All scoring runs on the SF Assessor secured roll (wv5m-vpq2) with no paid or deed data.
+Outputs are JSON records consumed by the frontend. ACS enrichment is optional but
+recommended — activate by setting CENSUS_API_KEY before calling assemble_full().
 
-WHY THIS IS A PROXY (read before trusting the number):
-The assessor roll has no sale-price field. But California Prop 13 anchors a parcel's
-assessed value to its base-year (purchase) value and caps growth at ~2%/year until the
-next change of ownership. So for a home that hasn't sold since purchase:
+---
+SCORING SYSTEM
+---
 
-    current_assessed_value  ~=  purchase_price  x  1.02 ^ years_owned
+Layer 1 — Need score  (how underinsured is this home?)
 
-We invert that to recover an *original purchase price proxy*, then express the gap:
+    When a homeowner buys, Coverage A is set ≈ rebuild cost. Two inflation rates then
+    diverge: the carrier adjusts coverage ~3.5%/yr; true construction costs rise ~5%/yr.
+    The shortfall compounds with every year held:
 
-    purchase_price_proxy   = current_assessed_value / (1.02 ^ years_owned)
-    appreciation_gap_$     = current_assessed_value - purchase_price_proxy
-    appreciation_gap_pct   = current_assessed_value / purchase_price_proxy - 1
-                           = 1.02 ^ years_owned - 1
+        gap_pct = 1 − (carrier_inflation / construction_inflation) ^ years_owned
 
-LIMITATION (surfaced for the Step 3 decision): because Prop 13 caps assessed growth at
-2%/yr, this proxy is bounded by tenure and *understates* true market appreciation (SF
-market appreciation runs well above 2%/yr). It is a real, defensible, zero-cost signal,
-but it is the WEAK fallback. The strong signal is real transfer-tax-derived purchase
-price from deed data (paid) — the transaction-first path. See INSURANCE_BUILD.md Step 1.
+    A 1987 purchase has ~42% underinsurance. A 2020 purchase has ~7%.
+    need_score normalises so 40% gap = 1.0 (maximum need).
 
-Usage:
-    python -m explore.insurance --neighborhood "Noe Valley" --limit 400
+Layer 2 — Timing score  (when is the right moment to reach out?)
+
+    Three components, weighted to sum 1.0:
+      - Renewal proximity (0.20): peaks 45 days before the policy anniversary
+      - Recent purchase   (0.50): full score if bought within the last year
+      - Tenure sweet spot (0.30): peaks at 7–15 years owned
+
+    Attenuated by 0.5 when tenure is estimated from year-built (no real sale date).
+    Zero when no date signal is available at all (~3% of parcels).
+
+Layer 3 — ACS receptivity  (will they engage, and how?)
+
+    Block-group Census demographics, three normalised dimensions:
+      - Financial sophistication (education + occupation + income): active reviewer vs. auto-renewer
+      - Inertia (age + long tenure + free-and-clear rate): policy drift accumulation probability
+      - Coverage stakes (home value + ownership rate): dollar magnitude of the problem
+
+    acs_receptivity = sophistication × 0.35 + inertia × 0.40 + stakes × 0.25
+
+Composite:
+
+    Without ACS:  composite = need × 0.70 + timing × 0.30
+    With ACS:     composite = need × 0.45 + timing × 0.30 + acs_receptivity × 0.25
+
+    worth_outreach = composite ≥ 0.67  (~top 10% of SFR owner-occupied parcels)
 """
 import argparse
 import datetime
@@ -433,6 +452,19 @@ TARGET_NEIGHBORHOODS = [
     "Inner Sunset",
 ]
 
+CITYWIDE_NEIGHBORHOODS = [
+    "Bayview Hunters Point", "Bernal Heights", "Castro/Upper Market", "Chinatown",
+    "Excelsior", "Financial District/South Beach", "Glen Park", "Haight Ashbury",
+    "Hayes Valley", "Inner Richmond", "Inner Sunset", "Japantown", "Lakeshore",
+    "Lincoln Park", "Lone Mountain/USF", "Marina", "McLaren Park", "Mission",
+    "Mission Bay", "Nob Hill", "Noe Valley", "North Beach",
+    "Oceanview/Merced/Ingleside", "Outer Mission", "Outer Richmond",
+    "Pacific Heights", "Portola", "Potrero Hill", "Presidio", "Presidio Heights",
+    "Russian Hill", "Seacliff", "South of Market", "Sunset/Parkside", "Tenderloin",
+    "Treasure Island", "Twin Peaks", "Visitacion Valley", "West of Twin Peaks",
+    "Western Addition",
+]
+
 
 def _latlng(rec: dict) -> tuple[float | None, float | None]:
     geom = rec.get("the_geom")
@@ -537,6 +569,7 @@ def assemble_sample(
     roll_year: int,
     acs_index=None,
     geocoder_cache: str = "data/geocoder_cache.json",
+    neighborhoods: list[str] | None = None,
 ) -> list[dict]:
     """
     Assemble a REVIEW sample: per neighborhood, spread `sample_per_nb` records across
@@ -545,9 +578,10 @@ def assemble_sample(
     Pass `acs_index` (from explore.acs.build_block_group_index) to incorporate ACS
     behavioural dimensions into the composite score.
     """
+    nbs = neighborhoods or TARGET_NEIGHBORHOODS
     # Fetch all parcels first so we can geocode in one batch pass
     all_parcels: dict[str, list[dict]] = {}
-    for nb in TARGET_NEIGHBORHOODS:
+    for nb in nbs:
         all_parcels[nb] = fetch_assemble_parcels(nb, str(roll_year), per_nb_fetch)
 
     geoid_map = None
@@ -558,7 +592,7 @@ def assemble_sample(
     lookup = _acs_lookup_fn(acs_index, geoid_map)
     out: list[dict] = []
     seen: set[str] = set()
-    for nb in TARGET_NEIGHBORHOODS:
+    for nb in nbs:
         parcels = all_parcels[nb]
         recs = []
         for p in parcels:
@@ -583,6 +617,7 @@ def assemble_full(
     fetch_cap: int = 30000,
     acs_index=None,
     geocoder_cache: str = "data/geocoder_cache.json",
+    neighborhoods: list[str] | None = None,
 ) -> list[dict]:
     """
     Full run: per neighborhood, fetch all SFR/owner-occ parcels, score, and keep the
@@ -591,8 +626,9 @@ def assemble_full(
     Pass `acs_index` (from explore.acs.build_block_group_index) to incorporate ACS
     behavioural dimensions into the composite score.
     """
+    nbs = neighborhoods or TARGET_NEIGHBORHOODS
     all_parcels: dict[str, list[dict]] = {}
-    for nb in TARGET_NEIGHBORHOODS:
+    for nb in nbs:
         all_parcels[nb] = fetch_assemble_parcels(nb, str(roll_year), fetch_cap)
 
     geoid_map = None
@@ -603,7 +639,7 @@ def assemble_full(
     lookup = _acs_lookup_fn(acs_index, geoid_map)
     out: list[dict] = []
     seen: set[str] = set()
-    for nb in TARGET_NEIGHBORHOODS:
+    for nb in nbs:
         parcels = all_parcels[nb]
         recs = []
         for p in parcels:
@@ -671,7 +707,7 @@ def main():
             per_nb_keep = max(1, args.cap // len(TARGET_NEIGHBORHOODS))
             mode = "ACS-augmented" if acs_index else "property-only"
             print(f"FULL run ({mode}, roll {roll_year}, ${args.psf:.0f}/sqft, top {per_nb_keep}/neighborhood):")
-            records = assemble_full(per_nb_keep, config, roll_year, acs_index=acs_index)
+            records = assemble_full(per_nb_keep, config, roll_year, acs_index=acs_index, neighborhoods=TARGET_NEIGHBORHOODS)
             records = records[: args.cap]
         else:
             out = args.out or "household_sample.json"

@@ -1,20 +1,49 @@
 """
-ACS block group layer for P&C insurance lead scoring.
+ACS block-group layer — behavioural modifier for the insurance lead score.
 
-Fetches 2024 ACS 5-year estimates from api.census.gov for all SF County block
-groups, computes three composite dimensions (Financial Sophistication, Inertia,
-Coverage Stakes), assigns behavioural archetypes, and exposes acs_receptivity_score
-as a modifier for the property-layer lead score.
+Fetches 2024 ACS 5-year estimates for all SF County block groups and computes
+three dimensions that predict whether a homeowner will engage with an insurance
+review conversation, and what framing will land.
 
-Census API key required (free): https://api.census.gov/data/key_signup.html
-    export CENSUS_API_KEY=your_key_here
+---
+DIMENSIONS
+---
 
-Usage:
-    from explore.acs import build_block_group_index, batch_geocode, ACSBlockGroup
+A — Financial sophistication  (predicts active reviewer vs. set-and-forget auto-renewer)
+    = college_pct × 0.35 + white_collar × 0.35 + median_income × 0.30
 
-    bg_index = build_block_group_index(api_key)         # {geoid_12: ACSBlockGroup}
-    geoid_map = batch_geocode([(lat, lng), ...])         # {(lat, lng): geoid_12 | None}
-    bg = bg_index.get(geoid_map.get((lat, lng)))         # ACSBlockGroup or None
+B — Inertia  (predicts policy drift and underinsurance accumulation probability)
+    = median_age × 0.35 + pct_long_tenure_owners × 0.40 + pct_free_and_clear × 0.25
+
+C — Coverage stakes  (predicts dollar magnitude of the problem if underinsured)
+    = median_home_value × 0.50 + owner_occupancy_rate × 0.25 + pct_high_value × 0.25
+
+acs_receptivity = A × 0.35 + B × 0.40 + C × 0.25
+
+---
+ARCHETYPES
+---
+
+Each block group is assigned one of five archetypes based on percentile thresholds
+(self-calibrated to the SF distribution):
+
+    wealthy_inert       high B + high C, not top-30% A  →  lead with dollar gap amount
+    active_optimizer    top-30% A + below-median B + high C  →  data-first, specific numbers
+    new_to_wealth       top-30% A + below-median B + low C  →  educational, first policy review
+    disengaged_owner    bottom-35% A + top-25% B  →  simple, concrete, loss-salient
+    price_first_shopper everything else  →  lead with premium comparison
+
+---
+USAGE
+---
+
+    Census API key (free): https://api.census.gov/data/key_signup.html
+
+    from explore.acs import build_block_group_index, batch_geocode
+
+    bg_index  = build_block_group_index(api_key)   # {geoid_12: ACSBlockGroup}
+    geoid_map = batch_geocode([(lat, lng), ...])    # {(lat, lng): geoid_12 | None}
+    bg        = bg_index.get(geoid_map.get((lat, lng)))
 """
 import json
 import os
@@ -28,13 +57,7 @@ CENSUS_ACS_URL = "https://api.census.gov/data/2024/acs/acs5"
 SF_STATE = "06"
 SF_COUNTY = "075"
 
-# ---------------------------------------------------------------------------
 # Variable chunks — max ~45 vars per Census API call (+ geo fields the API adds)
-# Variable numbering follows the plan's ACS 5-year description:
-#   B25026_002E–010E = owner move-in year brackets, OLDEST first:
-#     002=pre-1979, 003=1980-89, 004=1990-99, 005=2000-09, 006=2010-14,
-#     007=2015-17, 008=2018-19, 009=2020-21, 010=2022+
-# ---------------------------------------------------------------------------
 _CHUNKS: List[List[str]] = [
     # Income + education + age base
     [
