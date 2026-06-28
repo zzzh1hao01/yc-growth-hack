@@ -1,13 +1,14 @@
+import {ClerkProvider} from "@clerk/nextjs";
 import type { Metadata } from "next";
-import { Fredoka, Nunito } from "next/font/google";
+import { Nunito, Rye } from "next/font/google";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 import "./globals.css";
 import "../styles/sprites.css";
 
-const fredoka = Fredoka({
+const rye = Rye({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: "400",
 });
 
 const nunito = Nunito({
@@ -16,9 +17,20 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "HouseholdIQ — Bounty Board",
+  title: "Bounty Hunter",
   description:
-    "Cartoony quest board for home service contractors — discover warm leads on a map of San Francisco.",
+    "Customer acquisition on the frontier.",
+};
+
+const clerkAppearance = {
+  variables: {
+    colorPrimary: "#c2410c",
+    colorBackground: "#f5e6c8",
+    colorText: "#451a03",
+    colorInputBackground: "#faf3e6",
+    colorInputText: "#451a03",
+    borderRadius: "2px",
+  },
 };
 
 export default function RootLayout({
@@ -27,9 +39,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${fredoka.variable} ${nunito.variable} h-full`}>
+    <html lang="en" className={`${rye.variable} ${nunito.variable} h-full`}>
       <body className="min-h-full font-[family-name:var(--font-body)] antialiased">
-        <ConvexClientProvider>{children}</ConvexClientProvider>
+        <ClerkProvider appearance={clerkAppearance}>
+          <ConvexClientProvider>{children}</ConvexClientProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

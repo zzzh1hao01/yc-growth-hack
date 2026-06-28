@@ -1,8 +1,32 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5e6c8;
-  --foreground: #451a03;
+  --background: #f5ecd8;
+  --foreground: #6b5344;
+  --quest-header-height: 3rem;
+  --western-wood: #9a8578;
+  --western-wood-light: #c4b09a;
+  --western-plank: #d4c4a8;
+  --western-parchment: #faf3e6;
+  --western-cream: #fffbf5;
+  --western-sand: #f5ecd8;
+  --western-sand-deep: #ebe0cc;
+  --western-terracotta: #d4845c;
+  --western-rust: #a67c52;
+  --western-gold: #e8b86d;
+  --western-gold-pale: #fef3c7;
+  --western-sage: #9cb896;
+  --western-sage-light: #b8cdb4;
+  --western-bay: #8ec4d4;
+  --western-bay-deep: #7ab0c0;
+  --western-shadow: #c4b09a;
+  --western-border: #d4c4a8;
+  /* legacy aliases */
+  --game-gold: var(--western-gold);
+  --game-gold-dark: var(--western-rust);
+  --game-panel: var(--western-parchment);
+  --game-shadow: var(--western-shadow);
+  --game-border: var(--western-border);
 }
 
 @theme inline {
@@ -15,6 +39,677 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: var(--font-body), system-ui, sans-serif;
+  line-height: 1.4;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@keyframes board-header-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.board-header-dropdown {
+  animation: board-header-dropdown-in 160ms ease-out both;
+}
+
+.western-page-shell {
+  min-height: 100vh;
+  background-color: var(--western-sand);
+  background-image:
+    radial-gradient(circle at 15% 85%, rgba(217, 119, 6, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 85% 15%, rgba(90, 122, 74, 0.08) 0%, transparent 45%);
+}
+
+.western-page-inner {
+  margin-left: auto;
+  margin-right: auto;
+  padding: 1.5rem;
+}
+
+.western-table-wrap {
+  overflow: hidden;
+  border: 3px solid var(--western-border);
+  border-radius: 2px;
+  background: var(--western-cream);
+  box-shadow: 3px 3px 0 0 var(--western-shadow);
+}
+
+.western-table {
+  width: 100%;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.western-table thead {
+  border-bottom: 2px solid var(--western-border);
+  background: linear-gradient(180deg, var(--western-gold-pale) 0%, var(--western-sand) 100%);
+  font-family: var(--font-display), serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--western-rust);
+}
+
+.western-table th,
+.western-table td {
+  padding: 0.75rem 1rem;
+}
+
+.western-table tbody tr {
+  border-bottom: 1px solid rgba(166, 124, 82, 0.35);
+}
+
+.western-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 2px solid var(--western-border);
+  border-radius: 2px;
+  background: var(--western-parchment);
+  padding: 0.15rem 0.55rem;
+  font-family: var(--font-display), serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--foreground);
+  box-shadow: 1px 1px 0 0 var(--western-shadow);
+}
+
+.western-map-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 4px solid var(--western-wood);
+  box-shadow:
+    inset 0 0 0 2px var(--western-plank),
+    inset 0 0 80px rgba(69, 26, 3, 0.18);
+  z-index: 2;
+}
+
+/* ── Western pixel design system ── */
+
+.western-hud {
+  border-bottom: 2px solid var(--western-border);
+  background: linear-gradient(180deg, var(--western-cream) 0%, var(--western-sand) 100%);
+  box-shadow: 0 2px 0 0 rgba(196, 176, 154, 0.5);
+}
+
+.western-title {
+  font-family: var(--font-display), monospace;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--foreground);
+  text-transform: uppercase;
+}
+
+.western-label {
+  font-family: var(--font-display), monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(146, 64, 14, 0.8);
+}
+
+.western-body {
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: rgba(69, 26, 3, 0.85);
+}
+
+.western-hud-control {
+  border: 2px solid var(--western-border);
+  border-radius: 2px;
+  background: var(--western-parchment);
+  box-shadow: 2px 2px 0 0 var(--western-shadow);
+}
+
+.western-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 2px solid var(--western-border);
+  border-radius: 2px;
+  padding: 0.15rem 0.45rem;
+  font-family: var(--font-display), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: opacity 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.western-legend-chip-active {
+  background: var(--western-parchment);
+  color: var(--foreground);
+  box-shadow: 2px 2px 0 0 var(--western-shadow);
+}
+
+.western-legend-chip-inactive {
+  background: rgba(107, 83, 68, 0.08);
+  color: rgba(69, 26, 3, 0.4);
+  box-shadow: none;
+}
+
+.western-legend-dot {
+  display: inline-block;
+  height: 0.45rem;
+  width: 0.45rem;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.western-legend-count {
+  opacity: 0.7;
+}
+
+/* Wood-framed floating panel (onboarding, etc.) */
+.western-panel {
+  border: 3px solid var(--western-border);
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--western-parchment) 0%, var(--western-cream) 100%);
+  box-shadow:
+    3px 3px 0 0 var(--western-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.western-panel-header {
+  border-bottom: 2px solid rgba(166, 124, 82, 0.45);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Detail side panel */
+.western-detail-panel {
+  border-left: 4px solid var(--western-border);
+  background: linear-gradient(180deg, var(--western-parchment) 0%, var(--western-sand) 100%);
+  box-shadow: -6px 0 24px rgba(69, 26, 3, 0.15);
+}
+
+.western-detail-header {
+  border-bottom: 2px solid rgba(166, 124, 82, 0.5);
+  background: linear-gradient(180deg, var(--western-gold-pale) 0%, var(--western-parchment) 100%);
+}
+
+.western-detail-label {
+  font-family: var(--font-display), monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(146, 64, 14, 0.75);
+}
+
+.western-detail-section {
+  border: 2px solid rgba(166, 124, 82, 0.45);
+  border-radius: 2px;
+  background: var(--western-cream);
+  padding: 1rem;
+  box-shadow: 2px 2px 0 0 rgba(107, 83, 68, 0.18);
+}
+
+.western-detail-footer {
+  border-top: 2px solid rgba(166, 124, 82, 0.35);
+  background: linear-gradient(180deg, var(--western-sand) 0%, rgba(253, 230, 138, 0.45) 100%);
+}
+
+.western-card {
+  border: 2px solid rgba(166, 124, 82, 0.4);
+  border-radius: 2px;
+  background: var(--western-parchment);
+  padding: 0.75rem;
+  box-shadow: 1px 1px 0 0 rgba(107, 83, 68, 0.15);
+}
+
+.western-chat-box {
+  border: 2px solid rgba(166, 124, 82, 0.3);
+  border-radius: 2px;
+  background: rgba(245, 230, 200, 0.6);
+  padding: 0.75rem;
+}
+
+/* Buttons */
+.western-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--western-border);
+  border-radius: 2px;
+  padding: 0.3rem 0.75rem;
+  font-family: var(--font-display), monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: transform 0.1s, filter 0.1s;
+  cursor: pointer;
+}
+
+.western-btn:hover {
+  filter: brightness(1.04);
+}
+
+.western-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.western-btn-ghost {
+  background: var(--western-parchment);
+  color: var(--western-rust);
+  box-shadow: 2px 2px 0 0 var(--western-shadow);
+}
+
+.western-btn-primary {
+  background: linear-gradient(180deg, var(--western-terracotta) 0%, #c9956a 100%);
+  color: var(--western-cream);
+  box-shadow: 2px 2px 0 0 rgba(166, 124, 82, 0.35);
+}
+
+.western-btn-sm {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.65rem;
+}
+
+/* Form controls */
+.western-input,
+.western-textarea {
+  width: 100%;
+  border: 2px solid rgba(166, 124, 82, 0.5);
+  border-radius: 2px;
+  background: var(--western-parchment);
+  padding: 0.45rem 0.65rem;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+  outline: none;
+  box-shadow: inset 1px 1px 0 rgba(107, 83, 68, 0.08);
+}
+
+.western-input:focus,
+.western-textarea:focus {
+  border-color: var(--western-gold);
+  box-shadow: inset 1px 1px 0 rgba(107, 83, 68, 0.08), 0 0 0 2px rgba(217, 119, 6, 0.2);
+}
+
+.western-input::placeholder,
+.western-textarea::placeholder {
+  color: rgba(146, 64, 14, 0.4);
+}
+
+.western-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  width: 100%;
+  border: 1px solid var(--western-border);
+  border-radius: 0;
+  background: var(--western-sand-deep);
+  cursor: pointer;
+}
+
+.western-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 14px;
+  width: 10px;
+  border: 2px solid var(--western-border);
+  border-radius: 0;
+  background: var(--western-terracotta);
+  box-shadow: 1px 1px 0 var(--western-shadow);
+}
+
+.western-range::-moz-range-thumb {
+  height: 14px;
+  width: 10px;
+  border: 2px solid var(--western-border);
+  border-radius: 0;
+  background: var(--western-terracotta);
+  box-shadow: 1px 1px 0 var(--western-shadow);
+}
+
+/* Score / quality bars */
+.western-score-track {
+  height: 0.75rem;
+  overflow: hidden;
+  border: 1px solid rgba(166, 124, 82, 0.4);
+  border-radius: 0;
+  background: var(--western-sand);
+}
+
+.western-score-fill {
+  height: 100%;
+  border-radius: 0;
+}
+
+.western-score-legend-dot {
+  display: inline-block;
+  height: 0.5rem;
+  width: 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+/* Toast & empty states */
+.western-toast {
+  border: 2px solid var(--western-border);
+  border-radius: 2px;
+  background: var(--western-parchment);
+  padding: 0.35rem 0.85rem;
+  font-family: var(--font-display), monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--foreground);
+  box-shadow: 2px 2px 0 0 var(--western-shadow);
+}
+
+.western-empty {
+  border: 2px dashed var(--western-border);
+  border-radius: 2px;
+  background: rgba(245, 230, 200, 0.5);
+  padding: 2rem;
+}
+
+.western-code {
+  border: 1px solid var(--western-border);
+  border-radius: 0;
+  background: var(--western-parchment);
+  padding: 0.1rem 0.35rem;
+  font-family: var(--font-display), monospace;
+  font-size: 0.7rem;
+}
+
+.western-close {
+  border: 2px solid transparent;
+  border-radius: 2px;
+  padding: 0.35rem 0.5rem;
+  font-family: var(--font-display), monospace;
+  color: rgba(69, 26, 3, 0.55);
+  transition: background 0.12s, color 0.12s;
+}
+
+.western-close:hover {
+  background: rgba(217, 119, 6, 0.15);
+  color: var(--foreground);
+}
+
+.western-error {
+  border: 2px solid #dc2626;
+  border-radius: 2px;
+  background: #fef2f2;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: #991b1b;
+}
+
+/* Pixel map frame */
+.pixel-map-container {
+  background: var(--western-bay-deep);
+  cursor: grab;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.pixel-map-container.pixel-map-dragging {
+  cursor: grabbing;
+}
+
+.pixel-map-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 4px solid var(--western-wood);
+  box-shadow:
+    inset 0 0 0 2px var(--western-plank),
+    inset 0 0 60px rgba(69, 26, 3, 0.12);
+}
+
+.pixel-map-layer {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.pixel-map-svg {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.pixel-sign-text {
+  font-family: var(--font-display), monospace;
+}
+
+.pixel-map-vignette {
+  box-shadow: inset 0 0 100px rgba(69, 26, 3, 0.2);
+  pointer-events: none;
+}
+
+/* Business location — wood post + star */
+.business-pin-marker {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--western-gold-pale);
+  background: var(--western-terracotta);
+  box-shadow: 1px 1px 0 var(--western-shadow);
+  transform: rotate(45deg);
+}
+
+.business-pin-label {
+  display: block;
+  margin-top: 4px;
+  border: 2px solid var(--western-border);
+  border-radius: 0;
+  background: var(--western-plank);
+  padding: 1px 6px;
+  font-family: var(--font-display), monospace;
+  font-size: 8px;
+  color: var(--foreground);
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 1px 1px 0 var(--western-shadow);
+}
+
+.pixel-sprite-svg {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+@keyframes tumbleweed-roll {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+.tumbleweed-spin {
+  animation: tumbleweed-roll 6s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* Legacy game-* → western pixel (other routes) */
+.game-board-shell {
+  background-color: var(--western-sand);
+  background-image:
+    radial-gradient(circle at 15% 85%, rgba(217, 119, 6, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 85% 15%, rgba(90, 122, 74, 0.06) 0%, transparent 45%);
+}
+
+/* Legacy game-* → western pixel aliases */
+.game-hud {
+  border-bottom: 3px solid var(--game-border);
+  background: linear-gradient(180deg, #fff9f0 0%, #f5e6c8 100%);
+  box-shadow:
+    0 3px 0 0 var(--game-shadow),
+    0 8px 24px rgba(69, 26, 3, 0.12);
+}
+
+.game-title {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 700;
+  color: #451a03;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.game-quest-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(146, 64, 14, 0.75);
+}
+
+.game-panel {
+  border: 3px solid var(--western-border);
+  border-radius: 2px;
+  background: var(--western-parchment);
+  box-shadow: 3px 3px 0 0 var(--western-shadow);
+}
+
+.game-panel-compact {
+  border-width: 2px;
+  border-radius: 2px;
+  box-shadow: 2px 2px 0 0 var(--western-shadow);
+}
+
+.game-icon-badge {
+  border: 2px solid var(--game-border);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fff 0%, #fde68a 100%);
+  box-shadow: 0 2px 0 0 var(--game-shadow);
+}
+
+.game-chip {
+  border: 2px solid rgba(217, 119, 6, 0.55);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 0.2rem 0.65rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #451a03;
+  box-shadow: 0 2px 0 0 rgba(120, 53, 15, 0.25);
+}
+
+.game-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 2px solid rgba(120, 53, 15, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.15rem 0.45rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #451a03;
+  box-shadow: 0 2px 0 rgba(120, 53, 15, 0.18);
+}
+
+.game-stat-dot {
+  display: inline-block;
+  height: 0.5rem;
+  width: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.game-stat-badge {
+  display: inline-flex;
+  height: 0.85rem;
+  width: 0.85rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #ef4444;
+  font-size: 0.55rem;
+  font-weight: 800;
+  color: white;
+}
+
+.game-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--western-border);
+  border-radius: 2px;
+  padding: 0.3rem 0.75rem;
+  font-family: var(--font-display), monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: transform 0.1s, filter 0.1s;
+}
+
+.game-btn-ghost {
+  background: var(--western-parchment);
+  color: var(--western-rust);
+  box-shadow: 2px 2px 0 0 var(--western-shadow);
+}
+
+.game-btn-primary {
+  background: linear-gradient(180deg, var(--western-terracotta) 0%, var(--western-rust) 100%);
+  color: var(--western-parchment);
+  box-shadow: 2px 2px 0 0 #451a03;
+}
+
+.game-toast {
+  border: 2px solid var(--western-border);
+  border-radius: 2px;
+  background: var(--western-parchment);
+  padding: 0.35rem 0.85rem;
+  font-family: var(--font-display), monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--foreground);
+  box-shadow: 2px 2px 0 0 var(--western-shadow);
+}
+
+.game-quest-panel {
+  border-left: 4px solid var(--game-border);
+  background: linear-gradient(180deg, #fff9f0 0%, #fef3c7 100%);
+  box-shadow: -8px 0 32px rgba(69, 26, 3, 0.18);
+}
+
+.game-quest-header {
+  border-bottom: 3px solid rgba(217, 119, 6, 0.35);
+  background: linear-gradient(180deg, #fde68a 0%, #f5e6c8 100%);
+}
+
+.game-quest-section {
+  border: 2px solid rgba(217, 119, 6, 0.45);
+  border-radius: 12px;
+  background: white;
+  padding: 1rem;
+  box-shadow:
+    0 3px 0 0 rgba(120, 53, 15, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.game-quest-footer {
+  background: linear-gradient(180deg, rgba(245, 230, 200, 0.95) 0%, rgba(253, 230, 138, 0.55) 100%);
+}
+
+.game-nav-peek-pill {
+  height: 0.25rem;
+  width: 4rem;
+  border-radius: 999px;
+  background: rgba(120, 53, 15, 0.35);
+  animation: game-peek-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes game-peek-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scaleX(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1.15);
+  }
 }
 
 h1,
@@ -28,19 +723,21 @@ h3 {
 }
 
 .map-cartoon-filter {
-  filter: saturate(1.45) contrast(1.06) brightness(1.06) hue-rotate(-8deg);
+  filter: saturate(1.25) contrast(1.02) brightness(1.03) sepia(0.06) hue-rotate(-8deg);
 }
 
 .map-cartoon-overlay {
   background:
-    radial-gradient(ellipse at center, transparent 40%, rgba(245, 230, 200, 0.35) 100%),
-    linear-gradient(180deg, rgba(255, 249, 240, 0.18) 0%, rgba(212, 232, 194, 0.22) 100%);
+    radial-gradient(ellipse at center, transparent 35%, rgba(245, 200, 120, 0.28) 100%),
+    linear-gradient(180deg, rgba(253, 230, 138, 0.12) 0%, rgba(156, 184, 106, 0.18) 100%);
   mix-blend-mode: soft-light;
   pointer-events: none;
 }
 
 .map-vignette {
-  box-shadow: inset 0 0 100px rgba(69, 26, 3, 0.15);
+  box-shadow:
+    inset 0 0 120px rgba(69, 26, 3, 0.22),
+    inset 0 0 40px rgba(251, 191, 36, 0.08);
   pointer-events: none;
 }
 
@@ -71,34 +768,43 @@ h3 {
 }
 
 .mapboxgl-ctrl-group {
-  border-radius: 10px !important;
+  border: 2px solid var(--western-border) !important;
+  border-radius: 2px !important;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 2px 2px 0 0 var(--western-shadow) !important;
 }
 
 .business-location-pin {
   display: flex;
   flex-direction: column;
   align-items: center;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+  filter: drop-shadow(2px 2px 0 rgba(107, 83, 68, 0.45));
   pointer-events: none;
 }
 
 .business-location-pin-icon {
-  font-size: 28px;
-  line-height: 1;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--western-gold-pale);
+  background: var(--western-terracotta);
+  box-shadow: 1px 1px 0 var(--western-shadow);
+  transform: rotate(45deg);
 }
 
 .business-location-pin-label {
-  margin-top: 2px;
-  border-radius: 999px;
-  background: #1e3a8a;
-  color: white;
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  display: block;
+  margin-top: 6px;
+  border: 2px solid var(--western-border);
+  border-radius: 0;
+  background: var(--western-plank);
+  padding: 1px 6px;
+  font-family: var(--font-display), serif;
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--foreground);
   white-space: nowrap;
+  box-shadow: 1px 1px 0 var(--western-shadow);
 }
 
 /* Google Places (New) autocomplete widget — contractor onboarding */
@@ -114,10 +820,10 @@ gmp-place-autocomplete.address-autocomplete-input {
   display: block;
   width: 100%;
   color-scheme: light;
-  --gmp-place-autocomplete-input-border-radius: 0.5rem;
-  --gmp-place-autocomplete-input-border-color: rgb(253 230 138);
-  --gmp-place-autocomplete-input-focus-border-color: rgb(245 158 11);
-  --gmp-place-autocomplete-input-background-color: #fff;
+  --gmp-place-autocomplete-input-border-radius: 2px;
+  --gmp-place-autocomplete-input-border-color: #a67c52;
+  --gmp-place-autocomplete-input-focus-border-color: #d97706;
+  --gmp-place-autocomplete-input-background-color: #f5e6c8;
   --gmp-place-autocomplete-input-text-color: rgb(69 26 3);
   --gmp-place-autocomplete-input-placeholder-color: rgb(146 64 14 / 0.45);
   --gmp-place-autocomplete-input-font-size: 0.875rem;

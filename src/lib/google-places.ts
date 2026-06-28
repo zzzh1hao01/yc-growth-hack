@@ -1,3 +1,5 @@
+import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
+
 export interface PlaceAutocompleteElementOptions {
   includedRegionCodes?: string[];
   locationBias?: {
@@ -37,17 +39,8 @@ export interface PlacesLibrary {
   ) => PlaceAutocompleteElement;
 }
 
-declare global {
-  interface Window {
-    google?: {
-      maps?: {
-        importLibrary: (library: "places" | string) => Promise<PlacesLibrary>;
-      };
-    };
-  }
-}
-
 let loadPromise: Promise<PlacesLibrary> | null = null;
+let configuredKey: string | null = null;
 
 export function formatGoogleMapsError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
@@ -57,42 +50,10 @@ export function formatGoogleMapsError(err: unknown): string {
   if (/ApiNotActivatedMapError|AccessNotConfigured|ApiTargetBlockedMapError/i.test(msg)) {
     return "Enable Maps JavaScript API and Places API (New) on your Google Cloud project (billing required).";
   }
-  if (/could not load|did not load/i.test(msg)) {
+  if (/could not load|did not load|failed to load/i.test(msg)) {
     return "Google Maps script failed to load — check API key, billing, and network.";
   }
   return msg || "Google Places failed to load.";
-}
-
-function loadMapsScript(apiKey: string): Promise<void> {
-  if (window.google?.maps?.importLibrary) {
-    return Promise.resolve();
-  }
-
-  const existing = document.getElementById("google-maps-script");
-  if (existing) {
-    return new Promise((resolve, reject) => {
-      if (window.google?.maps?.importLibrary) {
-        resolve();
-        return;
-      }
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener(
-        "error",
-        () => reject(new Error("Google Maps script could not load")),
-        { once: true },
-      );
-    });
-  }
-
-  return new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.id = "google-maps-script";
-    script.async = true;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async`;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Google Maps script could not load"));
-    document.head.appendChild(script);
-  });
 }
 
 export function loadGooglePlaces(apiKey: string): Promise<PlacesLibrary> {
@@ -100,16 +61,16 @@ export function loadGooglePlaces(apiKey: string): Promise<PlacesLibrary> {
     return Promise.reject(new Error("Google Places is only available in the browser"));
   }
 
+  if (configuredKey !== apiKey) {
+    configuredKey = apiKey;
+    loadPromise = null;
+    setOptions({ key: apiKey, v: "weekly" });
+  }
+
   if (loadPromise) return loadPromise;
 
-  loadPromise = loadMapsScript(apiKey)
-    .then(async () => {
-      const importLibrary = window.google?.maps?.importLibrary;
-      if (!importLibrary) {
-        throw new Error("Google Maps importLibrary did not load");
-      }
-      return importLibrary("places");
-    })
+  loadPromise = importLibrary("places")
+    .then((library) => library as PlacesLibrary)
     .catch((err) => {
       loadPromise = null;
       throw new Error(formatGoogleMapsError(err));

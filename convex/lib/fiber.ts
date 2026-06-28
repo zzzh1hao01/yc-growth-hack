@@ -110,6 +110,42 @@ function chargeCredits(chargeInfo?: Record<string, unknown>): number | undefined
   return typeof credits === "number" ? credits : undefined;
 }
 
+const NON_BUSINESS_PLACE_TYPES = new Set([
+  "premise",
+  "street_address",
+  "subpremise",
+  "route",
+  "locality",
+  "political",
+  "administrative_area_level_1",
+  "administrative_area_level_2",
+  "country",
+  "postal_code",
+  "neighborhood",
+]);
+
+function isAddressLikeGooglePlace(places: Record<string, unknown> | null): boolean {
+  if (!places) return false;
+
+  const types = Array.isArray(places.types)
+    ? places.types.filter((type): type is string => typeof type === "string")
+    : [];
+  const hasBusinessType = types.some((type) => !NON_BUSINESS_PLACE_TYPES.has(type));
+  if (types.length > 0 && !hasBusinessType) return true;
+
+  const name = asText(places.name);
+  if (name && /^\d+\s+\S/.test(name)) return true;
+
+  return false;
+}
+
+function businessNameFromGooglePlace(
+  places: Record<string, unknown> | null,
+): string | undefined {
+  if (!places || isAddressLikeGooglePlace(places)) return undefined;
+  return asText(places.name);
+}
+
 async function fiberPost<T>(
   path: string,
   body: Record<string, unknown>,
@@ -360,7 +396,8 @@ function mergeCompanyContext(parts: {
   const reviewCount =
     typeof places.numReviews === "number" ? places.numReviews : undefined;
   const industry =
-    asText(kitchen?.primary_industry) ?? asText(places.primaryType);
+    asText(kitchen?.primary_industry) ??
+    (!isAddressLikeGooglePlace(parts.places ?? null) ? asText(places.primaryType) : undefined);
 
   const headlineParts = [
     industry,
@@ -420,71 +457,25 @@ function mergeCompanyContext(parts: {
 export async function searchBusinessContext(
   input: BusinessContextInput,
 ): Promise<CompanyContext | null> {
-  const fiberLookups: FiberLookup[] = [];
-
   const places =
     (await googlePlacesLookup(
       input.businessAddress,
       input.formattedAddress,
       input.lat,
       input.lng,
+      input.businessName,
     )) ?? null;
 
-  if (places) {
-    const placeName = asText(places.name);
-    fiberLookups.push({
-      api: "google-places",
-      credits: 0,
-      summary: placeName
-        ? `Matched "${placeName}" at your address (rating, phone, category)`
-        : "Matched a listing at your address (rating, phone, category)",
-    });
-  } else {
-    fiberLookups.push({
-      api: "google-places",
-      credits: 0,
-      summary: "No Google listing found at this exact address",
-    });
-  }
+  if (!places) return null;
 
   const seedName =
-    input.businessName ||
-    asText(places?.name) ||
+    input.businessName?.trim() ||
+    businessNameFromGooglePlace(places) ||
     input.businessDescription.split(/[.!?\n]/)[0]?.trim();
-
-  const companyName = asText(places?.name) ?? seedName ?? "Your business";
-  const companyDomain =
-    extractDomain(asText(places?.website)) ??
-    extractDomain(input.businessDescription.match(/https?:\/\/[^\s,)]+/i)?.[0]);
-
-  if (fiberApiKey()) {
-    const { company, lookup } = await kitchenSinkCompanyLookup({
-      name: companyName,
-      domain: companyDomain,
-    });
-    if (lookup) fiberLookups.push(lookup);
-
-    const { observation, lookup: localLookup } = await pollLocalBusinessSearch({
-      companyName,
-      formattedAddress: input.formattedAddress,
-      businessDescription: input.businessDescription,
-    });
-    fiberLookups.push(localLookup);
-
-    return mergeCompanyContext({
-      seedName,
-      places,
-      kitchenSink: company,
-      localBusiness: observation,
-      fiberLookups,
-    });
-  }
-
-  if (!places) return null;
 
   return mergeCompanyContext({
     seedName,
     places,
-    fiberLookups,
+    fiberLookups: [],
   });
 }

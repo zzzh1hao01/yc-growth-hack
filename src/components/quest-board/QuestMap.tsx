@@ -6,6 +6,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import type { Lead } from "@/types/lead";
 import { LeadSprite } from "./LeadSprite";
+import type { LassoState } from "./lasso-state";
 import {
   applyCartoonMapStyle,
   getCartoonMapStyle,
@@ -22,6 +23,7 @@ type BusinessLocation = {
 type QuestMapProps = {
   leads: Lead[];
   selectedLeadId: string | null;
+  lassoState?: LassoState | null;
   onSelectLead: (lead: Lead) => void;
   businessLocation?: BusinessLocation | null;
 };
@@ -35,19 +37,56 @@ type SpritePosition = {
 
 const SF_CENTER = SF_MAP_CENTER;
 const DEFAULT_ZOOM = SF_DEFAULT_ZOOM;
+const DRAG_HOLD = 0.68;
+const DRAG_DURATION_MS = 3200;
+const CAPTURE_DURATION_MS = 700;
+
+function easeOutCubic(t: number) {
+  return 1 - (1 - t) ** 3;
+}
+
+function LassoRope({
+  from,
+  to,
+  tight,
+}: {
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  tight?: boolean;
+}) {
+  const midX = (from.x + to.x) / 2;
+  const lift = tight ? 28 : 56;
+  const midY = Math.min(from.y, to.y) - lift;
+
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 z-[15] h-full w-full overflow-visible"
+      aria-hidden
+    >
+      <path
+        className={`lasso-rope-line ${tight ? "lasso-rope-tight" : ""}`}
+        d={`M ${from.x} ${from.y} Q ${midX} ${midY} ${to.x} ${to.y - 20}`}
+      />
+    </svg>
+  );
+}
 
 export function QuestMap({
   leads,
   selectedLeadId,
+  lassoState,
   onSelectLead,
   businessLocation,
 }: QuestMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const businessMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const moveFrameRef = useRef<number | null>(null);
+  const dragProgressRef = useRef(0);
   const [mapReady, setMapReady] = useState(false);
   const [spritePositions, setSpritePositions] = useState<SpritePosition[]>([]);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [dragProgress, setDragProgress] = useState(0);
 
   const updateSpritePositions = useCallback(() => {
     const map = mapRef.current;
@@ -68,6 +107,60 @@ export function QuestMap({
       }),
     );
   }, [leads]);
+
+  const scheduleSpriteUpdate = useCallback(() => {
+    if (moveFrameRef.current != null) return;
+    moveFrameRef.current = requestAnimationFrame(() => {
+      moveFrameRef.current = null;
+      updateSpritePositions();
+    });
+  }, [updateSpritePositions]);
+
+  useEffect(() => {
+    dragProgressRef.current = dragProgress;
+  }, [dragProgress]);
+
+  useEffect(() => {
+    if (!lassoState) {
+      setDragProgress(0);
+      return;
+    }
+
+    if (lassoState.phase === "dragging") {
+      const start = performance.now();
+      let frame = 0;
+
+      const tick = (now: number) => {
+        const t = Math.min((now - start) / DRAG_DURATION_MS, 1);
+        const progress = easeOutCubic(t) * DRAG_HOLD;
+        setDragProgress(progress);
+        if (t < 1) {
+          frame = requestAnimationFrame(tick);
+        }
+      };
+
+      frame = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(frame);
+    }
+
+    if (lassoState.phase === "captured") {
+      const from = dragProgressRef.current;
+      const start = performance.now();
+      let frame = 0;
+
+      const tick = (now: number) => {
+        const t = Math.min((now - start) / CAPTURE_DURATION_MS, 1);
+        const progress = from + (1 - from) * easeOutCubic(t);
+        setDragProgress(progress);
+        if (t < 1) {
+          frame = requestAnimationFrame(tick);
+        }
+      };
+
+      frame = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [lassoState]);
 
   useEffect(() => {
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -99,19 +192,23 @@ export function QuestMap({
       updateSpritePositions();
     });
 
-    map.on("move", updateSpritePositions);
-    map.on("resize", updateSpritePositions);
+    map.on("move", scheduleSpriteUpdate);
+    map.on("resize", scheduleSpriteUpdate);
 
     mapRef.current = map;
 
     return () => {
+      if (moveFrameRef.current != null) {
+        cancelAnimationFrame(moveFrameRef.current);
+        moveFrameRef.current = null;
+      }
       businessMarkerRef.current?.remove();
       businessMarkerRef.current = null;
       map.remove();
       mapRef.current = null;
       setMapReady(false);
     };
-  }, [updateSpritePositions]);
+  }, [scheduleSpriteUpdate, updateSpritePositions]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -125,7 +222,7 @@ export function QuestMap({
     const el = document.createElement("div");
     el.className = "business-location-pin";
     el.title = businessLocation.label ?? "Your business";
-    el.innerHTML = `<span class="business-location-pin-icon">📍</span><span class="business-location-pin-label">You</span>`;
+    el.innerHTML = `<span class="business-location-pin-icon" aria-hidden="true"></span><span class="business-location-pin-label">You</span>`;
 
     businessMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: "bottom" })
       .setLngLat([businessLocation.lng, businessLocation.lat])
@@ -167,20 +264,43 @@ export function QuestMap({
     }
   }, [mapReady, leads, businessLocation]);
 
+  const lassoTarget = lassoState
+    ? spritePositions.find((entry) => entry.lead.id === lassoState.leadId && entry.visible)
+    : undefined;
+
+  const lassoOrigin =
+    businessLocation && mapRef.current && mapReady
+      ? (() => {
+          const point = mapRef.current!.project([businessLocation.lng, businessLocation.lat]);
+          return { x: point.x, y: point.y };
+        })()
+      : lassoTarget
+        ? { x: lassoTarget.x, y: Math.max(48, lassoTarget.y - 140) }
+        : null;
+
+  const lassoActive = Boolean(lassoState && lassoTarget && lassoOrigin);
+  const captured = lassoState?.phase === "captured";
+
+  const draggedPosition = lassoTarget && lassoOrigin && lassoActive
+    ? {
+        x: lassoTarget.x + (lassoOrigin.x - lassoTarget.x) * dragProgress,
+        y: lassoTarget.y + (lassoOrigin.y - lassoTarget.y) * dragProgress,
+      }
+    : null;
+
   if (mapError) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 bg-[#e8f4f8] p-8 text-center">
-        <div className="rounded-2xl border-2 border-dashed border-amber-400 bg-[#fff9f0] p-8 max-w-lg">
-          <p className="text-4xl mb-4">🗺️</p>
-          <h2 className="text-xl font-bold text-amber-950 mb-2">Mapbox token required</h2>
-          <p className="text-sm text-amber-900/70 leading-relaxed">{mapError}</p>
+      <div className="flex h-full flex-col items-center justify-center gap-4 bg-[var(--western-bay-deep)] p-8 text-center">
+        <div className="western-panel max-w-lg p-8">
+          <p className="western-title mb-4 text-2xl">Map unavailable</p>
+          <p className="western-body">{mapError}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#d4e8c2]">
+    <div className="relative h-full w-full overflow-hidden bg-[var(--western-bay-deep)]">
       <div className="map-cartoon-wrapper relative h-full w-full">
         <div
           ref={mapContainerRef}
@@ -188,24 +308,48 @@ export function QuestMap({
           aria-label="San Francisco lead map"
         />
         <div className="pointer-events-none absolute inset-0 map-cartoon-overlay" />
+        <div className="western-map-frame" aria-hidden />
       </div>
       <div className="pointer-events-none absolute inset-0 map-vignette" />
+      {mapReady && lassoActive && draggedPosition && (
+        <LassoRope
+          from={lassoOrigin!}
+          to={draggedPosition}
+          tight={captured || dragProgress > 0.85}
+        />
+      )}
       {mapReady && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          {spritePositions.map(
-            ({ lead, x, y, visible }) =>
-              visible && (
-                <div key={lead.id} className="pointer-events-auto">
-                  <LeadSprite
-                    lead={lead}
-                    x={x}
-                    y={y}
-                    selected={selectedLeadId === lead.id}
-                    onSelect={onSelectLead}
-                  />
-                </div>
-              ),
-          )}
+          {spritePositions.map(({ lead, x, y, visible }) => {
+            if (!visible) return null;
+
+            const isLassoLead = lassoState?.leadId === lead.id;
+            const displayX =
+              isLassoLead && draggedPosition ? draggedPosition.x : x;
+            const displayY =
+              isLassoLead && draggedPosition ? draggedPosition.y : y;
+
+            return (
+              <div key={lead.id} className="pointer-events-auto">
+                <LeadSprite
+                  lead={lead}
+                  x={displayX}
+                  y={displayY}
+                  selected={selectedLeadId === lead.id}
+                  lassoPhase={isLassoLead ? lassoState?.phase : undefined}
+                  onSelect={onSelectLead}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {mapReady && captured && draggedPosition && (
+        <div
+          className="lasso-captured-badge pointer-events-none absolute z-[25] -translate-x-1/2 -translate-y-full"
+          style={{ left: draggedPosition.x, top: draggedPosition.y - 36 }}
+        >
+          Captured · in CRM
         </div>
       )}
     </div>

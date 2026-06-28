@@ -1,0 +1,43 @@
+{
+  "ok": true,
+  "count": 1,
+  "data": [
+    {
+      "household_id": "7279-45",
+      "convex_lead_id": "j57abc123",
+      "session_id": "demo-session-abc",
+      "address": "10 Country Club Dr, San Francisco, CA 94132",
+      "owner_name": "Jane Smith",
+      "owner_first_name": "Jane",
+      "owner_last_name": "Smith",
+      "match_score": 72,
+      "need_score": 68,
+      "timing_score": 81,
+      "gap_dollars": 277771,
+      "gap_pct": 0.4212,
+      "coverage_hook": "Parcel data suggests Coverage A may lag rebuild cost by about $278k (~42% below estimated rebuild cost).",
+      "persona_hook": "Prefers clear explanations and references from neighbors.",
+      "agent_name": "Alex Chen",
+      "agency_name": "Bay Area Home Insurance",
+      "contractor_name": "Alex Chen",
+      "contractor_business": "Bay Area Home Insurance",
+      "vertical": "home",
+      "vertical_hook": "Parcel data suggests Coverage A may lag rebuild cost by about $278k (~42% below estimated rebuild cost).",
+      "email": "",
+      "phone": "",
+      "linkedin_url": "",
+      "playbook": "No email/phone in app yet — run contact waterfall in sheet, then door knock if needed.",
+      "channels": "mail, d2d",
+      "status": "queued",
+      "campaign_slug": "coverage_review",
+      "touch1_subject": "Quick coverage check for 10 Country Club Dr",
+      "touch1_body": "Hi Jane,\n\nI'm Alex with Bay Area Home Insurance. We help SF homeowners make sure Coverage A keeps up with today's rebuild costs.\n\nParcel data suggests Coverage A may lag rebuild cost by about $278k (~42% below estimated rebuild cost).\n\nI'd be glad to offer a complimentary, no-pressure coverage review for your home at 10 Country Club Dr. Would this week or next work for a brief call or visit?\n\nBest,\nAlex\nBay Area Home Insurance",
+      "touch2_subject": "Following up — coverage at 10 Country Club Dr",
+      "touch2_body": "Hi Jane,\n\nQuick follow-up on my note about a complimentary coverage review at 10 Country Club Dr.\n\nParcel data suggests Coverage A may lag rebuild cost by about $278k (~42% below estimated rebuild cost).\n\nHappy to answer questions by reply or phone.\n\nAlex\nBay Area Home Insurance",
+      "recorded_owner_source": "assessor_roll",
+      "parcel_number": "7279-45",
+      "city": "San Francisco",
+      "state": "CA"
+    }
+  ]
+}

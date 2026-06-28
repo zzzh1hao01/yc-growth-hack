@@ -4,15 +4,18 @@ import { useCallback, useState } from "react";
 import { useAction } from "convex/react";
 
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 import { getSessionId } from "@/lib/session";
-import type { Contractor, ServiceProfile } from "@/types/lead";
+import type { Agent, AgentProfile } from "@/types/lead";
 
 type OnboardingPanelProps = {
-  onComplete: (contractor: Contractor) => void;
+  onComplete: (agent: Agent) => void;
+  userId?: string;
+  orgId?: string;
 };
 
-export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
+export function OnboardingPanel({ onComplete, userId, orgId }: OnboardingPanelProps) {
   const completeOnboarding = useAction(api.onboarding.completeOnboarding);
   const [name, setName] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
@@ -27,7 +30,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
 
       const trimmedAddress = businessAddress.trim();
       if (!trimmedAddress) {
-        setError("Enter your business address in San Francisco.");
+        setError("Enter your office address in San Francisco.");
         return;
       }
 
@@ -40,6 +43,8 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           name: name.trim(),
           businessDescription: businessDescription.trim(),
           businessAddress: trimmedAddress,
+          userId,
+          orgId: orgId as Id<"organizations"> | undefined,
         });
 
         onComplete({
@@ -48,7 +53,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           businessAddress: result.businessAddress,
           lat: result.lat,
           lng: result.lng,
-          serviceProfile: result.serviceProfile as ServiceProfile,
+          serviceProfile: result.serviceProfile as AgentProfile,
           companyEnrichmentStatus: result.companyEnrichmentStatus,
           businessName: result.businessName as string | undefined,
           serviceRegionLabel: result.serviceRegionLabel as string | undefined,
@@ -60,59 +65,62 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
         setLoading(false);
       }
     },
-    [name, businessDescription, businessAddress, completeOnboarding, onComplete],
+    [name, businessDescription, businessAddress, completeOnboarding, onComplete, userId, orgId],
   );
 
   return (
-    <aside className="absolute left-4 top-4 z-30 w-full max-w-sm overflow-visible rounded-2xl border border-amber-300/70 bg-[#fff9f0]/95 p-5 shadow-xl backdrop-blur-sm">
-      <h2 className="text-lg font-bold text-amber-950">Contractor setup</h2>
-      <p className="mt-1 text-xs leading-relaxed text-amber-900/70">
-        Your address ranks nearby households on the bounty board. Company lookup runs in
-        the background while the map loads.
-      </p>
+    <aside className="western-panel absolute left-4 top-4 z-30 w-full max-w-sm overflow-visible p-5">
+      <div className="western-panel-header">
+        <h2 className="western-title text-lg">Bounty Hunter</h2>
+        <p className="western-body mt-1">Customer acquisition on the frontier.</p>
+        <p className="western-label mt-2 text-[11px] normal-case tracking-normal opacity-80">
+          Saddle up with your office address to center the map and start the hunt.
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-        <label className="block text-xs font-semibold text-amber-900">
-          Your name
+        <label className="block">
+          <span className="western-label">Your name</span>
           <input
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-amber-950 outline-none focus:border-amber-500"
+            className="western-input mt-1"
             placeholder="Alex Chen"
           />
         </label>
 
-        <label className="block text-xs font-semibold text-amber-900">
-          Business description
+        <label className="block">
+          <span className="western-label">Agency description</span>
           <textarea
             required
             rows={3}
             value={businessDescription}
             onChange={(e) => setBusinessDescription(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-amber-950 outline-none focus:border-amber-500"
-            placeholder="HVAC install and repair in the Sunset, mostly older single-family homes…"
+            className="western-textarea mt-1"
+            placeholder="Independent home insurance advisor in SF, focused on owner-occupied SFR and coverage reviews…"
           />
         </label>
 
-        <label className="relative z-50 block text-xs font-semibold text-amber-900">
-          Business address (San Francisco)
-          <AddressAutocomplete
-            onChange={setBusinessAddress}
-            placeholder="Start typing your address…"
-          />
+        <label className="relative z-50 block">
+          <span className="western-label">Office address (San Francisco)</span>
+          <div className="mt-1">
+            <AddressAutocomplete
+              value={businessAddress}
+              onChange={setBusinessAddress}
+              placeholder="Start typing your address…"
+            />
+          </div>
         </label>
 
-        {error && (
-          <p className="rounded-lg bg-red-100 px-3 py-2 text-xs text-red-800">{error}</p>
-        )}
+        {error && <p className="western-error">{error}</p>}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-amber-900 px-4 py-2.5 text-sm font-bold text-amber-50 transition hover:bg-amber-800 disabled:opacity-60"
+          className="western-btn western-btn-primary w-full py-2.5 disabled:opacity-60"
         >
-          {loading ? "Loading your board…" : "Start bounty board"}
+          {loading ? "Loading map…" : "Ride out"}
         </button>
       </form>
     </aside>

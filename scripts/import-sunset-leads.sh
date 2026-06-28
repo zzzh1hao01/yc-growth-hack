@@ -34,6 +34,18 @@ with out.open("w") as f:
         }
         if row.get("last_sale_date"):
             doc["lastSaleDate"] = row["last_sale_date"]
+        for key, out_key in [
+            ("recorded_owner_full_name", "recordedOwnerFullName"),
+            ("recorded_owner_source", "recordedOwnerSource"),
+            ("owner_first_name", "ownerFirstName"),
+            ("owner_last_name", "ownerLastName"),
+            ("owner_full_name", "ownerFullName"),
+            ("assessor_block", "assessorBlock"),
+            ("assessor_lot", "assessorLot"),
+            ("parcel_number", "parcelNumber"),
+        ]:
+            if row.get(key):
+                doc[out_key] = row[key]
         f.write(json.dumps(doc, separators=(",", ":")) + "\\n")
 
 print(f"Prepared {len(data)} leads -> {out}")

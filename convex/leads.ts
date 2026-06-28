@@ -1,87 +1,78 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
-import {
-  demoSampleLeads,
-  pickVertical,
-  rankLeads,
-  type ServiceProfile,
-} from "./lib/scoring";
-import {
-  findPrimaryRegion,
-  leadInServiceAreas,
-  resolveServiceAreas,
-} from "./lib/sfRegions";
+import { citywideMapSample, rankInsuranceLeads } from "./lib/scoring";
+import { resolveAgentProfile } from "./lib/resolveAgent";
 
-const householdFields = {
+const insuranceHouseholdFields = {
   householdId: v.string(),
   address: v.string(),
   lat: v.number(),
   lng: v.number(),
-  yearBuilt: v.number(),
+  neighborhood: v.string(),
+  sqft: v.number(),
   ownerOccupied: v.boolean(),
-  assessedValue: v.number(),
-  lastSaleDate: v.optional(v.string()),
-  clusterId: v.number(),
-  verticalScores: v.any(),
+  replacementCostToday: v.number(),
+  coverageAnchor: v.number(),
+  replacementCostGapDollars: v.number(),
+  replacementCostGapPct: v.number(),
+  needScore: v.number(),
+  timingScore: v.number(),
+  timingConfidence: v.union(
+    v.literal("high"),
+    v.literal("low"),
+    v.literal("none"),
+  ),
+  compositeScore: v.number(),
+  worthOutreach: v.boolean(),
+  yearBuilt: v.optional(v.number()),
+  purchaseYear: v.optional(v.number()),
+  yearsOwned: v.optional(v.number()),
   spriteVariant: v.number(),
+  recordedOwnerFullName: v.optional(v.string()),
+  recordedOwnerSource: v.optional(v.string()),
+  ownerFirstName: v.optional(v.string()),
+  ownerLastName: v.optional(v.string()),
+  ownerFullName: v.optional(v.string()),
+  ownerNameSource: v.optional(v.string()),
+  assessorBlock: v.optional(v.string()),
+  assessorLot: v.optional(v.string()),
+  parcelNumber: v.optional(v.string()),
+  archetype: v.optional(v.string()),
+  acsReceptivityScore: v.optional(v.number()),
+  financialSophistication: v.optional(v.number()),
+  inertiaScore: v.optional(v.number()),
+  coverageStakes: v.optional(v.number()),
 };
 
-const DEMO_MAP_CAP = 30;
+const MAP_CAP = 150;
 
 export const listLeads = query({
-  args: { sessionId: v.optional(v.string()) },
-  handler: async (ctx, { sessionId }) => {
+  args: {
+    sessionId: v.optional(v.string()),
+    userId: v.optional(v.string()),
+  },
+  handler: async (ctx, { sessionId, userId }) => {
     const docs = await ctx.db.query("leads").collect();
     if (docs.length === 0) return [];
 
-    let contractorLat: number | undefined;
-    let contractorLng: number | undefined;
-    let serviceProfile: ServiceProfile | null = null;
-    let serviceRegionIds: string[] | undefined;
+    const profile = await resolveAgentProfile(ctx, { userId, sessionId });
 
-    if (sessionId) {
-      const contractor = await ctx.db
-        .query("contractors")
-        .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
-        .first();
-      if (contractor?.lat != null && contractor.lng != null) {
-        contractorLat = contractor.lat;
-        contractorLng = contractor.lng;
-        serviceProfile = contractor.serviceProfile as ServiceProfile | null;
-        serviceRegionIds = contractor.serviceRegionIds ?? undefined;
+    let agentLat: number | undefined;
+    let agentLng: number | undefined;
 
-        if (!serviceRegionIds?.length) {
-          serviceRegionIds = resolveServiceAreas(contractor.lat, contractor.lng).regionIds;
-        }
-      }
+    if (profile?.lat != null && profile.lng != null) {
+      agentLat = profile.lat;
+      agentLng = profile.lng;
     }
 
-    let scoped = docs;
-    if (serviceRegionIds?.length) {
-      scoped = docs.filter((doc) =>
-        leadInServiceAreas(doc.lat, doc.lng, serviceRegionIds!),
-      );
-      // Demo ETL only covers Sunset/Parkside — still rank those leads by contractor proximity.
-      if (scoped.length === 0) {
-        scoped = docs;
-      }
+    const ranked = rankInsuranceLeads(docs, agentLat, agentLng);
+
+    const sampleKey = sessionId ?? userId;
+    if (sampleKey) {
+      return citywideMapSample(ranked, sampleKey, MAP_CAP);
     }
 
-    const vertical = pickVertical(serviceProfile);
-    const ranked = rankLeads(
-      scoped,
-      vertical,
-      contractorLat,
-      contractorLng,
-      serviceProfile,
-      (doc) => findPrimaryRegion(doc.lat, doc.lng)?.name,
-    );
-
-    if (sessionId) {
-      return demoSampleLeads(ranked, sessionId, DEMO_MAP_CAP);
-    }
-
-    return ranked.slice(0, DEMO_MAP_CAP);
+    return ranked.slice(0, MAP_CAP);
   },
 });
 
@@ -93,7 +84,7 @@ export const getLead = query({
 });
 
 export const bulkUpsertHouseholds = mutation({
-  args: { households: v.array(v.object(householdFields)) },
+  args: { households: v.array(v.object(insuranceHouseholdFields)) },
   handler: async (ctx, { households }) => {
     let inserted = 0;
     let updated = 0;
@@ -166,6 +157,10 @@ export const patchLeadOwner = internalMutation({
     ownerContactRole: v.optional(
       v.union(v.literal("owner"), v.literal("resident"), v.literal("unknown")),
     ),
+    assessorBlock: v.optional(v.string()),
+    assessorLot: v.optional(v.string()),
+    parcelNumber: v.optional(v.string()),
+    ownerOccupied: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.leadId, {
@@ -175,6 +170,10 @@ export const patchLeadOwner = internalMutation({
       ownerLinkedInUrl: args.ownerLinkedInUrl,
       ownerNameSource: args.ownerNameSource,
       ownerContactRole: args.ownerContactRole,
+      assessorBlock: args.assessorBlock,
+      assessorLot: args.assessorLot,
+      parcelNumber: args.parcelNumber,
+      ...(args.ownerOccupied !== undefined ? { ownerOccupied: args.ownerOccupied } : {}),
     });
   },
 });

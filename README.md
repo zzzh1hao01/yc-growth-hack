@@ -1,85 +1,46 @@
-# HouseholdIQ — Bounty Board Demo
+# Bounty Hunter
 
-Cartoony quest board for home service contractors. Placeholder SF leads appear as animated pixel sprites on a Mapbox map — click one to open a property side panel.
+Wild-west insurance lead board for San Francisco property agents — *customer acquisition on the frontier.*
 
-## Quick local demo (~2 minutes)
+Rank underinsured homeowners on a Mapbox map, review coverage gaps, chat with AI personas, and pursue leads into Orange Slice outbound with Slack alerts.
 
-1. **Get a Mapbox token** (free): [account.mapbox.com](https://account.mapbox.com/)
+**Full guide:** [docs/BOUNTY_HUNTER.md](./docs/BOUNTY_HUNTER.md)
 
-2. **Configure env:**
-   ```bash
-   cp .env.local.example .env.local
-   ```
-   Edit `.env.local` and set:
-   - `NEXT_PUBLIC_MAPBOX_TOKEN` (your `pk...` token)
-   - `NEXT_PUBLIC_CONVEX_URL` (from [Convex dashboard](https://dashboard.convex.dev/t/saahith-veeramaneni/householdiq) or `npx convex dev --once`)
+---
 
-3. **Install and run (two terminals):**
-   ```bash
-   npm install
-   npm run convex:dev   # terminal 1 — sync backend
-   npm run dev          # terminal 2 — Next.js UI
-   ```
-
-4. Open [http://localhost:3000](http://localhost:3000) — pan/zoom the map, click sprites, open the side panel.
-
-When Convex has no leads yet, the UI falls back to placeholder sprites automatically.
-
-## Convex (connected)
-
-| Resource | URL |
-|----------|-----|
-| Project | [householdiq](https://dashboard.convex.dev/t/saahith-veeramaneni/householdiq) |
-| Dev deployment | [watchful-condor-23](https://dashboard.convex.dev/d/watchful-condor-23) |
-| Client URL | `https://watchful-condor-23.convex.cloud` |
-
-Backend functions: `listLeads`, `upsertLead`, `bulkUpsertLeads` — see [docs/DATA_INTEGRATION.md](docs/DATA_INTEGRATION.md).
-
-## Public hosting (Vercel)
-
-1. Push branch `feature/quest-board-ui` to GitHub.
-2. [Import to Vercel](https://vercel.com/new) → select the repo.
-3. Set environment variables:
-   - `NEXT_PUBLIC_MAPBOX_TOKEN`
-   - `CONVEX_DEPLOY_KEY` — production/preview deploy key from Convex dashboard
-4. Vercel runs `npx convex deploy --cmd 'npm run build'` via [`vercel.json`](vercel.json).
-
-After deploy, Vercel sets `NEXT_PUBLIC_CONVEX_URL` automatically during the Convex deploy step.
-
-## Production preview
+## Quick start
 
 ```bash
-npm run build
-npm start
+cp .env.local.example .env.local   # Mapbox, Google Maps, Convex URL
+npm install
+npm run convex:dev                 # terminal 1
+npm run dev                        # terminal 2 → localhost:3000
+./scripts/import-insurance-leads.sh
 ```
 
-## What's included
+## Deploy (local machine only)
 
-- **Map** — Mapbox `streets-v12` with pastel cartoon styling (soft greens, warm land, storybook fog)
-- **Sprites** — smaller pixel characters; hot leads (70+) wave + bob; urgent leads show a pulsing `!`
-- **Side panel** — match score bar, property fields (placeholder labels where ETL data is missing)
-- **Convex backend stub** — schema + ingest mutations ready; see **[docs/DATA_INTEGRATION.md](docs/DATA_INTEGRATION.md)**
+GitHub stores **static code**. Production is deployed manually from your computer:
 
-## Real data (for agents)
+```bash
+npx convex deploy -y
+npx vercel --prod
+```
 
-Demo uses static mocks. To load real geocoded addresses:
+Do not assume Git push triggers hosting unless you configure that yourself.
 
-1. Read `docs/DATA_INTEGRATION.md`
-2. Run ETL → JSON with required fields (`lat`, `lng`, `address`, `matchScore`, etc.)
-3. Call `bulkUpsertLeads` in `convex/leads.ts`
-4. Wire `QuestBoard.tsx` to `useQuery(api.leads.listLeads)`
+## Match score
 
-Example payload: `convex/seed.example.json`
+**Risk (45) + Timing (30) + Fit (25) = 100**
 
-## Scripts
+Fit is census-based household receptivity (`acsReceptivityScore`). See [docs/BOUNTY_HUNTER.md#match-scoring-45--30--25](./docs/BOUNTY_HUNTER.md#match-scoring-45--30--25).
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Local dev server (primary demo command) |
-| `npm run build` | Production build |
-| `npm start` | Serve production build |
-| `npm run convex:dev` | Start Convex dev (optional, not needed for demo) |
+## Docs
 
-## Product brief
-
-See [BRIEF.md](./BRIEF.md) for full product context, data sources, and roadmap.
+| File | Topic |
+|------|-------|
+| [docs/BOUNTY_HUNTER.md](./docs/BOUNTY_HUNTER.md) | Architecture, deploy, scoring, env vars |
+| [BRIEF.md](./BRIEF.md) | Product brief |
+| [docs/DATA_INTEGRATION.md](./docs/DATA_INTEGRATION.md) | Lead import |
+| [docs/ORANGE_SLICE_INSURANCE.md](./docs/ORANGE_SLICE_INSURANCE.md) | Outbound pipeline |
+| [scoring/SCORING.md](./scoring/SCORING.md) | Python ETL |

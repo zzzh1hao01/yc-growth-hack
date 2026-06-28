@@ -8,14 +8,10 @@ export default function Error({
   reset: () => void;
 }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f5e6c8] p-8 text-center">
-      <h2 className="text-xl font-bold text-amber-950">Something went wrong</h2>
-      <p className="max-w-md text-sm text-amber-900/70">{error.message}</p>
-      <button
-        type="button"
-        onClick={reset}
-        className="rounded-xl bg-amber-900 px-4 py-2 text-sm font-bold text-white"
-      >
+    <div className="western-page-shell flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
+      <h2 className="western-title text-xl">Something went wrong</h2>
+      <p className="western-body max-w-md">{error.message}</p>
+      <button type="button" onClick={reset} className="western-btn western-btn-primary px-4 py-2">
         Try again
       </button>
     </div>
