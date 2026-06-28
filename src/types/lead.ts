@@ -20,6 +20,7 @@ export type Lead = {
   compositeScore?: number;
   needScore?: number;
   timingScore?: number;
+  fitScore?: number;
   timingConfidence?: TimingConfidence;
   urgent: boolean;
   worthOutreach?: boolean;

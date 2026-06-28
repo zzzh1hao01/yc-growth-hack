@@ -46,6 +46,91 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
+function riskRationale(lead: Lead): string {
+  const parts: string[] = [];
+  if (lead.replacementCostGapPct != null) {
+    parts.push(
+      `${Math.round(lead.replacementCostGapPct * 100)}% rebuild cost gap` +
+        (lead.replacementCostGapDollars != null
+          ? ` (${formatCurrency(lead.replacementCostGapDollars)} underinsured)`
+          : ""),
+    );
+  }
+  if (lead.homeAgeYears) parts.push(`${lead.homeAgeYears}-year-old home`);
+  if (lead.yearsOwned != null && lead.purchaseYear != null) {
+    parts.push(`owned since ${lead.purchaseYear} — coverage likely anchored to purchase price`);
+  }
+  return parts.join(". ") || lead.cluster || "Coverage risk signals present.";
+}
+
+function timingRationale(lead: Lead): string {
+  const parts: string[] = [];
+  if (lead.timingConfidence === "high") parts.push("High-confidence timing signal");
+  else if (lead.timingConfidence === "low") parts.push("Moderate timing signal");
+  if (lead.purchaseYear != null)
+    parts.push(`policy likely in place since ~${lead.purchaseYear}`);
+  if (lead.timingScore != null) {
+    const pct = Math.round(lead.timingScore * 100);
+    if (pct >= 70) parts.push("well-timed for a review conversation");
+    else if (pct >= 40) parts.push("moderate opening");
+    else parts.push("early outreach — relationship-building phase");
+  }
+  return parts.join(" — ") || "Timing derived from tenure and estimated policy age.";
+}
+
+function fitRationale(lead: Lead): string {
+  const parts: string[] = [];
+  if (lead.archetype) parts.push(lead.archetype);
+  else if (lead.cluster) parts.push(lead.cluster);
+  const fit = lead.fitScore ?? lead.acsReceptivityScore;
+  if (fit != null) {
+    const pct = Math.round(fit * 100);
+    if (pct >= 70) parts.push("high receptivity to financial product outreach");
+    else if (pct >= 40) parts.push("moderate receptivity");
+    else parts.push("lower receptivity — lead with a data-backed hook");
+  }
+  if (lead.ownerOccupied) parts.push("owner-occupied household");
+  if (lead.neighborhood) parts.push(`${lead.neighborhood} neighborhood profile`);
+  return parts.join(". ") || "Fit based on census-derived household behavioral cluster.";
+}
+
+function priorityLabel(score: number): { label: string; color: string; bg: string; border: string } {
+  if (score >= 70) return { label: "High priority", color: "text-green-800", bg: "bg-green-50", border: "border-green-200" };
+  if (score >= 40) return { label: "Medium priority", color: "text-amber-800", bg: "bg-amber-50", border: "border-amber-200" };
+  return { label: "Low priority", color: "text-gray-600", bg: "bg-gray-50", border: "border-gray-200" };
+}
+
+function priorityFactors(lead: Lead): string[] {
+  const factors: string[] = [];
+  if (lead.replacementCostGapPct != null && lead.replacementCostGapPct >= 0.2) {
+    factors.push(
+      `${Math.round(lead.replacementCostGapPct * 100)}% rebuild cost gap` +
+        (lead.replacementCostGapDollars != null
+          ? ` — ${formatCurrency(lead.replacementCostGapDollars)} underinsured`
+          : ""),
+    );
+  }
+  if (lead.yearsOwned != null && lead.yearsOwned >= 10 && lead.purchaseYear != null) {
+    factors.push(`Owned since ${lead.purchaseYear} — policy likely anchored to original price`);
+  }
+  if (lead.timingConfidence === "high" && (lead.timingScore ?? 0) >= 0.3) {
+    factors.push("High-confidence timing window for a review conversation");
+  } else if (lead.timingScore != null && lead.timingScore >= 0.5) {
+    factors.push("Moderate timing signal — good moment to reach out");
+  }
+  if (lead.homeAgeYears >= 50) {
+    factors.push(`${lead.homeAgeYears}-year-old home — elevated structural risk`);
+  }
+  if (lead.ownerOccupied) {
+    factors.push("Owner-occupied — direct decision-maker on coverage");
+  }
+  const fit = lead.fitScore ?? lead.acsReceptivityScore;
+  if (fit != null && fit >= 0.6) {
+    factors.push("High household receptivity to insurance outreach");
+  }
+  return factors;
+}
+
 export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadSidePanelProps) {
   const [message, setMessage] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -254,60 +339,89 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
                 {lead.matchScore}/100
               </span>
             </div>
-            {lead.needScore != null || lead.timingScore != null || lead.acsReceptivityScore != null ? (
-              <>
-                <div className="flex h-4 overflow-hidden rounded-full bg-amber-100">
-                  {lead.needScore != null && (
-                    <div className="h-full bg-red-400" style={{ width: `${lead.needScore * 45}%` }} />
-                  )}
-                  {lead.timingScore != null && (
-                    <div className="h-full bg-amber-400" style={{ width: `${lead.timingScore * 30}%` }} />
-                  )}
-                  {lead.acsReceptivityScore != null && (
-                    <div className="h-full bg-emerald-400" style={{ width: `${lead.acsReceptivityScore * 25}%` }} />
-                  )}
-                </div>
-                <div className="mt-2 flex gap-4 text-xs">
-                  {lead.needScore != null && (
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-2 w-2 rounded-sm bg-red-400" />
-                      <span className="text-amber-900/70">Risk</span>
-                      <span className="font-semibold text-amber-950">{Math.round(lead.needScore * 100)}</span>
-                    </span>
-                  )}
-                  {lead.timingScore != null && (
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-2 w-2 rounded-sm bg-amber-400" />
-                      <span className="text-amber-900/70">Timing</span>
-                      <span className="font-semibold text-amber-950">{Math.round(lead.timingScore * 100)}</span>
-                    </span>
-                  )}
-                  {lead.acsReceptivityScore != null && (
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-2 w-2 rounded-sm bg-emerald-400" />
-                      <span className="text-amber-900/70">Fit</span>
-                      <span className="font-semibold text-amber-950">{Math.round(lead.acsReceptivityScore * 100)}</span>
-                    </span>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="h-4 overflow-hidden rounded-full bg-amber-100">
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${lead.matchScore}%`, backgroundColor: barColor }}
-                />
-              </div>
-            )}
+            {(() => {
+              const fitScore = lead.fitScore ?? lead.acsReceptivityScore;
+              const hasComponents = lead.needScore != null || lead.timingScore != null || fitScore != null;
+              if (!hasComponents) {
+                return (
+                  <div className="h-4 overflow-hidden rounded-full bg-amber-100">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${lead.matchScore}%`, backgroundColor: barColor }}
+                    />
+                  </div>
+                );
+              }
+              return (
+                <>
+                  <div className="flex h-4 overflow-hidden rounded-full bg-amber-100">
+                    {lead.needScore != null && (
+                      <div className="h-full bg-red-400" style={{ width: `${lead.needScore * 45}%` }} />
+                    )}
+                    {lead.timingScore != null && (
+                      <div className="h-full bg-amber-400" style={{ width: `${lead.timingScore * 30}%` }} />
+                    )}
+                    {fitScore != null && (
+                      <div className="h-full bg-emerald-400" style={{ width: `${fitScore * 25}%` }} />
+                    )}
+                  </div>
+                  <div className="mt-2 flex gap-4 text-xs">
+                    {lead.needScore != null && (
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block h-2 w-2 rounded-sm bg-red-400" />
+                        <span className="text-amber-900/70">Risk</span>
+                        <span className="font-semibold text-amber-950">
+                          {Math.round(lead.needScore * 45)}
+                          <span className="font-normal text-amber-900/50">/45</span>
+                        </span>
+                      </span>
+                    )}
+                    {lead.timingScore != null && (
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block h-2 w-2 rounded-sm bg-amber-400" />
+                        <span className="text-amber-900/70">Timing</span>
+                        <span className="font-semibold text-amber-950">
+                          {Math.round(lead.timingScore * 30)}
+                          <span className="font-normal text-amber-900/50">/30</span>
+                        </span>
+                      </span>
+                    )}
+                    {fitScore != null && (
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block h-2 w-2 rounded-sm bg-emerald-400" />
+                        <span className="text-amber-900/70">Fit</span>
+                        <span className="font-semibold text-amber-950">
+                          {Math.round(fitScore * 25)}
+                          <span className="font-normal text-amber-900/50">/25</span>
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    {lead.needScore != null && (
+                      <div className="rounded-lg border border-red-100 bg-red-50/60 p-2.5">
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-red-700">Risk</p>
+                        <p className="text-[11px] leading-relaxed text-red-900/80">{riskRationale(lead)}</p>
+                      </div>
+                    )}
+                    {lead.timingScore != null && (
+                      <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-2.5">
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-amber-700">Timing</p>
+                        <p className="text-[11px] leading-relaxed text-amber-900/80">{timingRationale(lead)}</p>
+                      </div>
+                    )}
+                    {fitScore != null && (
+                      <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-2.5">
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Fit</p>
+                        <p className="text-[11px] leading-relaxed text-emerald-900/80">{fitRationale(lead)}</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
             {lead.urgent && (
               <p className="mt-3 text-sm font-semibold text-red-600">! High-priority outreach</p>
-            )}
-            {lead.scoreReasons && lead.scoreReasons.length > 0 && (
-              <ul className="mt-3 space-y-1 text-xs text-amber-900/80">
-                {lead.scoreReasons.slice(0, 4).map((reason) => (
-                  <li key={reason}>• {reason}</li>
-                ))}
-              </ul>
             )}
           </section>
 
@@ -381,6 +495,24 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
             <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-amber-800/70">
               Household Profile
             </h3>
+            {(() => {
+              const priority = priorityLabel(lead.matchScore);
+              const factors = priorityFactors(lead);
+              return (
+                <div className={`mb-3 rounded-lg border ${priority.border} ${priority.bg} px-3 py-2.5`}>
+                  <p className={`text-xs font-bold uppercase tracking-wide ${priority.color}`}>
+                    {priority.label}
+                  </p>
+                  {factors.length > 0 && (
+                    <ul className={`mt-1.5 space-y-1 text-[11px] ${priority.color} opacity-90`}>
+                      {factors.map((f) => (
+                        <li key={f}>· {f}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })()}
             <p className="text-sm font-semibold text-amber-950">{lead.cluster}</p>
             <p className="mt-2 text-sm leading-relaxed text-amber-900/85">
               {lead.clusterNarrative ??
