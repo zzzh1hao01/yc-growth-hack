@@ -56,7 +56,8 @@ This repo supports **two products** on separate branches and infrastructure:
 | `npm run dev` | Local dev server |
 | `npm run build` | Production build |
 | `npm run convex:dev` | Convex dev sync |
-| `./scripts/import-insurance-leads.sh` | Import 2k records from `origin/insurance` |
+| `./scripts/import-insurance-leads.sh` | Import deduped insurance leads from `origin/insurance` (default: merged household files, ~5.5k unique) |
+| `INSURANCE_DATA_SCOPE=citywide ./scripts/import-insurance-leads.sh` | Lighter 2k citywide demo spread only |
 
 ## Product brief
 

@@ -40,6 +40,7 @@ yarn-error.log*
 # large ETL imports (regenerate via scripts/import-sunset-leads.sh)
 .cache/
 convex/seed/sunset_parkside_leads.jsonl
+convex/seed/insurance_leads.jsonl
 
 # typescript
 *.tsbuildinfo
