@@ -29,11 +29,16 @@ Usage:
 """
 import argparse
 import datetime
+import os
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional
 
 import requests
 
 from explore.sources import DATASETS, SOCRATA_BASE, fetch_all, normalize_block_lot
+
+if TYPE_CHECKING:
+    from explore.acs import ACSBlockGroup
 
 PROP13_ANNUAL_CAP = 1.02  # CA Prop 13 max assessed-value growth per year
 THIS_YEAR = datetime.date.today().year
@@ -283,8 +288,15 @@ class InsuranceScoringConfig:
     include_deed: bool = False           # no paid deed/price feed
     recent_trigger_years: int = 1        # "recent mover" window (annual roll -> 1yr, not 60d)
     low_conf_timing_factor: float = 0.5  # attenuate timing when tenure is year-built fallback
-    enrichment_threshold: float = 0.70   # composite above this -> worth outreach (~top 8%,
-                                         # matches the reference doc's 5-10% enrichment target)
+    enrichment_threshold: float = 0.67   # composite above this -> worth outreach.
+                                         # Recalibrated from 0.70 for the 3-component ACS formula
+                                         # (need×0.45 + timing×0.30 + acs×0.25 compresses the
+                                         # distribution; p90≈0.68, so 0.67 targets ~top 10%).
+    # ACS modifier weights (applied when ACS block group data is available)
+    # Replaces w_need/w_timing when ACS is present per the plan's 3-component formula.
+    w_need_with_acs: float = 0.45
+    w_timing_with_acs: float = 0.30
+    w_acs: float = 0.25
 
 
 def _clamp01(x: float) -> float:
@@ -336,11 +348,22 @@ def _tenure_score(years_owned: int | None) -> float:
     return max(0.3, 1.0 - (years_owned - 15) / 30.0)
 
 
-def score_parcel(rec: dict, roll_year: int, config: InsuranceScoringConfig) -> dict | None:
+def score_parcel(
+    rec: dict,
+    roll_year: int,
+    config: InsuranceScoringConfig,
+    acs_bg: "Optional[ACSBlockGroup]" = None,
+) -> dict | None:
     """
-    Composite insurance lead score (0-1) = need_score (replacement-cost gap, primary)
-    weighted with timing_score (X-date / recent-mover / tenure). Returns None when the
-    need signal can't be computed (no usable sqft / structural value).
+    Composite insurance lead score (0-1).
+
+    Without ACS data (default):
+        composite = need×0.70 + timing×0.30
+
+    With ACS block group data (when acs_bg is provided):
+        composite = need×0.45 + timing×0.30 + acs_receptivity×0.25
+
+    Returns None when the need signal can't be computed (no usable sqft).
     """
     t = timing_origin(rec, roll_year)
     rcg = replacement_cost_gap(rec, config, coverage_drift_years(t, config))
@@ -367,9 +390,15 @@ def score_parcel(rec: dict, roll_year: int, config: InsuranceScoringConfig) -> d
     elif conf == "none":
         timing_score = 0.0
 
-    composite = config.w_need * need_score + config.w_timing * timing_score
+    # --- composite: 2-component (property-only) or 3-component (with ACS) ---
+    if acs_bg is not None:
+        composite = (config.w_need_with_acs * need_score
+                     + config.w_timing_with_acs * timing_score
+                     + config.w_acs * acs_bg.acs_receptivity)
+    else:
+        composite = config.w_need * need_score + config.w_timing * timing_score
 
-    return {
+    result = {
         "household_id": rcg["household_id"],
         "address": rcg["address"],
         "neighborhood": rcg["neighborhood"],
@@ -382,6 +411,13 @@ def score_parcel(rec: dict, roll_year: int, config: InsuranceScoringConfig) -> d
         "composite_score": round(composite, 3),
         "worth_outreach": composite >= config.enrichment_threshold,
     }
+    if acs_bg is not None:
+        result["archetype"] = acs_bg.archetype
+        result["acs_receptivity_score"] = acs_bg.acs_receptivity
+        result["financial_sophistication"] = acs_bg.financial_sophistication
+        result["inertia_score"] = acs_bg.inertia_score
+        result["coverage_stakes"] = acs_bg.coverage_stakes
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -405,9 +441,14 @@ def _latlng(rec: dict) -> tuple[float | None, float | None]:
     return None, None
 
 
-def insurance_record(rec: dict, roll_year: int, config: InsuranceScoringConfig) -> dict | None:
+def insurance_record(
+    rec: dict,
+    roll_year: int,
+    config: InsuranceScoringConfig,
+    acs_bg: "Optional[ACSBlockGroup]" = None,
+) -> dict | None:
     """One assembled household record in the approved Step-5 JSON shape."""
-    s = score_parcel(rec, roll_year, config)
+    s = score_parcel(rec, roll_year, config, acs_bg=acs_bg)
     if s is None:
         return None
     lat, lng = _latlng(rec)
@@ -419,7 +460,7 @@ def insurance_record(rec: dict, roll_year: int, config: InsuranceScoringConfig) 
     yb = _year_of(rec.get("year_property_built"))
     sale_year = _year_of(rec.get("current_sales_date"))
 
-    return {
+    out = {
         "household_id": s["household_id"],
         "address": s["address"],
         "lat": lat,
@@ -442,6 +483,14 @@ def insurance_record(rec: dict, roll_year: int, config: InsuranceScoringConfig) 
         "purchase_year": sale_year,
         "years_owned": t["years_owned"] if t["timing_confidence"] == "high" else None,
     }
+    # ACS fields — only present when ACS block group data was available
+    if acs_bg is not None:
+        out["archetype"] = s["archetype"]
+        out["acs_receptivity_score"] = s["acs_receptivity_score"]
+        out["financial_sophistication"] = s["financial_sophistication"]
+        out["inertia_score"] = s["inertia_score"]
+        out["coverage_stakes"] = s["coverage_stakes"]
+    return out
 
 
 def fetch_assemble_parcels(neighborhood: str, year: str, limit: int) -> list[dict]:
@@ -460,19 +509,62 @@ def fetch_assemble_parcels(neighborhood: str, year: str, limit: int) -> list[dic
     )
 
 
-def assemble_sample(per_nb_fetch: int, sample_per_nb: int, config: InsuranceScoringConfig,
-                    roll_year: int) -> list[dict]:
+def _acs_lookup_fn(acs_index, geoid_map):
+    """Return a function that maps a parcel (lat, lng) to its ACSBlockGroup or None."""
+    if acs_index is None or geoid_map is None:
+        return lambda lat, lng: None
+    def _lookup(lat, lng):
+        geoid = geoid_map.get((lat, lng))
+        return acs_index.get(geoid) if geoid else None
+    return _lookup
+
+
+def _build_acs_geoid_map(parcels, acs_index, geocoder_cache):
+    """Geocode all parcels' lat/lngs and return a (lat, lng) → GEOID map."""
+    from explore.acs import batch_geocode
+    lat_lngs = []
+    for p in parcels:
+        lat, lng = _latlng(p)
+        if lat is not None:
+            lat_lngs.append((lat, lng))
+    return batch_geocode(lat_lngs, cache_path=geocoder_cache)
+
+
+def assemble_sample(
+    per_nb_fetch: int,
+    sample_per_nb: int,
+    config: InsuranceScoringConfig,
+    roll_year: int,
+    acs_index=None,
+    geocoder_cache: str = "data/geocoder_cache.json",
+) -> list[dict]:
     """
     Assemble a REVIEW sample: per neighborhood, spread `sample_per_nb` records across
     the composite-score range so the reviewer sees variety (not just the top leads).
+
+    Pass `acs_index` (from explore.acs.build_block_group_index) to incorporate ACS
+    behavioural dimensions into the composite score.
     """
+    # Fetch all parcels first so we can geocode in one batch pass
+    all_parcels: dict[str, list[dict]] = {}
+    for nb in TARGET_NEIGHBORHOODS:
+        all_parcels[nb] = fetch_assemble_parcels(nb, str(roll_year), per_nb_fetch)
+
+    geoid_map = None
+    if acs_index is not None:
+        flat = [p for ps in all_parcels.values() for p in ps]
+        geoid_map = _build_acs_geoid_map(flat, acs_index, geocoder_cache)
+
+    lookup = _acs_lookup_fn(acs_index, geoid_map)
     out: list[dict] = []
     seen: set[str] = set()
     for nb in TARGET_NEIGHBORHOODS:
-        parcels = fetch_assemble_parcels(nb, str(roll_year), per_nb_fetch)
+        parcels = all_parcels[nb]
         recs = []
         for p in parcels:
-            r = insurance_record(p, roll_year, config)
+            lat, lng = _latlng(p)
+            acs_bg = lookup(lat, lng) if lat is not None else None
+            r = insurance_record(p, roll_year, config, acs_bg=acs_bg)
             if r and r["household_id"] not in seen:
                 seen.add(r["household_id"])
                 recs.append(r)
@@ -484,19 +576,40 @@ def assemble_sample(per_nb_fetch: int, sample_per_nb: int, config: InsuranceScor
     return out
 
 
-def assemble_full(per_nb_keep: int, config: InsuranceScoringConfig, roll_year: int,
-                  fetch_cap: int = 30000) -> list[dict]:
+def assemble_full(
+    per_nb_keep: int,
+    config: InsuranceScoringConfig,
+    roll_year: int,
+    fetch_cap: int = 30000,
+    acs_index=None,
+    geocoder_cache: str = "data/geocoder_cache.json",
+) -> list[dict]:
     """
     Full run: per neighborhood, fetch all SFR/owner-occ parcels, score, and keep the
     TOP `per_nb_keep` by composite score (not a spread). Sums to ~`per_nb_keep` × 5.
+
+    Pass `acs_index` (from explore.acs.build_block_group_index) to incorporate ACS
+    behavioural dimensions into the composite score.
     """
+    all_parcels: dict[str, list[dict]] = {}
+    for nb in TARGET_NEIGHBORHOODS:
+        all_parcels[nb] = fetch_assemble_parcels(nb, str(roll_year), fetch_cap)
+
+    geoid_map = None
+    if acs_index is not None:
+        flat = [p for ps in all_parcels.values() for p in ps]
+        geoid_map = _build_acs_geoid_map(flat, acs_index, geocoder_cache)
+
+    lookup = _acs_lookup_fn(acs_index, geoid_map)
     out: list[dict] = []
     seen: set[str] = set()
     for nb in TARGET_NEIGHBORHOODS:
-        parcels = fetch_assemble_parcels(nb, str(roll_year), fetch_cap)
+        parcels = all_parcels[nb]
         recs = []
         for p in parcels:
-            r = insurance_record(p, roll_year, config)
+            lat, lng = _latlng(p)
+            acs_bg = lookup(lat, lng) if lat is not None else None
+            r = insurance_record(p, roll_year, config, acs_bg=acs_bg)
             if r and r["household_id"] not in seen:
                 seen.add(r["household_id"])
                 recs.append(r)
@@ -533,6 +646,8 @@ def main():
     ap.add_argument("--sample", type=int, default=30, help="(assemble) total review records to emit")
     ap.add_argument("--cap", type=int, default=2000, help="(full) total record cap across neighborhoods")
     ap.add_argument("--out", default=None, help="output JSON path")
+    ap.add_argument("--no-acs", action="store_true",
+                    help="skip ACS layer even if CENSUS_API_KEY is set")
     args = ap.parse_args()
 
     roll_year = int(args.roll_year or latest_roll_year())
@@ -540,17 +655,30 @@ def main():
     if args.assemble or args.full:
         import json
         config = InsuranceScoringConfig(construction_psf=args.psf)
+
+        # ACS layer — opt-in via CENSUS_API_KEY env var (--no-acs to force skip)
+        acs_index = None
+        if not args.no_acs:
+            api_key = os.environ.get("CENSUS_API_KEY", "")
+            if api_key:
+                from explore.acs import build_block_group_index
+                acs_index = build_block_group_index(api_key)
+            else:
+                print("(ACS layer skipped: set CENSUS_API_KEY env var to enable)")
+
         if args.full:
             out = args.out or "household_records.json"
             per_nb_keep = max(1, args.cap // len(TARGET_NEIGHBORHOODS))
-            print(f"FULL run (roll {roll_year}, ${args.psf:.0f}/sqft, top {per_nb_keep}/neighborhood):")
-            records = assemble_full(per_nb_keep, config, roll_year)
+            mode = "ACS-augmented" if acs_index else "property-only"
+            print(f"FULL run ({mode}, roll {roll_year}, ${args.psf:.0f}/sqft, top {per_nb_keep}/neighborhood):")
+            records = assemble_full(per_nb_keep, config, roll_year, acs_index=acs_index)
             records = records[: args.cap]
         else:
             out = args.out or "household_sample.json"
             sample_per_nb = max(1, args.sample // len(TARGET_NEIGHBORHOODS))
-            print(f"Review sample (roll {roll_year}, ${args.psf:.0f}/sqft, {sample_per_nb}/neighborhood):")
-            records = assemble_sample(400, sample_per_nb, config, roll_year)
+            mode = "ACS-augmented" if acs_index else "property-only"
+            print(f"Review sample ({mode}, roll {roll_year}, ${args.psf:.0f}/sqft, {sample_per_nb}/neighborhood):")
+            records = assemble_sample(400, sample_per_nb, config, roll_year, acs_index=acs_index)
         with open(out, "w") as f:
             json.dump(records, f, indent=2)
         worth = sum(1 for r in records if r["worth_outreach"])

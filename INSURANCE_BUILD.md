@@ -164,6 +164,78 @@ Coverage-anchor revision applied here (v1 → v2 above) at user request; thresho
 
 ---
 
+## Step 7 — ACS block group layer (behavioural modifier)
+
+Code: `explore/acs.py` (new module). Integrates the full ACS plan from `acs_insurance_prediction_plan.md`.
+
+### What was built
+
+**`explore/acs.py`**
+- `fetch_sf_acs(api_key)` — fetches ~70 ACS 5-year variables for all SF County block groups in 4 Census API calls. Variables chunked to stay under the API's 50-var limit.
+- `build_block_group_index(api_key)` — main entry point. Returns `{geoid_12: ACSBlockGroup}` with all three normalized dimensions and archetype pre-computed.
+- `batch_geocode(lat_lngs, cache_path)` — maps parcel `(lat, lng)` pairs to 12-char block group GEOIDs via Census Geocoder API. Results disk-cached so repeated runs skip already-resolved coordinates.
+
+**`explore/insurance.py` updates**
+- `InsuranceScoringConfig` gets three new fields: `w_need_with_acs=0.45`, `w_timing_with_acs=0.30`, `w_acs=0.25`.
+- `score_parcel(rec, roll_year, config, acs_bg=None)` — when `acs_bg` is provided, switches from the 2-component formula to the 3-component formula and adds `archetype`, `acs_receptivity_score`, `financial_sophistication`, `inertia_score`, `coverage_stakes` to the result.
+- `insurance_record()` passes `acs_bg` through and includes ACS fields in the JSON output.
+- `assemble_sample()` / `assemble_full()` accept optional `acs_index` — when provided, batch-geocodes all parcels first, then looks up each parcel's block group.
+- CLI: `CENSUS_API_KEY` env var activates ACS automatically. `--no-acs` forces skip.
+
+### Composite formula
+
+**Without ACS (no key set):**
+```
+composite = need × 0.70 + timing × 0.30
+```
+
+**With ACS (CENSUS_API_KEY set):**
+```
+composite = need × 0.45 + timing × 0.30 + acs_receptivity × 0.25
+
+acs_receptivity = financial_sophistication × 0.35
+               + inertia_score             × 0.40
+               + coverage_stakes           × 0.25
+```
+
+### Three ACS dimensions (all min-max normalized across SF block groups)
+
+| Dimension | Components | Weights | Signal |
+|---|---|---|---|
+| **A — Financial sophistication** | pct_college × 0.35, pct_white_collar × 0.35, median_income × 0.30 | 0.35 in acs_receptivity | Active optimiser vs. passive auto-renewer |
+| **B — Inertia** | median_age × 0.35, pct_long_tenure × 0.40, pct_free_and_clear × 0.25 | 0.40 in acs_receptivity | Underinsurance accumulation probability |
+| **C — Coverage stakes** | median_home_value × 0.50, owner_occ_rate × 0.25, pct_high_value × 0.25 | 0.25 in acs_receptivity | Dollar magnitude of the coverage problem |
+
+### Five behavioural archetypes
+
+| Archetype | Condition | Agent conversation |
+|---|---|---|
+| `wealthy_inert` | B ≥ 0.6 AND C ≥ 0.5 | Lead with appreciation gap dollar amount |
+| `active_optimizer` | A ≥ 0.6 AND B < 0.4 AND C ≥ 0.6 | Data-first; specific gap numbers |
+| `new_to_wealth` | A ≥ 0.6 AND B < 0.4 AND C < 0.6 | Educational; first policy review |
+| `disengaged_owner` | A < 0.4 AND B ≥ 0.5 | Simple, concrete, loss-salient framing |
+| `price_first_shopper` | default | Lead with premium comparison |
+
+### How to run
+
+**Get a free Census API key:** https://api.census.gov/data/key_signup.html
+
+```bash
+export CENSUS_API_KEY=your_key_here
+
+# Full ACS-augmented run
+python -m explore.insurance --full --cap 2000 --out household_records.json
+
+# Property-only (skip ACS even if key is set)
+python -m explore.insurance --full --cap 2000 --out household_records.json --no-acs
+```
+
+**Geocoder cache** is written to `data/geocoder_cache.json`. First run geocodes all parcel coordinates (~1–3 min for 2000 parcels, 8 concurrent workers). Subsequent runs are instant.
+
+**`enrichment_threshold` note:** The 0.70 threshold was calibrated for the 2-component (property-only) formula. With ACS, the 3-component distribution will differ — recalibrate once you have the full run output and can inspect the composite distribution.
+
+---
+
 ## Step 6 — STOP: review the 30-record sample, then run the full ~2,000.
 
 ### How to run the full ~2,000 (run elsewhere)
