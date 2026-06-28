@@ -5,14 +5,38 @@ import { useAction, useMutation, useQuery } from "convex/react";
 
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import type { ContactInfo, Lead, Persona } from "@/types/lead";
+import type { EnrichmentResult, Lead, OutreachChannel, Persona, StartOutreachResult } from "@/types/lead";
+import { OUTREACH_ENABLED } from "@/types/lead";
 import { asDisplayText, personaColdApproach, personaObjections, personaParagraphs } from "@/lib/safe-text";
 
 type LeadSidePanelProps = {
   lead: Lead | null;
   sessionId: string;
   navVisible: boolean;
+  orgId?: Id<"organizations">;
+  userId?: string;
   onClose: () => void;
+};
+
+const CHANNEL_LABELS: Record<OutreachChannel, string> = {
+  email: "Email",
+  phone: "Phone",
+  linkedin: "LinkedIn",
+  mail: "Direct mail",
+  d2d: "Door knock",
+};
+
+const OUTREACH_STATUS_LABELS: Record<string, string> = {
+  queued: "Queued for Orange Slice import",
+  sheet_synced: "In Orange Slice sheet",
+  touch1_ready: "Ready to contact",
+  touch1_sent: "Touch 1 sent",
+  touch2_sent: "Touch 2 sent",
+  replied: "Replied",
+  meeting: "Meeting booked",
+  won: "Won",
+  lost: "Lost",
+  d2d_planned: "Door knock planned",
 };
 
 function formatCurrency(value: number) {
@@ -23,29 +47,53 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSidePanelProps) {
+export function LeadSidePanel({
+  lead,
+  sessionId,
+  navVisible,
+  orgId,
+  userId,
+  onClose,
+}: LeadSidePanelProps) {
   const [message, setMessage] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [personaLoading, setPersonaLoading] = useState(false);
-  const [contactLoading, setContactLoading] = useState(false);
-  const [ownerLoading, setOwnerLoading] = useState(false);
+  const [pursueLoading, setPursueLoading] = useState(false);
   const [resolvedOwner, setResolvedOwner] = useState<string | null>(null);
   const [contactRole, setContactRole] = useState<"owner" | "resident" | "unknown" | null>(
     null,
   );
   const [persona, setPersona] = useState<Persona | null>(null);
-  const [contactInfo, setContactInfo] = useState<ContactInfo | null>(null);
+  const [enrichment, setEnrichment] = useState<EnrichmentResult | null>(null);
+  const [outreachResult, setOutreachResult] = useState<StartOutreachResult | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const personaGenerationRef = useRef(0);
 
   const generatePersona = useAction(api.persona.generatePersona);
   const sendChatMessage = useAction(api.persona.sendChatMessage);
-  const enrichContact = useAction(api.enrichment.enrichContact);
-  const lookupOwnerName = useAction(api.enrichment.lookupOwnerName);
+  const startOutreach = useAction(api.outreachActions.startOutreach);
+  const logTouchSent = useAction(api.outreachActions.logTouchSent);
   const clearChatHistory = useMutation(api.chat.clearChatHistory);
 
   const leadConvexId = lead?.convexId as Id<"leads"> | undefined;
+
+  const leadDoc = useQuery(
+    api.leads.getLead,
+    leadConvexId ? { leadId: leadConvexId } : "skip",
+  );
+
+  const outreachRecord = useQuery(
+    api.outreach.getOutreachForLead,
+    leadConvexId && (sessionId || userId)
+      ? { sessionId, userId, leadId: leadConvexId }
+      : "skip",
+  );
+
+  const outreachConfig = useQuery(
+    api.outreach.getOutreachConfig,
+    userId && orgId ? { orgId, userId } : {},
+  );
 
   const chatHistory = useQuery(
     api.chat.getChatHistory,
@@ -57,11 +105,20 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
   useEffect(() => {
     setMessage("");
     setPersona(null);
-    setContactInfo(null);
+    setEnrichment(null);
+    setOutreachResult(null);
     setChatError(null);
-    setResolvedOwner(lead?.ownerFullName ?? null);
+    setResolvedOwner(lead?.ownerFullName ?? lead?.recordedOwnerFullName ?? null);
     setContactRole(lead?.ownerContactRole ?? (lead?.ownerOccupied ? "owner" : "resident"));
   }, [lead?.id, lead?.ownerFullName, lead?.ownerContactRole, lead?.ownerOccupied]);
+
+  useEffect(() => {
+    if (!leadDoc?.contactInfo || typeof leadDoc.contactInfo !== "object") return;
+    const cached = leadDoc.contactInfo as EnrichmentResult;
+    if (cached.owner && cached.contact && typeof cached.playbook === "string") {
+      setEnrichment(cached);
+    }
+  }, [leadDoc?.contactInfo]);
 
   useEffect(() => {
     if (!leadConvexId || !sessionId) return;
@@ -69,7 +126,7 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
     const generation = ++personaGenerationRef.current;
     let cancelled = false;
     setPersonaLoading(true);
-    generatePersona({ sessionId, leadId: leadConvexId })
+    generatePersona({ sessionId, leadId: leadConvexId, userId })
       .then((result) => {
         if (!cancelled && generation === personaGenerationRef.current) {
           setPersona(result as Persona);
@@ -89,7 +146,7 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
     return () => {
       cancelled = true;
     };
-  }, [leadConvexId, sessionId, lead?.ownerFullName, generatePersona]);
+  }, [leadConvexId, sessionId, userId, lead?.ownerFullName, generatePersona]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -104,6 +161,7 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
         sessionId,
         leadId: leadConvexId,
         message: message.trim(),
+        userId,
       });
       setMessage("");
     } catch (err) {
@@ -111,54 +169,40 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
     } finally {
       setChatLoading(false);
     }
-  }, [leadConvexId, message, sendChatMessage, sessionId]);
+  }, [leadConvexId, message, sendChatMessage, sessionId, userId]);
 
-  const handleLookupOwner = useCallback(async () => {
+  const handlePursue = useCallback(async () => {
     if (!leadConvexId || !sessionId) return;
-    setOwnerLoading(true);
+    setPursueLoading(true);
     setChatError(null);
     try {
-      const owner = await lookupOwnerName({
-        leadId: leadConvexId,
-        force: Boolean(resolvedOwner),
-      });
-      setResolvedOwner(owner.fullName);
-      setContactRole(owner.contactRole ?? (lead?.ownerOccupied ? "owner" : "resident"));
-      setPersonaLoading(true);
-      const generation = ++personaGenerationRef.current;
-      const refreshed = await generatePersona({
+      const result = (await startOutreach({
         sessionId,
         leadId: leadConvexId,
-        force: true,
-      });
-      if (generation === personaGenerationRef.current) {
-        setPersona(refreshed as Persona);
-        await clearChatHistory({ sessionId, leadId: leadConvexId });
-      }
+        orgId,
+        userId,
+        forceEnrichment: Boolean(outreachRecord || outreachResult),
+      })) as StartOutreachResult;
+      setOutreachResult(result);
+      setEnrichment(result.enrichment);
+      setResolvedOwner(result.enrichment.owner.fullName);
+      setContactRole(
+        result.enrichment.owner.contactRole ?? (lead?.ownerOccupied ? "owner" : "resident"),
+      );
     } catch (err) {
-      setChatError(err instanceof Error ? err.message : "Owner lookup failed");
+      setChatError(err instanceof Error ? err.message : "Pursue failed");
     } finally {
-      setOwnerLoading(false);
-      setPersonaLoading(false);
+      setPursueLoading(false);
     }
-  }, [leadConvexId, lookupOwnerName, generatePersona, clearChatHistory, sessionId, resolvedOwner, lead?.ownerOccupied]);
+  }, [leadConvexId, sessionId, orgId, userId, startOutreach, outreachRecord, outreachResult, lead?.ownerOccupied]);
 
-  const handleEnrich = useCallback(async () => {
-    if (!leadConvexId) return;
-    setContactLoading(true);
-    setChatError(null);
-    try {
-      const info = (await enrichContact({
-        sessionId,
-        leadId: leadConvexId,
-      })) as ContactInfo;
-      setContactInfo(info);
-    } catch (err) {
-      setChatError(err instanceof Error ? err.message : "Enrichment failed");
-    } finally {
-      setContactLoading(false);
-    }
-  }, [leadConvexId, enrichContact, sessionId]);
+  const handleLogTouch = useCallback(
+    async (touch: "touch1" | "touch2", channel?: OutreachChannel) => {
+      if (!leadConvexId || !sessionId) return;
+      await logTouchSent({ sessionId, leadId: leadConvexId, touch, channel });
+    },
+    [leadConvexId, sessionId, logTouchSent],
+  );
 
   if (!lead) return null;
 
@@ -170,6 +214,13 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
   const personaParagraphList = personaParagraphs(persona);
   const coldApproach = personaColdApproach(persona);
   const objections = personaObjections(persona);
+  const contact = enrichment?.contact;
+  const parcelLabel =
+    enrichment?.assessorParcel?.parcelNumber ??
+    lead.parcelNumber ??
+    (lead.assessorBlock && lead.assessorLot
+      ? `${lead.assessorBlock}-${lead.assessorLot}`
+      : null);
 
   const panelTopClass = navVisible
     ? "top-[var(--quest-header-height)] h-[calc(100dvh-var(--quest-header-height))]"
@@ -186,16 +237,14 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
         aria-label="Close panel"
       />
       <aside
-        className={`fixed right-0 z-40 flex w-full max-w-md flex-col border-l border-amber-200/60 bg-[#fff9f0] shadow-2xl transition-[top,height] duration-200 ${panelTopClass}`}
+        className={`game-quest-panel fixed right-0 z-40 flex w-full max-w-md flex-col transition-[top,height] duration-200 ${panelTopClass}`}
         role="dialog"
         aria-labelledby="lead-panel-title"
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-amber-200/60 bg-[#f5e6c8] px-4 py-3">
+        <div className="game-quest-header flex shrink-0 items-center justify-between px-4 py-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-amber-800/70">
-              Bounty Details
-            </p>
-            <h2 id="lead-panel-title" className="text-lg font-bold text-amber-950">
+            <p className="game-quest-label">Quest log</p>
+            <h2 id="lead-panel-title" className="game-title text-lg">
               {lead.address}
             </h2>
           </div>
@@ -209,8 +258,8 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          <section className="rounded-xl border border-amber-200/80 bg-white p-4 shadow-sm">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <section className="game-quest-section">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-semibold text-amber-950">Match Score</span>
               <span className="text-sm font-bold" style={{ color: barColor }}>
@@ -224,11 +273,23 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
               />
             </div>
             {lead.urgent && (
-              <p className="mt-3 text-sm font-semibold text-red-600">! Urgent lead</p>
+              <p className="mt-3 text-sm font-semibold text-red-600">! High-priority outreach</p>
+            )}
+            {lead.needScore != null && lead.timingScore != null && (
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg bg-amber-50 px-2 py-1.5">
+                  <span className="text-amber-800/70">Need</span>
+                  <p className="font-bold text-amber-950">{Math.round(lead.needScore * 100)}/100</p>
+                </div>
+                <div className="rounded-lg bg-amber-50 px-2 py-1.5">
+                  <span className="text-amber-800/70">Timing</span>
+                  <p className="font-bold text-amber-950">{Math.round(lead.timingScore * 100)}/100</p>
+                </div>
+              </div>
             )}
             {lead.distanceMiles != null && (
               <p className="mt-2 text-xs text-amber-800/70">
-                {lead.distanceMiles.toFixed(1)} mi from your business
+                {lead.distanceMiles.toFixed(1)} mi from your office (display only)
               </p>
             )}
             {lead.scoreReasons && lead.scoreReasons.length > 0 && (
@@ -240,11 +301,39 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
             )}
           </section>
 
-          <section className="rounded-xl border border-amber-200/80 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-amber-800/70">
-              Property Signals
+          <section className="game-quest-section">
+            <h3 className="game-quest-label mb-3">
+              Coverage Signals
             </h3>
             <dl className="space-y-2 text-sm">
+              {lead.replacementCostToday != null && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-amber-900/70">Rebuild cost today</dt>
+                  <dd className="font-semibold">{formatCurrency(lead.replacementCostToday)}</dd>
+                </div>
+              )}
+              {lead.coverageAnchor != null && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-amber-900/70">Likely coverage anchor</dt>
+                  <dd className="font-semibold">{formatCurrency(lead.coverageAnchor)}</dd>
+                </div>
+              )}
+              {lead.replacementCostGapDollars != null && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-amber-900/70">Coverage gap</dt>
+                  <dd className="font-semibold text-red-700">
+                    {formatCurrency(lead.replacementCostGapDollars)}
+                    {lead.replacementCostGapPct != null &&
+                      ` (${Math.round(lead.replacementCostGapPct * 100)}%)`}
+                  </dd>
+                </div>
+              )}
+              {lead.sqft != null && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-amber-900/70">Sq ft</dt>
+                  <dd className="font-semibold">{lead.sqft.toLocaleString()}</dd>
+                </div>
+              )}
               <div className="flex justify-between gap-4">
                 <dt className="text-amber-900/70">Home age</dt>
                 <dd className="font-semibold">{lead.homeAgeYears} years</dd>
@@ -255,18 +344,32 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
                   {lead.ownerOccupied ? "Owner-occupied" : "Renter / unknown"}
                 </dd>
               </div>
-              {lead.assessedValue != null && (
+              {lead.yearsOwned != null && lead.purchaseYear != null && (
                 <div className="flex justify-between gap-4">
-                  <dt className="text-amber-900/70">Assessed value</dt>
-                  <dd className="font-semibold">{formatCurrency(lead.assessedValue)}</dd>
+                  <dt className="text-amber-900/70">Tenure</dt>
+                  <dd className="font-semibold">
+                    Since {lead.purchaseYear} ({lead.yearsOwned} yrs)
+                  </dd>
+                </div>
+              )}
+              {lead.timingConfidence && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-amber-900/70">Timing confidence</dt>
+                  <dd className="font-semibold capitalize">{lead.timingConfidence}</dd>
+                </div>
+              )}
+              {lead.neighborhood && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-amber-900/70">Neighborhood</dt>
+                  <dd className="font-semibold">{lead.neighborhood}</dd>
                 </div>
               )}
             </dl>
           </section>
 
-          <section className="rounded-xl border border-amber-200/80 bg-white p-4 shadow-sm">
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-amber-800/70">
-              Household Cluster
+          <section className="game-quest-section">
+            <h3 className="game-quest-label mb-2">
+              Household Profile
             </h3>
             <p className="text-sm font-semibold text-amber-950">{lead.cluster}</p>
             <p className="mt-2 text-sm leading-relaxed text-amber-900/85">
@@ -280,8 +383,8 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
               personaParagraphList.length === 0 &&
               !coldApproach && (
                 <p className="mt-3 text-sm leading-relaxed text-amber-900/70">
-                  Persona loads from cluster, assessed value, tenure, and permit urgency — not a
-                  one-size template.
+                  Persona loads from coverage gap, tenure, and timing signals — not a one-size
+                  template.
                 </p>
               )}
             {personaParagraphList.map((paragraph) => (
@@ -295,7 +398,7 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
             {coldApproach && (
               <div className="mt-3 border-t border-amber-100 pt-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/60">
-                  If you knock today
+                  If you reach out today
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-amber-900/90">{coldApproach}</p>
               </div>
@@ -312,18 +415,20 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
                 </ul>
               </div>
             )}
-            {persona?.preferred_contractor_channel && (
+            {(persona?.preferred_contact_channel || persona?.preferred_contractor_channel) && (
               <p className="mt-3 text-xs text-amber-800/70">
                 Preferred channel:{" "}
                 <span className="font-semibold text-amber-950">
-                  {asDisplayText(persona.preferred_contractor_channel)}
+                  {asDisplayText(
+                    persona.preferred_contact_channel ?? persona.preferred_contractor_channel,
+                  )}
                 </span>
               </p>
             )}
           </section>
 
-          <section className="rounded-xl border border-amber-200/80 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-amber-800/70">
+          <section className="game-quest-section">
+            <h3 className="game-quest-label mb-3">
               Persona Chat
             </h3>
             <div
@@ -367,14 +472,14 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
                     void handleSend();
                   }
                 }}
-                placeholder="What objections might they have?"
+                placeholder="What coverage concerns might they raise?"
                 className="flex-1 rounded-lg border border-amber-200 px-3 py-2 text-sm outline-none focus:border-amber-500"
               />
               <button
                 type="button"
                 onClick={() => void handleSend()}
                 disabled={chatLoading || !message.trim()}
-                className="rounded-lg bg-amber-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                className="game-btn game-btn-primary px-3 py-2 text-xs disabled:opacity-50"
               >
                 Send
               </button>
@@ -382,83 +487,168 @@ export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSide
           </section>
         </div>
 
-        <div className="border-t border-amber-200/60 bg-[#f5e6c8]/50 p-5 space-y-3">
-          <div className="rounded-lg bg-white/80 p-3 text-sm text-amber-950">
-            <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/60">
-              Contact at this address
-            </p>
-            {resolvedOwner ? (
-              <div>
-                <p className="mt-1 font-semibold">{resolvedOwner}</p>
-                <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-amber-800/70">
-                  {contactRole === "resident"
-                    ? "Likely resident · may not be title holder"
-                    : contactRole === "owner"
-                      ? "Likely homeowner"
-                      : "Role unverified"}
-                </p>
-                <p className="mt-1 text-[10px] text-amber-800/60">
-                  Persona and chat use this name. Re-lookup refreshes from web research.
-                </p>
-              </div>
-            ) : (
-              <p className="mt-1 text-xs text-amber-800/70">
-                {lead?.ownerOccupied === false
-                  ? "This property looks like a rental — lookup finds who likely lives here, not necessarily the title holder."
-                  : "Resolve the contact name before contact lookup (Exa + web search, then Orange Slice)."}
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={() => void handleLookupOwner()}
-              disabled={ownerLoading}
-              className="mt-2 w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-60"
-            >
-              {ownerLoading
-                ? "Looking up…"
-                : resolvedOwner
-                  ? "Re-lookup contact"
-                  : "Look up who lives here"}
-            </button>
-          </div>
-
+        {OUTREACH_ENABLED && (
+        <div className="game-quest-footer border-t border-amber-200/60 p-5 space-y-3">
           <button
             type="button"
-            onClick={() => void handleEnrich()}
-            disabled={contactLoading}
-            className="w-full rounded-xl bg-amber-900 px-4 py-3 text-sm font-bold text-amber-50 hover:bg-amber-800 disabled:opacity-60"
+            onClick={() => void handlePursue()}
+            disabled={pursueLoading}
+            className="game-btn game-btn-primary w-full py-3.5 text-sm disabled:opacity-60"
           >
-            {contactLoading ? "Looking up contact…" : "Get contact info"}
+            {pursueLoading
+              ? "Pursuing — lookup, enrich, queue…"
+              : outreachRecord || outreachResult
+                ? "Re-pursue lead"
+                : "Pursue lead"}
           </button>
-          {contactInfo && (
-            <div className="rounded-lg bg-white p-3 text-sm text-amber-950">
-              <p className="font-semibold">{contactInfo.name}</p>
-              <p>{contactInfo.phone}</p>
-              <p>{contactInfo.email}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {contactInfo.phone && contactInfo.phone !== "Not found" && (
-                  <a
-                    href={`tel:${contactInfo.phone.replace(/[^\d+]/g, "")}`}
-                    className="rounded-lg bg-amber-800 px-3 py-2 text-xs font-bold text-white hover:bg-amber-700"
-                  >
-                    Call
-                  </a>
+
+          {(enrichment || outreachResult) && contact && (
+            <div className="rounded-lg bg-white p-3 text-sm text-amber-950 space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/60">
+                  Contact
+                </p>
+                <p className="mt-1 font-semibold">{resolvedOwner ?? enrichment?.owner.fullName}</p>
+                {lead.recordedOwnerFullName && (
+                  <p className="mt-1 text-[10px] font-medium text-green-800">
+                    Assessor-recorded owner
+                  </p>
                 )}
-                {contactInfo.email && contactInfo.email !== "Not found" && (
+                {enrichment?.owner.source === "datasf_parcel_only" && (
+                  <p className="mt-1 text-[10px] text-amber-800/70">
+                    DataSF has parcel data only — no owner names online (CA law). Orange Slice sheet
+                    will run contact waterfall; load assessor roll for real names.
+                  </p>
+                )}
+              </div>
+              {parcelLabel && (
+                <p className="text-[10px] text-amber-800/70">Parcel {parcelLabel}</p>
+              )}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/60">
+                  Channels
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {(["email", "phone", "linkedin", "mail", "d2d"] as OutreachChannel[]).map(
+                    (ch) => (
+                      <span
+                        key={ch}
+                        className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                          contact.channels.includes(ch)
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-100 text-gray-400 line-through"
+                        }`}
+                      >
+                        {CHANNEL_LABELS[ch]}
+                      </span>
+                    ),
+                  )}
+                </div>
+              </div>
+              {contact.emails.length > 0 && (
+                <div>
+                  <p className="text-xs text-amber-800/70">Email</p>
+                  {contact.emails.map((e) => (
+                    <p key={e} className="font-medium">{e}</p>
+                  ))}
+                </div>
+              )}
+              {contact.phones.length > 0 && (
+                <div>
+                  <p className="text-xs text-amber-800/70">Phone</p>
+                  {contact.phones.map((p) => (
+                    <p key={p} className="font-medium">{p}</p>
+                  ))}
+                </div>
+              )}
+              {enrichment?.playbook && (
+                <p className="text-xs leading-relaxed text-amber-900/85">{enrichment.playbook}</p>
+              )}
+            </div>
+          )}
+
+          {(outreachRecord || outreachResult) && (
+            <div className="rounded-lg border border-amber-300/80 bg-white/90 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-green-800">
+                  {OUTREACH_STATUS_LABELS[
+                    outreachResult?.status ?? outreachRecord?.status ?? "queued"
+                  ] ?? "Queued"}
+                </p>
+                {(outreachConfig?.sheetUrl ||
+                  process.env.NEXT_PUBLIC_ORANGE_SLICE_SHEET_URL) && (
                   <a
-                    href={`mailto:${encodeURIComponent(contactInfo.email)}?subject=${encodeURIComponent(`Inquiry about ${lead.address}`)}`}
-                    className="rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100"
+                    href={
+                      outreachConfig?.sheetUrl ??
+                      process.env.NEXT_PUBLIC_ORANGE_SLICE_SHEET_URL
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] font-semibold text-blue-700 hover:underline"
                   >
-                    Email
+                    Open Orange Slice sheet
                   </a>
                 )}
               </div>
-              <p className="mt-2 text-[10px] text-amber-800/60">
-                Enriched via Orange Slice contact waterfall
-              </p>
+
+              <div className="rounded-md bg-amber-50/80 p-2.5 text-[10px] leading-relaxed text-amber-950">
+                <p className="font-bold uppercase tracking-wide text-amber-800/80">
+                  Next in Orange Slice
+                </p>
+                {outreachConfig?.sheetWebhookConfigured ? (
+                  <ol className="mt-1.5 list-decimal space-y-1 pl-4">
+                    <li>Row auto-pushed to sheet on Pursue</li>
+                    <li>
+                      Run <strong>Find contact</strong> then <strong>Send touch 1</strong>
+                    </li>
+                    <li>Status syncs back when Gmail sends</li>
+                  </ol>
+                ) : (
+                  <ol className="mt-1.5 list-decimal space-y-1 pl-4">
+                    <li>
+                      In Orange Slice: add <strong>Import from webhook</strong>, copy the webhook URL
+                    </li>
+                    <li>
+                      Run{" "}
+                      <code className="rounded bg-white px-1">
+                        ./scripts/configure-orangeslice-autopush.sh &lt;url&gt;
+                      </code>
+                    </li>
+                    <li>Re-pursue — rows will auto-push</li>
+                  </ol>
+                )}
+              </div>
+
+              {outreachResult?.touch1 && (
+                <div className="border-t border-amber-100 pt-2 space-y-2">
+                  <p className="text-[10px] font-semibold uppercase text-amber-800/60">
+                    Touch 1 ready
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {outreachResult.touch1.mailto && (
+                      <a
+                        href={outreachResult.touch1.mailto}
+                        onClick={() => void handleLogTouch("touch1", "email")}
+                        className="rounded-lg bg-amber-900 px-3 py-2 text-xs font-bold text-white"
+                      >
+                        Send email
+                      </a>
+                    )}
+                    {contact?.phones[0] && (
+                      <a
+                        href={`tel:${contact.phones[0].replace(/[^\d+]/g, "")}`}
+                        className="rounded-lg border border-amber-400 px-3 py-2 text-xs font-bold text-amber-900"
+                      >
+                        Call
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
+        )}
       </aside>
     </>
   );

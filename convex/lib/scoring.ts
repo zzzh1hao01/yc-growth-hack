@@ -1,172 +1,136 @@
-import { haversineMiles, proximityMultiplier } from "./geo";
+import { haversineMiles } from "./geo";
 
-export type ScoreVertical = "hvac" | "panel" | "ev";
+export type TimingConfidence = "high" | "low" | "none";
 
-export type VerticalScoreEntry = {
-  score: number;
-  urgency_flag: boolean;
-  last_relevant_permit_date?: string | null;
-  reasons: string[];
+/** Insurance agent profile extracted at onboarding. */
+export type AgentProfile = {
+  lines_of_business: string[];
+  price_point: string;
+  customer_preferences: string;
 };
 
+/** @deprecated Alias for outreach pipeline compatibility. */
 export type ServiceProfile = {
   service_types: string[];
   price_point: string;
   customer_preferences: string;
 };
 
-const CLUSTER_LABELS = [
-  "Long-time high-income owner",
-  "Long-time budget-conscious owner",
-  "Recent buyer",
-  "Older retired homeowner",
-  "Mid-income working family",
-  "Mixed / unclassified",
-];
-
-const CLUSTER_NARRATIVES: Record<number, string> = {
-  0: "Established homeowner with strong equity and likely capacity for premium upgrades. They tend to value quality workmanship and may prefer referrals over cold outreach.",
-  1: "Cost-conscious long-term owner who weighs price carefully but still invests when systems fail. Clear ROI and financing options often matter more than brand prestige.",
-  2: "Recently purchased and still settling in — often open to upgrades they inherited from the prior owner, especially HVAC, panel, or EV readiness.",
-  3: "Older retired household that may defer non-urgent work but responds to safety, comfort, and reliability framing rather than upsell pressure.",
-  4: "Working-family household balancing household budget with practical repairs. They respond to transparent pricing and scheduling flexibility.",
-  5: "Mixed signals from available data — treat as a general residential lead and qualify budget and urgency in the first conversation.",
+export type InsuranceLeadDoc = {
+  _id: string;
+  householdId: string;
+  address: string;
+  lat: number;
+  lng: number;
+  neighborhood: string;
+  yearBuilt?: number;
+  sqft: number;
+  ownerOccupied: boolean;
+  replacementCostToday: number;
+  coverageAnchor: number;
+  replacementCostGapDollars: number;
+  replacementCostGapPct: number;
+  needScore: number;
+  timingScore: number;
+  timingConfidence: TimingConfidence;
+  compositeScore: number;
+  worthOutreach: boolean;
+  purchaseYear?: number;
+  yearsOwned?: number;
+  spriteVariant: number;
+  ownerFullName?: string;
+  ownerFirstName?: string;
+  ownerLastName?: string;
+  ownerContactRole?: "owner" | "resident" | "unknown";
+  recordedOwnerFullName?: string;
+  assessorBlock?: string;
+  assessorLot?: string;
+  parcelNumber?: string;
+  archetype?: string;
+  acsReceptivityScore?: number;
+  financialSophistication?: number;
+  inertiaScore?: number;
+  coverageStakes?: number;
 };
 
-/** Fixed canvassing radius (mi) — avoids inflating scores when all leads are far away. */
-const SERVICE_RADIUS_MILES = 2.5;
-
-export function clusterLabel(clusterId: number): string {
-  return CLUSTER_LABELS[clusterId] ?? CLUSTER_LABELS[5];
-}
-
-export function clusterNarrative(clusterId: number): string {
-  return CLUSTER_NARRATIVES[clusterId] ?? CLUSTER_NARRATIVES[5];
-}
-
-export function pickVertical(serviceProfile?: ServiceProfile | null): ScoreVertical {
-  const types = serviceProfile?.service_types ?? ["hvac"];
-  const normalized = types.map((t) => t.toLowerCase());
-  if (normalized.some((t) => t.includes("hvac") || t.includes("mechanical"))) {
-    return "hvac";
-  }
-  if (normalized.some((t) => t.includes("ev") || t.includes("charger"))) {
-    return "ev";
-  }
-  if (
-    normalized.some(
-      (t) => t.includes("electrical") || t.includes("panel") || t.includes("electric"),
-    )
-  ) {
-    return "panel";
-  }
-  return "hvac";
-}
-
-export function yearsSince(dateStr: string | null | undefined): number | null {
-  if (!dateStr) return null;
-  const year = parseInt(dateStr.slice(0, 4), 10);
-  if (Number.isNaN(year)) return null;
-  return new Date().getFullYear() - year;
-}
-
-export function homeAgeYears(yearBuilt: number): number {
+export function homeAgeYears(yearBuilt?: number): number {
   if (!yearBuilt || yearBuilt <= 0) return 0;
   return new Date().getFullYear() - yearBuilt;
 }
 
-function priceTierFitMultiplier(
-  assessedValue: number,
-  pricePoint?: string,
-): number {
-  if (!pricePoint) return 1;
-  if (pricePoint === "high" && assessedValue >= 1_400_000) return 1.08;
-  if (pricePoint === "mid" && assessedValue >= 700_000 && assessedValue < 1_800_000) {
-    return 1.05;
+export function buildScoreReasons(doc: InsuranceLeadDoc): string[] {
+  const reasons: string[] = [];
+  const gapPct = Math.round(doc.replacementCostGapPct * 100);
+  reasons.push(
+    `${gapPct}% underinsured vs rebuild cost (${formatGapDollars(doc.replacementCostGapDollars)} gap)`,
+  );
+  if (doc.yearsOwned != null && doc.purchaseYear != null) {
+    reasons.push(`Owned since ${doc.purchaseYear} (${doc.yearsOwned} years)`);
+  } else if (doc.timingConfidence === "low") {
+    reasons.push("Tenure estimated — no sale date on assessor record");
   }
-  if (pricePoint === "low" && assessedValue < 900_000) return 1.05;
-  if (pricePoint === "high" && assessedValue < 700_000) return 0.92;
-  return 1;
+  reasons.push(
+    `Need ${Math.round(doc.needScore * 100)}/100 · Timing ${Math.round(doc.timingScore * 100)}/100`,
+  );
+  if (doc.worthOutreach) {
+    reasons.push("High-priority outreach candidate");
+  }
+  return reasons;
 }
 
-/**
- * Revised composite score vs. prior system:
- * - Fixed 2.5mi proximity (was dataset-relative max distance → compressed scores)
- * - Owner-occupied boost / renter penalty
- * - Urgency, recent mover, old-home, and price-tier fit multipliers
- */
-export function computeCompositeScore(
-  baseScore: number,
-  vs: VerticalScoreEntry | undefined,
-  doc: {
-    ownerOccupied: boolean;
-    assessedValue: number;
-    lastSaleDate?: string;
-    yearBuilt: number;
-  },
-  distanceMiles: number | undefined,
-  serviceProfile?: ServiceProfile | null,
-): number {
-  let score = baseScore;
+function formatGapDollars(n: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
 
-  if (doc.ownerOccupied) score *= 1.18;
-  else score *= 0.55;
-
-  if (vs?.urgency_flag) score *= 1.15;
-
-  const saleYears = yearsSince(doc.lastSaleDate);
-  if (saleYears != null && saleYears <= 4) score *= 1.1;
-
-  const age = homeAgeYears(doc.yearBuilt);
-  if (age >= 45) score *= 1.06;
-
-  score *= priceTierFitMultiplier(doc.assessedValue, serviceProfile?.price_point);
-
-  if (distanceMiles != null) {
-    score *= proximityMultiplier(distanceMiles, SERVICE_RADIUS_MILES);
+export function insuranceSegmentLabel(doc: InsuranceLeadDoc): string {
+  if (doc.worthOutreach && doc.needScore >= 0.85) {
+    return "Severely underinsured long-term owner";
   }
+  if (
+    doc.timingConfidence === "high" &&
+    doc.yearsOwned != null &&
+    doc.yearsOwned <= 5
+  ) {
+    return "Recent buyer — coverage set at purchase may lag rebuild cost";
+  }
+  if (doc.replacementCostGapPct >= 0.35) {
+    return "Coverage drift — rebuild cost outpacing carrier inflation guard";
+  }
+  if (doc.timingScore >= 0.5) {
+    return "Renewal window — timing signal elevated";
+  }
+  return "Moderate coverage gap — policy review candidate";
+}
 
-  return Math.min(1, Math.max(0, score));
+export function insuranceSegmentNarrative(doc: InsuranceLeadDoc): string {
+  const gapPct = Math.round(doc.replacementCostGapPct * 100);
+  if (doc.worthOutreach) {
+    return `Likely carrying Coverage A well below today's ${formatGapDollars(doc.replacementCostToday)} rebuild estimate — a common pattern for long-held SF homes where construction inflation outpaces carrier inflation guards.`;
+  }
+  if (doc.timingConfidence === "high" && doc.yearsOwned != null && doc.yearsOwned <= 3) {
+    return "Recently purchased — may still be on prior-owner coverage limits or a bundled policy that hasn't been stress-tested against SF rebuild costs.";
+  }
+  if (gapPct >= 25) {
+    return `Estimated ${gapPct}% shortfall between likely Coverage A and replacement cost. May not realize the gap until a claim or renewal quote surfaces it.`;
+  }
+  return "Moderate underinsurance signals — may respond to a no-pressure coverage review framed around rebuild cost, not upselling.";
 }
 
 export function toLeadView(
-  doc: {
-    _id: string;
-    householdId: string;
-    address: string;
-    lat: number;
-    lng: number;
-    yearBuilt: number;
-    ownerOccupied: boolean;
-    assessedValue: number;
-    lastSaleDate?: string;
-    clusterId: number;
-    verticalScores: Record<string, VerticalScoreEntry>;
-    spriteVariant: number;
-  },
-  vertical: ScoreVertical,
-  contractorLat?: number,
-  contractorLng?: number,
-  serviceProfile?: ServiceProfile | null,
-  neighborhood?: string,
+  doc: InsuranceLeadDoc,
+  agentLat?: number,
+  agentLng?: number,
 ) {
-  const vs = doc.verticalScores[vertical] ?? doc.verticalScores.hvac;
-  const baseScore = vs?.score ?? 0;
+  const matchScore = Math.round(doc.compositeScore * 100);
   let distanceMiles: number | undefined;
 
-  if (contractorLat != null && contractorLng != null) {
-    distanceMiles = haversineMiles(contractorLat, contractorLng, doc.lat, doc.lng);
+  if (agentLat != null && agentLng != null) {
+    distanceMiles = haversineMiles(agentLat, agentLng, doc.lat, doc.lng);
   }
-
-  const compositeScore = computeCompositeScore(
-    baseScore,
-    vs,
-    doc,
-    distanceMiles,
-    serviceProfile,
-  );
-
-  const matchScore = Math.round(compositeScore * 100);
 
   return {
     id: doc.householdId,
@@ -174,70 +138,60 @@ export function toLeadView(
     address: doc.address,
     lat: doc.lat,
     lng: doc.lng,
-    neighborhood,
+    neighborhood: doc.neighborhood,
     matchScore,
-    baseScore,
-    compositeScore,
-    urgent: vs?.urgency_flag ?? false,
+    compositeScore: doc.compositeScore,
+    needScore: doc.needScore,
+    timingScore: doc.timingScore,
+    timingConfidence: doc.timingConfidence,
+    urgent: doc.worthOutreach,
+    worthOutreach: doc.worthOutreach,
     spriteVariant: doc.spriteVariant as 0 | 1 | 2 | 3,
-    permitAgeYears: yearsSince(vs?.last_relevant_permit_date) ?? 99,
-    lastPermitDate: vs?.last_relevant_permit_date ?? undefined,
     homeAgeYears: homeAgeYears(doc.yearBuilt),
     ownerOccupied: doc.ownerOccupied,
-    assessedValue: doc.assessedValue,
-    lastSaleDate: doc.lastSaleDate,
-    clusterId: String(doc.clusterId),
-    cluster: clusterLabel(doc.clusterId),
-    clusterNarrative: clusterNarrative(doc.clusterId),
-    vertical,
-    verticalScores: doc.verticalScores,
-    scoreReasons: vs?.reasons ?? [],
-    distanceMiles,
+    replacementCostToday: doc.replacementCostToday,
+    coverageAnchor: doc.coverageAnchor,
+    replacementCostGapDollars: doc.replacementCostGapDollars,
+    replacementCostGapPct: doc.replacementCostGapPct,
+    sqft: doc.sqft,
+    purchaseYear: doc.purchaseYear,
+    yearsOwned: doc.yearsOwned,
     yearBuilt: doc.yearBuilt,
+    scoreReasons: buildScoreReasons(doc),
+    cluster: insuranceSegmentLabel(doc),
+    clusterNarrative: insuranceSegmentNarrative(doc),
+    distanceMiles,
     dataSource: "etl" as const,
-    ownerFullName: (doc as { ownerFullName?: string }).ownerFullName,
-    ownerFirstName: (doc as { ownerFirstName?: string }).ownerFirstName,
-    ownerLastName: (doc as { ownerLastName?: string }).ownerLastName,
-    ownerContactRole: (doc as { ownerContactRole?: "owner" | "resident" | "unknown" })
-      .ownerContactRole,
+    ownerFullName: doc.ownerFullName,
+    ownerFirstName: doc.ownerFirstName,
+    ownerLastName: doc.ownerLastName,
+    ownerContactRole: doc.ownerContactRole,
+    recordedOwnerFullName: doc.recordedOwnerFullName,
+    assessorBlock: doc.assessorBlock,
+    assessorLot: doc.assessorLot,
+    parcelNumber: doc.parcelNumber,
+    archetype: doc.archetype,
+    acsReceptivityScore: doc.acsReceptivityScore,
+    financialSophistication: doc.financialSophistication,
+    inertiaScore: doc.inertiaScore,
+    coverageStakes: doc.coverageStakes,
   };
 }
 
-export function rankLeads<
-  T extends {
-    lat: number;
-    lng: number;
-    verticalScores: Record<string, VerticalScoreEntry>;
-    householdId: string;
-    address: string;
-    yearBuilt: number;
-    ownerOccupied: boolean;
-    assessedValue: number;
-    lastSaleDate?: string;
-    clusterId: number;
-    spriteVariant: number;
-    _id: string;
-  },
->(
-  docs: T[],
-  vertical: ScoreVertical,
-  contractorLat?: number,
-  contractorLng?: number,
-  serviceProfile?: ServiceProfile | null,
-  neighborhoodFor?: (doc: T) => string | undefined,
-) {
+export function rankInsuranceLeads<
+  T extends InsuranceLeadDoc,
+>(docs: T[], agentLat?: number, agentLng?: number) {
   return docs
-    .map((doc) =>
-      toLeadView(
-        doc,
-        vertical,
-        contractorLat,
-        contractorLng,
-        serviceProfile,
-        neighborhoodFor?.(doc),
-      ),
-    )
-    .sort((a, b) => b.compositeScore - a.compositeScore);
+    .map((doc) => toLeadView(doc, agentLat, agentLng))
+    .sort((a, b) => {
+      if (b.compositeScore! - a.compositeScore! !== 0) {
+        return b.compositeScore! - a.compositeScore!;
+      }
+      if (b.needScore! - a.needScore! !== 0) {
+        return b.needScore! - a.needScore!;
+      }
+      return b.timingScore! - a.timingScore!;
+    });
 }
 
 function hashString(input: string): number {
@@ -263,44 +217,188 @@ function seededShuffle<T>(items: T[], seed: number): T[] {
   return arr;
 }
 
-/** Demo board: balanced hot / warm / cold sample, max 30 pins. */
-export function demoSampleLeads<
-  T extends { matchScore: number; id: string },
->(ranked: T[], sessionId: string, cap = 30): T[] {
-  const hot = ranked.filter((l) => l.matchScore >= 70);
-  const warm = ranked.filter((l) => l.matchScore >= 40 && l.matchScore < 70);
-  const cold = ranked.filter((l) => l.matchScore < 40);
+/** Map board: up to `cap` pins spread evenly across SF grid cells (citywide, not neighborhood clusters). */
+export function citywideMapSample<
+  T extends {
+    id: string;
+    lat: number;
+    lng: number;
+    matchScore: number;
+  },
+>(ranked: T[], sessionId: string, cap = 400): T[] {
+  if (ranked.length <= cap) return ranked;
 
-  const perTier = Math.floor(cap / 3);
-  const seed = hashString(sessionId || "demo");
-
-  const pick = (pool: T[], n: number, offset: number) =>
-    seededShuffle(pool, seed + offset).slice(0, n);
-
-  const used = new Set<string>();
-  const take = (pool: T[], n: number, offset: number) => {
-    const chosen = pick(
-      pool.filter((l) => !used.has(l.id)),
-      n,
-      offset,
-    );
-    for (const lead of chosen) used.add(lead.id);
-    return chosen;
+  const SF_BOUNDS = {
+    south: 37.708,
+    north: 37.832,
+    west: -122.515,
+    east: -122.355,
   };
 
-  let sample = [
-    ...take(hot, perTier, 0),
-    ...take(warm, perTier, 1),
-    ...take(cold, perTier, 2),
-  ];
+  const gridSize = Math.max(8, Math.round(Math.sqrt(cap)));
+  const seed = hashString(sessionId || "demo");
+
+  const cellKey = (lat: number, lng: number) => {
+    const latSpan = SF_BOUNDS.north - SF_BOUNDS.south;
+    const lngSpan = SF_BOUNDS.east - SF_BOUNDS.west;
+    const row = Math.min(
+      gridSize - 1,
+      Math.max(0, Math.floor(((lat - SF_BOUNDS.south) / latSpan) * gridSize)),
+    );
+    const col = Math.min(
+      gridSize - 1,
+      Math.max(0, Math.floor(((lng - SF_BOUNDS.west) / lngSpan) * gridSize)),
+    );
+    return `${row}:${col}`;
+  };
+
+  const byCell = new Map<string, T[]>();
+  for (const lead of ranked) {
+    const key = cellKey(lead.lat, lead.lng);
+    const bucket = byCell.get(key);
+    if (bucket) bucket.push(lead);
+    else byCell.set(key, [lead]);
+  }
+
+  const cells = [...byCell.keys()].sort();
+  const used = new Set<string>();
+  const sample: T[] = [];
+
+  const takeFromPool = (pool: T[], n: number, salt: number) => {
+    if (n <= 0) return;
+    const available = pool.filter((l) => !used.has(l.id));
+    const chosen = seededShuffle(available, seed + salt).slice(0, n);
+    for (const lead of chosen) {
+      used.add(lead.id);
+      sample.push(lead);
+    }
+  };
+
+  let baseQuota = Math.floor(cap / cells.length);
+  let remainder = cap - baseQuota * cells.length;
+
+  for (let i = 0; i < cells.length; i += 1) {
+    const quota = baseQuota + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
+
+    const pool = [...byCell.get(cells[i])!].sort(
+      (a, b) => b.matchScore - a.matchScore,
+    );
+    takeFromPool(pool, quota, i * 17 + 3);
+  }
 
   if (sample.length < cap) {
     const rest = seededShuffle(
       ranked.filter((l) => !used.has(l.id)),
-      seed + 4,
+      seed + 9999,
     );
-    sample = [...sample, ...rest.slice(0, cap - sample.length)];
+    for (const lead of rest) {
+      if (sample.length >= cap) break;
+      used.add(lead.id);
+      sample.push(lead);
+    }
   }
 
   return sample.slice(0, cap);
+}
+
+/** @deprecated Use citywideMapSample — neighborhood stratification clusters pins on the west side. */
+export function demoSampleLeads<
+  T extends {
+    matchScore: number;
+    id: string;
+    neighborhood?: string;
+  },
+>(ranked: T[], sessionId: string, cap = 400): T[] {
+  if (ranked.length <= cap) return ranked;
+
+  const seed = hashString(sessionId || "demo");
+  const byNeighborhood = new Map<string, T[]>();
+
+  for (const lead of ranked) {
+    const nb = lead.neighborhood ?? "Unknown";
+    const bucket = byNeighborhood.get(nb);
+    if (bucket) bucket.push(lead);
+    else byNeighborhood.set(nb, [lead]);
+  }
+
+  const neighborhoods = [...byNeighborhood.keys()].sort();
+  const baseQuota = Math.floor(cap / neighborhoods.length);
+  let remainder = cap - baseQuota * neighborhoods.length;
+
+  const used = new Set<string>();
+  const sample: T[] = [];
+
+  const takeFromPool = (pool: T[], n: number, salt: number) => {
+    if (n <= 0) return;
+    const available = pool.filter((l) => !used.has(l.id));
+    const chosen = seededShuffle(available, seed + salt).slice(0, n);
+    for (const lead of chosen) {
+      used.add(lead.id);
+      sample.push(lead);
+    }
+  };
+
+  for (let i = 0; i < neighborhoods.length; i += 1) {
+    const quota = baseQuota + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
+
+    const pool = byNeighborhood.get(neighborhoods[i])!;
+    const before = sample.length;
+    const hot = pool.filter((l) => l.matchScore >= 70);
+    const warm = pool.filter((l) => l.matchScore >= 40 && l.matchScore < 70);
+    const cold = pool.filter((l) => l.matchScore < 40);
+    const total = pool.length;
+
+    if (total === 0) continue;
+
+    let nHot = Math.round((quota * hot.length) / total);
+    let nWarm = Math.round((quota * warm.length) / total);
+    let nCold = quota - nHot - nWarm;
+
+    if (nCold < 0) {
+      nWarm = Math.max(0, nWarm + nCold);
+      nCold = 0;
+    }
+    if (nWarm < 0) {
+      nHot = Math.max(0, nHot + nWarm);
+      nWarm = 0;
+    }
+
+    takeFromPool(hot, nHot, i * 10 + 1);
+    takeFromPool(warm, nWarm, i * 10 + 2);
+    takeFromPool(cold, nCold, i * 10 + 3);
+
+    const shortfall = quota - (sample.length - before);
+    if (shortfall > 0) {
+      takeFromPool(pool, shortfall, i * 10 + 9);
+    }
+  }
+
+  if (sample.length < cap) {
+    const rest = seededShuffle(
+      ranked.filter((l) => !used.has(l.id)),
+      seed + 999,
+    );
+    for (const lead of rest) {
+      if (sample.length >= cap) break;
+      used.add(lead.id);
+      sample.push(lead);
+    }
+  }
+
+  return sample.slice(0, cap);
+}
+
+/** @deprecated Outreach pipeline only — not used for insurance ranking. */
+export function pickVertical(
+  serviceProfile?: ServiceProfile | AgentProfile | null,
+): "hvac" | "panel" | "ev" {
+  const types =
+    (serviceProfile as ServiceProfile | undefined)?.service_types ??
+    (serviceProfile as AgentProfile | undefined)?.lines_of_business ??
+    ["home"];
+  const normalized = types.map((t) => t.toLowerCase());
+  if (normalized.some((t) => t.includes("home"))) return "hvac";
+  return "hvac";
 }

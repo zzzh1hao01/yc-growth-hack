@@ -94,7 +94,7 @@ export function LeadSprite({ lead, x, y, selected, onSelect }: LeadSpriteProps) 
       }}
       aria-label={`Lead at ${lead.address}, score ${lead.matchScore}`}
     >
-      <div className="sprite-bob relative">
+      <div className={`sprite-bob relative ${tier === "hot" ? "sprite-hot-glow" : ""}`}>
         {lead.urgent && (
           <div className="urgent-badge absolute -top-1 left-1/2 z-30 flex h-3.5 w-3.5 -translate-x-1/2 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow">
             !

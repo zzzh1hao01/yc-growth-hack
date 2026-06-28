@@ -1,0 +1,161 @@
+Build the HouseholdIQ outbound pipeline in THIS spreadsheet. HouseholdIQ is a San Francisco home-service lead app. Contractors click "Pursue lead" on the map; rows queue in our backend until you import them here. This sheet is the system of record for contact enrichment + outbound email.
+
+IMPORTANT — Orange Slice built-ins only:
+- Use **Import from webhook** for auto-push on Pursue (primary).
+- Import from API is fallback only if webhook is unavailable.
+- Use enrichment columns for contact waterfall + LinkedIn.
+- Use Gmail integration column for touch 1 / touch 2.
+- Use HTTP POST column (or webhook action) to sync status back to HouseholdIQ.
+
+Replace YOUR_OUTREACH_WEBHOOK_SECRET with the value from Convex dashboard → Settings → Environment Variables → OUTREACH_WEBHOOK_SECRET.
+
+HouseholdIQ API (same secret on every call):
+- Base: https://watchful-condor-23.convex.site
+- Header: Authorization: Bearer YOUR_OUTREACH_WEBHOOK_SECRET
+- Content-Type: application/json (POST only)
+
+Endpoints:
+- GET  /orangeslice/import?limit=25  → { ok, count, data: [ flat rows ] } — auto-acks imported leads
+- POST /orangeslice/status            → body { household_id, status, event?, detail? }
+
+Valid status values: sheet_synced, touch1_ready, touch1_sent, touch2_sent, replied, meeting, won, lost, d2d_planned
+
+---
+
+STEP 1 — Create columns (exact snake_case names)
+
+Import / identity:
+household_id, convex_lead_id, session_id, address, city, state, parcel_number, recorded_owner_source
+
+Owner:
+owner_name, owner_first_name, owner_last_name
+
+Lead + contractor context:
+match_score, vertical, vertical_hook, persona_hook, contractor_name, contractor_business, playbook, channels, campaign_slug
+
+Contact (filled by app or enrichment):
+email, phone, linkedin_url
+
+Outbound copy (pre-written by HouseholdIQ — send as-is):
+touch1_subject, touch1_body, touch2_subject, touch2_body
+
+Pipeline:
+status, last_touch, activity_log
+
+---
+
+STEP 2 — Import from webhook (auto-push on Pursue)
+
+Create an **Import from webhook** column named "HouseholdIQ ingest".
+
+After Orange Slice shows the webhook URL, register it with HouseholdIQ by POST:
+POST https://watchful-condor-23.convex.site/orangeslice/configure-webhook
+Header: Authorization: Bearer YOUR_OUTREACH_WEBHOOK_SECRET
+Body: { "webhook_url": "<paste the Import from webhook URL here>" }
+
+Or run locally: ./scripts/configure-orangeslice-autopush.sh "<webhook url>"
+
+Once configured, every Pursue in HouseholdIQ POSTs a flat row to that URL automatically — no manual import.
+
+Map incoming JSON fields 1:1 to columns (same names as STEP 1). Dedupe on household_id.
+
+Set status = "sheet_synced" on new rows.
+
+---
+
+STEP 3 — (Fallback only) Import from API
+
+If webhook is unavailable, use Import from API:
+
+URL: https://watchful-condor-23.convex.site/orangeslice/import?limit=25
+Method: GET
+Header: Authorization: Bearer YOUR_OUTREACH_WEBHOOK_SECRET
+Rows JSON path: data
+
+Map each API field 1:1 to the column with the same name (all fields in STEP 1 that appear in the API response).
+
+Dedupe: skip or update rows where household_id already exists in the sheet.
+
+After import, set status = "sheet_synced" on newly imported rows.
+
+---
+
+STEP 3 — Enrichment column: "Find contact"
+
+For rows where email AND phone are both empty AND owner_first_name is not empty AND owner_last_name is not empty AND status is sheet_synced or queued:
+
+Run contact enrichment / contact waterfall with:
+- firstName = owner_first_name
+- lastName = owner_last_name
+- location = city + ", " + state  (San Francisco, CA)
+- company = address
+- required = email and phone
+- prefer personal contacts over work
+
+Write first valid personal email to email column.
+Write first valid personal phone to phone column.
+If still empty, try work email/phone.
+Append "contact_waterfall" to activity_log.
+
+Skip rows where owner_name is "Property Owner" or "Homeowner" with no real first/last — those need assessor roll data in HouseholdIQ first.
+
+---
+
+STEP 4 — Enrichment column: "Find LinkedIn"
+
+For rows where linkedin_url is empty and owner_name is a real person name (not "Property Owner"):
+
+Find LinkedIn profile URL using name = owner_name, location = "San Francisco, CA", keyword = address.
+Write URL to linkedin_url if found.
+Append "linkedin_found" to activity_log.
+
+---
+
+STEP 5 — Gmail column: "Send touch 1"
+
+For rows where:
+- email is not empty
+- touch1_subject and touch1_body are not empty
+- status is sheet_synced, touch1_ready, or queued
+- status is NOT already touch1_sent, touch2_sent, replied, meeting, won, or lost
+
+Send Gmail to email with subject = touch1_subject, body = touch1_body (do not rewrite).
+Set status = touch1_sent, last_touch = today, append "gmail_touch1" to activity_log.
+
+Then HTTP POST to https://watchful-condor-23.convex.site/orangeslice/status with:
+{ "household_id": "<household_id>", "status": "touch1_sent", "event": "gmail_touch1" }
+Same Authorization header.
+
+If email empty but phone exists: set status = touch1_ready, activity_log = "no_email_use_phone_or_linkedin".
+
+---
+
+STEP 6 — Gmail column: "Send touch 2" (optional follow-up)
+
+For rows where status = touch1_sent, email exists, touch2_subject/body exist, last_touch >= 3 days ago:
+Send Gmail with touch2_subject / touch2_body.
+Set status = touch2_sent, update last_touch.
+POST /orangeslice/status with { "household_id", "status": "touch2_sent", "event": "gmail_touch2" }.
+
+---
+
+STEP 7 — Manual status dropdown
+
+Dropdown on status: sheet_synced, touch1_ready, touch1_sent, touch2_sent, replied, meeting, won, lost, d2d_planned.
+On manual change, POST /orangeslice/status with { household_id, status, event: "manual_update" }.
+
+---
+
+Column run order:
+1. Import from HouseholdIQ (manual trigger after Pursue in app)
+2. Find contact
+3. Find LinkedIn
+4. Send touch 1
+5. Send touch 2 (aged rows only)
+
+Context:
+- Residential SF homeowners, NOT B2B companies.
+- touch1/touch2 bodies are already personalized — send verbatim.
+- household_id is assessor block-lot (e.g. 7279-45). Never duplicate rows.
+
+Build all columns now. Tell me when done and remind me to Pursue a lead in HouseholdIQ then run Import from HouseholdIQ.

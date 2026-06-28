@@ -1,3 +1,4 @@
+import {ClerkProvider} from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Fredoka, Nunito } from "next/font/google";
 import { ConvexClientProvider } from "./ConvexClientProvider";
@@ -16,9 +17,9 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "HouseholdIQ — Bounty Board",
+  title: "HouseholdIQ — Coverage Quest",
   description:
-    "Cartoony quest board for home service contractors — discover warm leads on a map of San Francisco.",
+    "Insurance lead qualification for SF homeowners — discover underinsured households on a game-style coverage board.",
 };
 
 export default function RootLayout({
@@ -29,7 +30,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${fredoka.variable} ${nunito.variable} h-full`}>
       <body className="min-h-full font-[family-name:var(--font-body)] antialiased">
-        <ConvexClientProvider>{children}</ConvexClientProvider>
+        <ClerkProvider>
+          <ConvexClientProvider>{children}</ConvexClientProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

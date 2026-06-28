@@ -1,18 +1,11 @@
 /**
- * Canonical lead shape for the bounty board UI.
- * Mapped from partner household records + proximity ranking in Convex.
+ * Canonical lead shape for the insurance bounty board UI.
+ * Mapped from insurance ETL records + need/timing ranking in Convex.
  */
 
 export type SpriteVariant = 0 | 1 | 2 | 3;
 
-export type ScoreVertical = "hvac" | "panel" | "ev";
-
-export type VerticalScoreEntry = {
-  score: number;
-  urgency_flag: boolean;
-  last_relevant_permit_date?: string | null;
-  reasons: string[];
-};
+export type TimingConfidence = "high" | "low" | "none";
 
 export type LeadDataSource = "placeholder" | "etl";
 
@@ -24,37 +17,50 @@ export type Lead = {
   lng: number;
   neighborhood?: string;
   matchScore: number;
-  baseScore?: number;
   compositeScore?: number;
+  needScore?: number;
+  timingScore?: number;
+  timingConfidence?: TimingConfidence;
   urgent: boolean;
+  worthOutreach?: boolean;
   spriteVariant: SpriteVariant;
-  permitAgeYears: number;
-  lastPermitType?: string;
-  lastPermitDate?: string;
-  hasOpenPermit?: boolean;
   homeAgeYears: number;
   ownerOccupied?: boolean;
-  assessedValue?: number;
-  lastSaleDate?: string;
-  clusterId?: string;
+  replacementCostToday?: number;
+  coverageAnchor?: number;
+  replacementCostGapDollars?: number;
+  replacementCostGapPct?: number;
+  sqft?: number;
+  purchaseYear?: number;
+  yearsOwned?: number;
+  yearBuilt?: number;
   cluster: string;
   clusterNarrative?: string;
-  vertical?: ScoreVertical;
-  verticalScores?: Record<string, VerticalScoreEntry>;
   scoreReasons?: string[];
+  /** Display-only when agent office is set — not used for ranking. */
   distanceMiles?: number;
-  yearBuilt?: number;
   dataSource?: LeadDataSource;
   ownerFullName?: string;
   ownerFirstName?: string;
   ownerLastName?: string;
   ownerContactRole?: "owner" | "resident" | "unknown";
+  recordedOwnerFullName?: string;
+  parcelNumber?: string;
+  assessorBlock?: string;
+  assessorLot?: string;
+  archetype?: string;
+  acsReceptivityScore?: number;
+  financialSophistication?: number;
+  inertiaScore?: number;
+  coverageStakes?: number;
 };
 
 export type Persona = {
   summary?: string;
   likely_response_to_cold_approach?: string;
   common_objections?: string[];
+  preferred_contact_channel?: string;
+  /** @deprecated Contractor-era field */
   preferred_contractor_channel?: string;
   conversion_hooks?: string;
 };
@@ -65,6 +71,72 @@ export type ContactInfo = {
   name: string;
 };
 
+export type OutreachChannel = "email" | "phone" | "linkedin" | "mail" | "d2d";
+
+export type EnrichmentContact = ContactInfo & {
+  emails: string[];
+  phones: string[];
+  linkedinUrl?: string;
+  confidence: "high" | "medium" | "low";
+  channels: OutreachChannel[];
+};
+
+export type EnrichmentResult = {
+  owner: {
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    linkedinUrl?: string;
+    source: string;
+    contactRole?: "owner" | "resident" | "unknown";
+  };
+  contact: EnrichmentContact;
+  playbook: string;
+  assessorParcel?: { block: string; lot: string; parcelNumber: string };
+};
+
+export type OutreachStatus =
+  | "queued"
+  | "sheet_synced"
+  | "touch1_ready"
+  | "touch1_sent"
+  | "touch2_sent"
+  | "replied"
+  | "meeting"
+  | "won"
+  | "lost"
+  | "d2d_planned";
+
+export type OutreachRecord = {
+  status: OutreachStatus;
+  primaryChannel?: OutreachChannel;
+  campaignSlug?: string;
+  sheetRowId?: string;
+  lastActivityAt: number;
+  activityLog: Array<{ at: number; event: string; detail?: string }>;
+};
+
+export type StartOutreachResult = {
+  status: OutreachStatus;
+  primaryChannel: OutreachChannel;
+  campaignSlug: string;
+  sheetSynced: boolean;
+  sheetRowId?: string;
+  sheetError?: string;
+  sheetUrl: string | null;
+  touch1: { subject: string; body: string; mailto?: string };
+  touch2: { subject: string; body: string };
+  enrichment: EnrichmentResult;
+};
+
+/** Insurance agent profile from onboarding GPT extraction. */
+export type AgentProfile = {
+  lines_of_business: string[];
+  price_point: string;
+  customer_preferences: string;
+};
+
+/** @deprecated Alias — Convex stores as serviceProfile. */
 export type ServiceProfile = {
   service_types: string[];
   price_point: string;
@@ -109,16 +181,45 @@ export type CompanyContext = {
   }>;
 };
 
-export type Contractor = {
+/** UI type for session agent (stored in Convex `contractors` table). */
+export type Agent = {
   name: string;
   businessDescription: string;
   businessAddress: string;
   lat?: number;
   lng?: number;
-  serviceProfile?: ServiceProfile;
+  serviceProfile?: AgentProfile;
   companyContext?: CompanyContext;
   companyEnrichmentStatus?: "pending" | "done" | "failed";
   businessName?: string;
   serviceRegionLabel?: string;
   serviceRegionIds?: string[];
+  targetNeighborhoods?: string[];
+};
+
+/** @deprecated Use Agent — kept for gradual migration. */
+export type Contractor = Agent;
+
+export const INSURANCE_NEIGHBORHOODS = [
+  "Portola",
+  "Outer Richmond",
+  "West of Twin Peaks",
+  "Sunset/Parkside",
+  "Inner Sunset",
+] as const;
+
+/** Pursue lead → Orange Slice outbound pipeline. */
+export const OUTREACH_ENABLED = true;
+
+export const OUTREACH_STATUS_LABELS: Record<string, string> = {
+  queued: "Queued",
+  sheet_synced: "In Orange Slice",
+  touch1_ready: "Ready (no email)",
+  touch1_sent: "Touch 1 sent",
+  touch2_sent: "Touch 2 sent",
+  replied: "Replied",
+  meeting: "Meeting booked",
+  won: "Won",
+  lost: "Lost",
+  d2d_planned: "Door knock planned",
 };

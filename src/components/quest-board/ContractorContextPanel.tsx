@@ -29,8 +29,7 @@ export function ContractorContextPanel({
 }: ContractorContextProps) {
   const [expanded, setExpanded] = useState(true);
   const ctx = asCompanyContext(companyContext);
-  const displayName = businessName?.trim() || asDisplayText(ctx?.name) || "Your business";
-  const fiberLookups = ctx?.fiberLookups ?? [];
+  const displayName = businessName?.trim() || asDisplayText(ctx?.name) || "Your agency";
 
   if (!expanded) {
     return (
@@ -38,14 +37,14 @@ export function ContractorContextPanel({
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="flex items-center gap-2 rounded-full border border-amber-300/60 bg-[#fff9f0]/95 px-3 py-2 text-left shadow-lg backdrop-blur-sm transition hover:bg-white"
+          className="game-panel game-panel-compact flex items-center gap-2 px-3 py-2 text-left transition hover:brightness-105"
           aria-expanded={false}
-          aria-label={`Show business details for ${displayName}`}
+          aria-label={`Show agency details for ${displayName}`}
         >
           <span className="text-base leading-none" aria-hidden>
-            🏢
+            🏰
           </span>
-          <span className="max-w-[10rem] truncate text-xs font-semibold text-amber-950 sm:max-w-[14rem]">
+          <span className="max-w-40 truncate text-xs font-semibold text-amber-950 sm:max-w-56">
             {displayName}
           </span>
           <span className="text-[10px] font-bold text-amber-800/70" aria-hidden>
@@ -57,20 +56,18 @@ export function ContractorContextPanel({
   }
 
   return (
-    <aside className="absolute bottom-4 left-4 z-20 w-full max-w-sm rounded-xl border border-amber-300/60 bg-[#fff9f0]/95 p-4 shadow-lg backdrop-blur-sm">
+    <aside className="game-panel absolute bottom-4 left-4 z-20 w-full max-w-sm p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/70">
-            Your business
-          </p>
-          <p className="mt-1 truncate text-sm font-semibold text-amber-950">{displayName}</p>
+          <p className="game-quest-label">Agency HQ</p>
+          <p className="game-title mt-1 truncate text-sm">{displayName}</p>
         </div>
         <button
           type="button"
           onClick={() => setExpanded(false)}
           className="shrink-0 rounded-lg p-1.5 text-amber-900/60 transition hover:bg-amber-200/50"
           aria-expanded={true}
-          aria-label="Hide business details to explore the map"
+          aria-label="Hide agency details to explore the map"
           title="Hide to explore map"
         >
           <span className="block text-xs font-bold leading-none">▼</span>
@@ -85,7 +82,7 @@ export function ContractorContextPanel({
 
       {enrichmentStatus === "pending" && (
         <p className="mt-2 animate-pulse text-[11px] text-amber-900/70">
-          Loading company details from Fiber…
+          Loading agency details…
         </p>
       )}
 
@@ -118,23 +115,6 @@ export function ContractorContextPanel({
             </li>
           )}
         </ul>
-      )}
-
-      {fiberLookups.length > 0 && (
-        <ul className="mt-2 space-y-0.5 text-[10px] leading-relaxed text-amber-900/60">
-          {fiberLookups.map((lookup, index) => (
-            <li key={`${lookup.api}-${index}`}>
-              {lookup.api}
-              {lookup.credits != null ? ` (${lookup.credits} cr)` : ""}: {lookup.summary}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {enrichmentStatus === "done" && !ctx?.phone && !ctx?.email && !ctx?.stats?.rating && (
-        <p className="mt-2 text-[11px] text-amber-900/65">
-          Fiber ran successfully — this business has limited public data in their database.
-        </p>
       )}
     </aside>
   );

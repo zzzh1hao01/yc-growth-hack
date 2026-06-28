@@ -5,7 +5,7 @@ import type { ActionCtx } from "./_generated/server";
 import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { chatCompletion } from "./lib/openai";
-import { clusterLabel, type ServiceProfile, type VerticalScoreEntry } from "./lib/scoring";
+import { type AgentProfile } from "./lib/scoring";
 import {
   buildPersonaTraits,
   PERSONA_TRAITS_VERSION,
@@ -15,12 +15,17 @@ import type { Id } from "./_generated/dataModel";
 
 type LeadDoc = {
   householdId: string;
-  clusterId: number;
   ownerOccupied: boolean;
-  assessedValue: number;
-  yearBuilt: number;
-  lastSaleDate?: string;
-  verticalScores: Record<string, VerticalScoreEntry>;
+  yearBuilt?: number;
+  yearsOwned?: number;
+  purchaseYear?: number;
+  needScore: number;
+  timingScore: number;
+  timingConfidence: "high" | "low" | "none";
+  replacementCostGapPct: number;
+  replacementCostGapDollars: number;
+  replacementCostToday: number;
+  worthOutreach: boolean;
   ownerFirstName?: string;
   ownerLastName?: string;
   ownerFullName?: string;
@@ -57,12 +62,17 @@ function leadOwnerFullName(lead: LeadDoc): string | undefined {
 function traitsInput(lead: LeadDoc) {
   return {
     householdId: lead.householdId,
-    clusterId: lead.clusterId,
     ownerOccupied: lead.ownerOccupied,
-    assessedValue: lead.assessedValue,
     yearBuilt: lead.yearBuilt,
-    lastSaleDate: lead.lastSaleDate,
-    verticalScores: lead.verticalScores,
+    yearsOwned: lead.yearsOwned,
+    purchaseYear: lead.purchaseYear,
+    needScore: lead.needScore,
+    timingScore: lead.timingScore,
+    timingConfidence: lead.timingConfidence,
+    replacementCostGapPct: lead.replacementCostGapPct,
+    replacementCostGapDollars: lead.replacementCostGapDollars,
+    replacementCostToday: lead.replacementCostToday,
+    worthOutreach: lead.worthOutreach,
     ownerFullName: leadOwnerFullName(lead),
     ownerFirstName: lead.ownerFirstName,
     contactRole: lead.ownerContactRole,
@@ -82,6 +92,7 @@ async function generatePersonaForLead(
   sessionId: string,
   leadId: Id<"leads">,
   force = false,
+  userId?: string,
 ): Promise<Record<string, unknown>> {
   const lead = (await ctx.runQuery(api.leads.getLead, { leadId })) as LeadDoc | null;
   if (!lead) throw new Error("Lead not found");
@@ -91,10 +102,8 @@ async function generatePersonaForLead(
     return existing;
   }
 
-  const contractor = await ctx.runQuery(api.contractors.getContractor, {
-    sessionId,
-  });
-  const serviceProfile = (contractor?.serviceProfile ?? null) as ServiceProfile | null;
+  const agent = await ctx.runQuery(api.agents.getAgent, { userId, sessionId });
+  const agentProfile = (agent?.serviceProfile ?? null) as AgentProfile | null;
   const traits = buildPersonaTraits(traitsInput(lead));
   const ownerName = leadOwnerFullName(lead);
   const contactRole = lead.ownerContactRole ?? (lead.ownerOccupied ? "owner" : "resident");
@@ -105,39 +114,36 @@ async function generatePersonaForLead(
         ? "homeowner at"
         : "person at";
 
-  const prompt = `Generate a DISTINCT San Francisco household contact persona for contractor lead qualification.
+  const prompt = `Generate a DISTINCT San Francisco homeowner persona for insurance agent lead qualification.
 
 ${traitsPromptBlock(traits)}
 
-Contractor services: ${serviceProfile?.service_types?.join(", ") ?? "home services"}
-Contractor tier: ${serviceProfile?.price_point ?? "mid"}
-Contractor notes: ${contractor?.businessDescription ?? "general residential contractor"}
+Agent lines of business: ${agentProfile?.lines_of_business?.join(", ") ?? "home insurance"}
+Agent tier: ${agentProfile?.price_point ?? "mid"}
+Agent notes: ${agent?.businessDescription ?? "independent insurance advisor"}
 
 Rules:
-- Each household must feel UNIQUE. Do NOT reuse generic "wary and saving money" language unless budgetPosture explicitly says price-sensitive AND urgency is low.
-- Match tone to communication style, decision style, and openness level above.
-- If Identified contact is provided, the persona MUST describe THAT person — do not invent a different name, age, or gender that conflicts with the name.
-- If contact is a resident (not owner-occupied), they may mention landlord, lease, or lack authority to approve work.
-- Infer pronouns from the homeowner's first name when reasonable; never describe someone who could not be that named person.
-- If no name is provided yet, do not invent a full name; use "I" voice without introducing yourself by name.
-- High-income / urgent / recent-mover profiles should NOT sound like budget hoarders.
-- Renters behave differently from owners (may defer, mention landlord, or lack authority).
-- Objections must fit THIS profile (not generic "too expensive" every time).
-- preferred_contractor_channel should align with the trait profile channel hint unless you have a specific reason not to.
+- Each household must feel UNIQUE — grounded in the coverage gap and tenure signals above.
+- Persona is a HOMEOWNER evaluating a coverage review, not a contractor lead.
+- If Identified contact is provided, the persona MUST describe THAT person.
+- Infer pronouns from the homeowner's first name when reasonable.
+- Objections should be insurance-specific (premium hikes, loyalty to current carrier, confusion about Coverage A, etc.).
+- preferred_contact_channel should align with the trait profile channel hint.
+- Do NOT reference HVAC, permits, or contractor services.
 
 Return JSON only with these keys (plain strings / string arrays only):
-- summary: 2-3 sentences — specific personality, priorities, and attitude toward home projects
+- summary: 2-3 sentences — attitude toward insurance, coverage awareness, and openness to review
 - likely_response_to_cold_approach: 1-2 sentences in their voice${ownerName ? ` (as ${ownerName.split(" ")[0]})` : ""}
-- common_objections: array of 3 distinct objection strings tailored to this profile
-- preferred_contractor_channel: short phrase
-- conversion_hooks: 1-2 sentences on messaging that would actually move THIS household`;
+- common_objections: array of 3 distinct insurance-specific objection strings
+- preferred_contact_channel: short phrase
+- conversion_hooks: 1-2 sentences on messaging that would move THIS household toward a coverage review`;
 
   const raw = await chatCompletion(
     [
       {
         role: "system",
         content:
-          "You create varied, data-grounded homeowner personas for SF residential contractors. When a homeowner name is given, the persona must match that person.",
+          "You create varied, data-grounded SF homeowner personas for insurance coverage review outreach. When a homeowner name is given, the persona must match that person.",
       },
       { role: "user", content: prompt },
     ],
@@ -164,9 +170,10 @@ export const generatePersona = action({
     sessionId: v.string(),
     leadId: v.id("leads"),
     force: v.optional(v.boolean()),
+    userId: v.optional(v.string()),
   },
-  handler: async (ctx, { sessionId, leadId, force }): Promise<Record<string, unknown>> => {
-    return await generatePersonaForLead(ctx, sessionId, leadId, force ?? false);
+  handler: async (ctx, { sessionId, leadId, force, userId }): Promise<Record<string, unknown>> => {
+    return await generatePersonaForLead(ctx, sessionId, leadId, force ?? false, userId);
   },
 });
 
@@ -175,15 +182,16 @@ export const sendChatMessage = action({
     sessionId: v.string(),
     leadId: v.id("leads"),
     message: v.string(),
+    userId: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    { sessionId, leadId, message },
+    { sessionId, leadId, message, userId },
   ): Promise<{ reply: string }> => {
     const lead = (await ctx.runQuery(api.leads.getLead, { leadId })) as LeadDoc | null;
     if (!lead) throw new Error("Lead not found");
 
-    const persona = await generatePersonaForLead(ctx, sessionId, leadId);
+    const persona = await generatePersonaForLead(ctx, sessionId, leadId, false, userId);
     const traits = buildPersonaTraits(traitsInput(lead));
     const ownerName = leadOwnerFullName(lead);
     const contactRole = lead.ownerContactRole ?? (lead.ownerOccupied ? "owner" : "resident");
@@ -198,10 +206,8 @@ export const sendChatMessage = action({
       ? `You are ${ownerName}, the ${contactLabel} ${lead.address} in San Francisco.`
       : `You are the ${contactLabel} ${lead.address} in San Francisco.`;
 
-    const contractor = await ctx.runQuery(api.contractors.getContractor, {
-      sessionId,
-    });
-    const serviceProfile = contractor?.serviceProfile as ServiceProfile | null;
+    const agent = await ctx.runQuery(api.agents.getAgent, { userId, sessionId });
+    const agentProfile = agent?.serviceProfile as AgentProfile | null;
 
     const history = await ctx.runQuery(api.chat.getChatHistory, {
       sessionId,
@@ -209,7 +215,7 @@ export const sendChatMessage = action({
     });
 
     const systemPrompt = `${identity}
-Segment: ${clusterLabel(lead.clusterId)}
+Profile: ${traits.segmentLabel}
 
 ${traitsPromptBlock(traits)}
 
@@ -217,11 +223,11 @@ Persona summary: ${asDisplayText(persona.summary)}
 Cold-approach reaction: ${asDisplayText(persona.likely_response_to_cold_approach)}
 Likely objections: ${personaObjectionsForPrompt(persona.common_objections)}
 Conversion hooks: ${asDisplayText(persona.conversion_hooks)}
-Preferred channel: ${asDisplayText(persona.preferred_contractor_channel) || traits.channelPreference}
+Preferred channel: ${asDisplayText(persona.preferred_contact_channel) || traits.channelPreference}
 
-A ${serviceProfile?.service_types?.join(", ") ?? "home services"} contractor is talking to you.
+An insurance agent (${agentProfile?.lines_of_business?.join(", ") ?? "home insurance"}) is talking to you about a coverage review.
 Stay in character as ${ownerName ?? "the person at this address"}. Do not claim a different name.
-${contactRole === "resident" ? "You may not be the legal owner — reflect that if asked about approvals or budget." : ""}
+${contactRole === "resident" ? "You may not be the legal owner — reflect that if asked about policy decisions." : ""}
 Keep replies concise (2-4 sentences). Do not break the fourth wall.`;
 
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> =
