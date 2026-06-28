@@ -10,9 +10,13 @@ import { PLACEHOLDER_LEADS } from "@/data/placeholderLeads";
 import { getSessionId, resetSession } from "@/lib/session";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { Agent, CompanyContext, Lead } from "@/types/lead";
-import { filterLeadsByImportance } from "@/lib/lead-utils";
+import {
+  DEFAULT_TIER_VISIBILITY,
+  filterLeadsByImportance,
+  filterLeadsByTierVisibility,
+  type TierVisibility,
+} from "@/lib/lead-utils";
 import { BoardLegend } from "./BoardLegend";
-import { ContractorContextPanel } from "./ContractorContextPanel";
 import { LeadFocusFilter } from "./LeadFocusFilter";
 import { LeadSidePanel } from "./LeadSidePanel";
 import { OnboardingPanel } from "./OnboardingPanel";
@@ -31,6 +35,9 @@ export function QuestBoard({
   const [onboarded, setOnboarded] = useState(false);
   const [onboardingKey, setOnboardingKey] = useState(0);
   const [minLeadScore, setMinLeadScore] = useState(0);
+  const [tierVisibility, setTierVisibility] = useState<TierVisibility>(
+    DEFAULT_TIER_VISIBILITY,
+  );
 
   const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
@@ -117,9 +124,17 @@ export function QuestBoard({
   }, [convexLeads, onboarded]);
 
   const visibleLeads = useMemo(
-    () => filterLeadsByImportance(leads, { minScore: minLeadScore }),
-    [leads, minLeadScore],
+    () =>
+      filterLeadsByTierVisibility(
+        filterLeadsByImportance(leads, { minScore: minLeadScore }),
+        tierVisibility,
+      ),
+    [leads, minLeadScore, tierVisibility],
   );
+
+  const handleTierToggle = useCallback((tier: keyof TierVisibility) => {
+    setTierVisibility((prev) => ({ ...prev, [tier]: !prev[tier] }));
+  }, []);
 
   useEffect(() => {
     if (
@@ -146,6 +161,7 @@ export function QuestBoard({
     setAgent(null);
     setOnboarded(false);
     setMinLeadScore(0);
+    setTierVisibility(DEFAULT_TIER_VISIBILITY);
     setOnboardingKey((k) => k + 1);
     setSessionId(resetSession());
   }, [sessionId, userId, clearContractor, clearAgent]);
@@ -167,32 +183,12 @@ export function QuestBoard({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleClosePanel]);
 
-  const linesOfBusiness = agent?.serviceProfile?.lines_of_business;
-
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#f5e6c8]">
-      <header className="z-50 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-amber-300/50 bg-[#f5e6c8] px-5 py-3 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-800 text-lg shadow-md">
-            🏠
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-amber-950">
-              Coverage Board
-            </h1>
-            <p className="text-xs text-amber-900/60">HouseholdIQ · San Francisco</p>
-          </div>
-        </div>
+    <div className="game-board-shell flex h-screen flex-col overflow-hidden">
+      <header className="western-hud z-50 flex h-[var(--quest-header-height)] shrink-0 items-center justify-between gap-3 px-4">
+        <h1 className="western-title shrink-0 text-sm sm:text-base">Coverage Board</h1>
 
-        <div className="flex flex-wrap items-center gap-4">
-          <span className="rounded-full border border-amber-400/60 bg-white/70 px-3 py-1 text-xs font-semibold text-amber-950">
-            {agent?.name ?? "Agent"} · {dataSourceLabel}
-          </span>
-          {Array.isArray(linesOfBusiness) && linesOfBusiness.length > 0 && (
-            <span className="hidden text-xs text-amber-900/70 sm:inline">
-              {linesOfBusiness.join(", ")} · {agent?.serviceProfile?.price_point} tier
-            </span>
-          )}
+        <div className="flex min-w-0 shrink flex-wrap items-center justify-end gap-2 sm:gap-3">
           {onboarded && leads.length > 0 && (
             <LeadFocusFilter
               minScore={minLeadScore}
@@ -201,19 +197,19 @@ export function QuestBoard({
               onChange={setMinLeadScore}
             />
           )}
-          {onboarded && <BoardLegend />}
+          {onboarded && leads.length > 0 && (
+            <BoardLegend
+              leads={leads}
+              visibility={tierVisibility}
+              onToggle={handleTierToggle}
+            />
+          )}
           {clerkEnabled && orgId && (
             <>
-              <Link
-                href="/pipeline"
-                className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
-              >
+              <Link href="/pipeline" className="western-btn western-btn-ghost western-btn-sm">
                 Pipeline
               </Link>
-              <Link
-                href="/settings"
-                className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
-              >
+              <Link href="/settings" className="western-btn western-btn-ghost western-btn-sm">
                 Settings
               </Link>
             </>
@@ -222,18 +218,12 @@ export function QuestBoard({
             <>
               <Show when="signed-out">
                 <SignInButton mode="modal">
-                  <button
-                    type="button"
-                    className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
-                  >
+                  <button type="button" className="western-btn western-btn-ghost western-btn-sm">
                     Sign in
                   </button>
                 </SignInButton>
                 <SignUpButton mode="modal">
-                  <button
-                    type="button"
-                    className="rounded-full bg-amber-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-amber-800"
-                  >
+                  <button type="button" className="western-btn western-btn-primary western-btn-sm">
                     Sign up
                   </button>
                 </SignUpButton>
@@ -246,7 +236,7 @@ export function QuestBoard({
           <button
             type="button"
             onClick={() => void handleStartOver()}
-            className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+            className="western-btn western-btn-ghost western-btn-sm shrink-0"
           >
             Start over
           </button>
@@ -255,18 +245,28 @@ export function QuestBoard({
 
       <main className="relative min-h-0 flex-1">
         {!onboarded && (
-          <OnboardingPanel
-            key={onboardingKey}
-            userId={userId}
-            orgId={orgId}
-            onComplete={handleOnboardingComplete}
-          />
+          <>
+            <div className="pointer-events-none absolute inset-0 opacity-50" aria-hidden>
+              <QuestMap
+                leads={PLACEHOLDER_LEADS.slice(0, 24)}
+                selectedLeadId={null}
+                onSelectLead={() => {}}
+                businessLocation={null}
+              />
+            </div>
+            <OnboardingPanel
+              key={onboardingKey}
+              userId={userId}
+              orgId={orgId}
+              onComplete={handleOnboardingComplete}
+            />
+          </>
         )}
 
         {onboarded && leads.length > 0 && (
           <>
             {convexLeads === undefined && (
-              <div className="absolute right-4 top-4 z-30 rounded-full border border-amber-300/70 bg-white/90 px-3 py-1 text-xs font-semibold text-amber-950 shadow-sm">
+              <div className="western-toast absolute right-4 top-4 z-30">
                 Loading ~400 leads…
               </div>
             )}
@@ -284,27 +284,15 @@ export function QuestBoard({
                   : null
               }
             />
-            {agent && (
-              <ContractorContextPanel
-                businessName={agent.businessName}
-                businessAddress={agent.businessAddress}
-                serviceTypes={agent.serviceProfile?.lines_of_business}
-                companyContext={agent.companyContext}
-                enrichmentStatus={agent.companyEnrichmentStatus}
-              />
-            )}
           </>
         )}
 
         {onboarded && convexLeads !== undefined && leads.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <p className="text-lg font-bold text-amber-950">No household data loaded</p>
-            <p className="max-w-md text-sm text-amber-900/70">
-              The insurance bounty board needs household records in Convex. Run{" "}
-              <code className="rounded bg-white/80 px-1 py-0.5 text-xs">
-                scripts/import-insurance-leads.sh
-              </code>{" "}
-              then refresh.
+          <div className="western-empty mx-auto flex h-full max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="western-title text-lg">No household data loaded</p>
+            <p className="western-body">
+              The coverage board needs household records in Convex. Run{" "}
+              <code className="western-code">scripts/import-insurance-leads.sh</code> then refresh.
             </p>
           </div>
         )}

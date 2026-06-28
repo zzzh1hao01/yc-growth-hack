@@ -47,5 +47,17 @@
 }
 
 .sprite-selected-ring {
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.95), 0 0 0 6px rgba(251, 191, 36, 0.9);
+  box-shadow:
+    0 0 0 2px #f5e6c8,
+    0 0 0 4px #c2410c,
+    0 0 8px rgba(194, 65, 12, 0.45);
+}
+
+.sprite-hot-glow {
+  filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.5));
+}
+
+.pixel-sprite-svg {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }

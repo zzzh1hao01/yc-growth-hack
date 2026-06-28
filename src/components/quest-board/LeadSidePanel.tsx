@@ -8,6 +8,8 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import type { EnrichmentResult, Lead, OutreachChannel, Persona, StartOutreachResult } from "@/types/lead";
 import { OUTREACH_ENABLED } from "@/types/lead";
 import { asDisplayText, personaColdApproach, personaObjections, personaParagraphs } from "@/lib/safe-text";
+import { getNearestLandmark } from "@/lib/nearest-landmark";
+import { getMatchTier, getTierColor, getTierLabel } from "@/lib/lead-utils";
 
 type LeadSidePanelProps = {
   lead: Lead | null;
@@ -198,10 +200,13 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
 
   if (!lead) return null;
 
-  const tier =
-    lead.matchScore >= 70 ? "hot" : lead.matchScore >= 40 ? "warm" : "cold";
-  const barColor =
-    tier === "hot" ? "#22c55e" : tier === "warm" ? "#eab308" : "#ef4444";
+  const tier = getMatchTier(lead.matchScore);
+  const barColor = getTierColor(tier);
+  const qualityLabel = getTierLabel(tier);
+  const nearestLandmark = getNearestLandmark(lead.lat, lead.lng);
+  const locationLabel = lead.neighborhood
+    ? `${lead.neighborhood} · near ${nearestLandmark}`
+    : `Near ${nearestLandmark}`;
 
   const personaParagraphList = personaParagraphs(persona);
   const coldApproach = personaColdApproach(persona);
@@ -223,23 +228,21 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
         aria-label="Close panel"
       />
       <aside
-        className="fixed right-0 top-0 z-40 flex h-full w-full max-w-md flex-col border-l border-amber-200/60 bg-[#fff9f0] shadow-2xl"
+        className="western-detail-panel fixed right-0 top-0 z-40 flex h-full w-full max-w-md flex-col"
         role="dialog"
         aria-labelledby="lead-panel-title"
       >
-        <div className="flex items-center justify-between border-b border-amber-200/60 bg-[#f5e6c8] px-5 py-4">
+        <div className="western-detail-header flex items-center justify-between px-4 py-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-amber-800/70">
-              Bounty Details
-            </p>
-            <h2 id="lead-panel-title" className="text-lg font-bold text-amber-950">
-              {lead.address}
+            <p className="western-detail-label">Lead details</p>
+            <h2 id="lead-panel-title" className="western-title text-lg">
+              {locationLabel}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-amber-900/60 hover:bg-amber-200/50"
+            className="western-close"
             aria-label="Close"
           >
             ✕
@@ -247,16 +250,16 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          <section className="rounded-xl border border-amber-200/80 bg-white p-4 shadow-sm">
+          <section className="western-detail-section">
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm font-semibold text-amber-950">Match Score</span>
+              <span className="western-label text-sm normal-case tracking-normal">Contact quality</span>
               <span className="text-sm font-bold" style={{ color: barColor }}>
-                {lead.matchScore}/100
+                {qualityLabel} · {lead.matchScore}/100
               </span>
             </div>
             {lead.needScore != null || lead.timingScore != null || lead.acsReceptivityScore != null ? (
               <>
-                <div className="flex h-4 overflow-hidden rounded-full bg-amber-100">
+                <div className="western-score-track flex h-4 overflow-hidden">
                   {lead.needScore != null && (
                     <div className="h-full bg-red-400" style={{ width: `${lead.needScore * 45}%` }} />
                   )}
@@ -270,21 +273,21 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
                 <div className="mt-2 flex gap-4 text-xs">
                   {lead.needScore != null && (
                     <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-2 w-2 rounded-sm bg-red-400" />
+                      <span className="western-score-legend-dot bg-red-400" />
                       <span className="text-amber-900/70">Risk</span>
                       <span className="font-semibold text-amber-950">{Math.round(lead.needScore * 100)}</span>
                     </span>
                   )}
                   {lead.timingScore != null && (
                     <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-2 w-2 rounded-sm bg-amber-400" />
+                      <span className="western-score-legend-dot bg-amber-400" />
                       <span className="text-amber-900/70">Timing</span>
                       <span className="font-semibold text-amber-950">{Math.round(lead.timingScore * 100)}</span>
                     </span>
                   )}
                   {lead.acsReceptivityScore != null && (
                     <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-2 w-2 rounded-sm bg-emerald-400" />
+                      <span className="western-score-legend-dot bg-emerald-400" />
                       <span className="text-amber-900/70">Fit</span>
                       <span className="font-semibold text-amber-950">{Math.round(lead.acsReceptivityScore * 100)}</span>
                     </span>
@@ -292,30 +295,37 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
                 </div>
               </>
             ) : (
-              <div className="h-4 overflow-hidden rounded-full bg-amber-100">
+              <div className="western-score-track">
                 <div
-                  className="h-full rounded-full"
+                  className="western-score-fill"
                   style={{ width: `${lead.matchScore}%`, backgroundColor: barColor }}
                 />
               </div>
             )}
             {lead.urgent && (
-              <p className="mt-3 text-sm font-semibold text-red-600">! High-priority outreach</p>
+              <p className="mt-3 text-sm font-semibold text-red-600">High-priority outreach</p>
             )}
             {lead.scoreReasons && lead.scoreReasons.length > 0 && (
-              <ul className="mt-3 space-y-1 text-xs text-amber-900/80">
-                {lead.scoreReasons.slice(0, 4).map((reason) => (
-                  <li key={reason}>• {reason}</li>
-                ))}
-              </ul>
+              <div className="mt-3">
+                <p className="western-label mt-3 normal-case tracking-normal">
+                  Why this rating
+                </p>
+                <ul className="mt-1 space-y-1 text-xs text-amber-900/80">
+                  {lead.scoreReasons.slice(0, 4).map((reason) => (
+                    <li key={reason}>• {reason}</li>
+                  ))}
+                </ul>
+              </div>
             )}
           </section>
 
-          <section className="rounded-xl border border-amber-200/80 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-amber-800/70">
-              Coverage Signals
-            </h3>
+          <section className="western-detail-section">
+            <h3 className="western-detail-label mb-3">Coverage signals</h3>
             <dl className="space-y-2 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-amber-900/70">Contact score</dt>
+                <dd className="font-semibold">{lead.matchScore}/100</dd>
+              </div>
               {lead.replacementCostToday != null && (
                 <div className="flex justify-between gap-4">
                   <dt className="text-amber-900/70">Rebuild cost today</dt>
@@ -374,13 +384,15 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
                   <dd className="font-semibold">{lead.neighborhood}</dd>
                 </div>
               )}
+              <div className="flex justify-between gap-4">
+                <dt className="text-amber-900/70">Nearest landmark</dt>
+                <dd className="font-semibold text-right">{nearestLandmark}</dd>
+              </div>
             </dl>
           </section>
 
-          <section className="rounded-xl border border-amber-200/80 bg-white p-4 shadow-sm">
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-amber-800/70">
-              Household Profile
-            </h3>
+          <section className="western-detail-section">
+            <h3 className="western-detail-label mb-2">Household</h3>
             <p className="text-sm font-semibold text-amber-950">{lead.cluster}</p>
             <p className="mt-2 text-sm leading-relaxed text-amber-900/85">
               {lead.clusterNarrative ??
@@ -437,13 +449,11 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
             )}
           </section>
 
-          <section className="rounded-xl border border-amber-200/80 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-amber-800/70">
-              Persona Chat
-            </h3>
+          <section className="western-detail-section">
+            <h3 className="western-detail-label mb-3">Persona chat</h3>
             <div
               ref={scrollRef}
-              className="mb-3 max-h-48 space-y-2 overflow-y-auto rounded-lg bg-amber-50/80 p-3"
+              className="western-chat-box mb-3 max-h-48 space-y-2 overflow-y-auto"
             >
               {chatHistory === undefined && (
                 <p className="text-xs text-amber-800/60">Loading chat…</p>
@@ -483,13 +493,13 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
                   }
                 }}
                 placeholder="What coverage concerns might they raise?"
-                className="flex-1 rounded-lg border border-amber-200 px-3 py-2 text-sm outline-none focus:border-amber-500"
+                className="western-input flex-1"
               />
               <button
                 type="button"
                 onClick={() => void handleSend()}
                 disabled={chatLoading || !message.trim()}
-                className="rounded-lg bg-amber-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                className="western-btn western-btn-primary western-btn-sm px-3 py-2 disabled:opacity-50"
               >
                 Send
               </button>
@@ -498,22 +508,22 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
         </div>
 
         {OUTREACH_ENABLED && (
-        <div className="border-t border-amber-200/60 bg-[#f5e6c8]/50 p-5 space-y-3">
+        <div className="western-detail-footer border-t border-amber-200/60 p-5 space-y-3">
           <button
             type="button"
             onClick={() => void handlePursue()}
             disabled={pursueLoading}
-            className="w-full rounded-xl bg-amber-900 px-4 py-3.5 text-sm font-bold text-amber-50 hover:bg-amber-800 disabled:opacity-60"
+            className="western-btn western-btn-primary w-full py-3.5 text-sm disabled:opacity-60"
           >
             {pursueLoading
-              ? "Pursuing — lookup, enrich, queue…"
+              ? "Looking up contact…"
               : outreachRecord || outreachResult
-                ? "Re-pursue lead"
-                : "Pursue lead"}
+                ? "Reach out again"
+                : "Reach out"}
           </button>
 
           {(enrichment || outreachResult) && contact && (
-            <div className="rounded-lg bg-white p-3 text-sm text-amber-950 space-y-3">
+            <div className="western-card space-y-3 text-sm text-amber-950">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/60">
                   Contact
@@ -578,7 +588,7 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
           )}
 
           {(outreachRecord || outreachResult) && (
-            <div className="rounded-lg border border-amber-300/80 bg-white/90 p-3 space-y-2">
+            <div className="western-card space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold text-green-800">
                   {OUTREACH_STATUS_LABELS[
@@ -601,7 +611,7 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
                 )}
               </div>
 
-              <div className="rounded-md bg-amber-50/80 p-2.5 text-[10px] leading-relaxed text-amber-950">
+              <div className="western-card p-2.5 text-[10px] leading-relaxed text-amber-950">
                 <p className="font-bold uppercase tracking-wide text-amber-800/80">
                   Next in Orange Slice
                 </p>
@@ -620,7 +630,7 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
                     </li>
                     <li>
                       Run{" "}
-                      <code className="rounded bg-white px-1">
+                      <code className="western-code">
                         ./scripts/configure-orangeslice-autopush.sh &lt;url&gt;
                       </code>
                     </li>
@@ -639,7 +649,7 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
                       <a
                         href={outreachResult.touch1.mailto}
                         onClick={() => void handleLogTouch("touch1", "email")}
-                        className="rounded-lg bg-amber-900 px-3 py-2 text-xs font-bold text-white"
+                        className="western-btn western-btn-primary western-btn-sm"
                       >
                         Send email
                       </a>
@@ -647,7 +657,7 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
                     {contact?.phones[0] && (
                       <a
                         href={`tel:${contact.phones[0].replace(/[^\d+]/g, "")}`}
-                        className="rounded-lg border border-amber-400 px-3 py-2 text-xs font-bold text-amber-900"
+                        className="western-btn western-btn-ghost western-btn-sm"
                       >
                         Call
                       </a>

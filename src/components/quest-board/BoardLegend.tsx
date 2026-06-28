@@ -1,25 +1,49 @@
-export function BoardLegend() {
+"use client";
+
+import {
+  countLeadsByTier,
+  getTierLabel,
+  type TierVisibility,
+} from "@/lib/lead-utils";
+import type { Lead } from "@/types/lead";
+
+type BoardLegendProps = {
+  leads: Lead[];
+  visibility: TierVisibility;
+  onToggle: (tier: keyof TierVisibility) => void;
+};
+
+const TIER_CONFIG = [
+  { key: "good" as const, matchTier: "hot" as const, color: "#22c55e", scoreLabel: "70+" },
+  { key: "moderate" as const, matchTier: "warm" as const, color: "#eab308", scoreLabel: "40–69" },
+  { key: "bad" as const, matchTier: "cold" as const, color: "#ef4444", scoreLabel: "<40" },
+];
+
+export function BoardLegend({ leads, visibility, onToggle }: BoardLegendProps) {
+  const counts = countLeadsByTier(leads);
+
   return (
-    <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-amber-950/80">
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block h-3 w-3 rounded-full bg-green-500" />
-        Hot lead (70+)
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block h-3 w-3 rounded-full bg-yellow-500" />
-        Warm (40–69)
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block h-3 w-3 rounded-full bg-red-500" />
-        Cold (&lt;40)
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-          !
-        </span>
-        High priority
-      </span>
-      <span className="text-amber-900/50">· up to 400 pins · citywide grid</span>
+    <div className="flex shrink-0 items-center gap-1">
+      {TIER_CONFIG.map(({ key, matchTier, color, scoreLabel }) => {
+        const active = visibility[key];
+        const count = counts[key];
+        const label = getTierLabel(matchTier);
+
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onToggle(key)}
+            className={`western-legend-chip ${active ? "western-legend-chip-active" : "western-legend-chip-inactive"}`}
+            title={`${active ? "Hide" : "Show"} ${label} contacts (${scoreLabel})`}
+            aria-pressed={active}
+          >
+            <span className="western-legend-dot" style={{ backgroundColor: color }} />
+            <span>{label}</span>
+            <span className="western-legend-count">{count}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
