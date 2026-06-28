@@ -6,7 +6,7 @@ import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 import { getSessionId } from "@/lib/session";
-import type { CompanyContext, Contractor, ServiceProfile } from "@/types/lead";
+import type { Contractor, ServiceProfile } from "@/types/lead";
 
 type OnboardingPanelProps = {
   onComplete: (contractor: Contractor) => void;
@@ -42,7 +42,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           lat: result.lat,
           lng: result.lng,
           serviceProfile: result.serviceProfile as ServiceProfile,
-          companyContext: (result.companyContext as CompanyContext) ?? undefined,
+          companyEnrichmentStatus: result.companyEnrichmentStatus,
           serviceRegionLabel: result.serviceRegionLabel as string | undefined,
           serviceRegionIds: result.serviceRegionIds as string[] | undefined,
         });
@@ -59,9 +59,8 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
     <aside className="absolute left-4 top-4 z-20 w-full max-w-sm rounded-2xl border border-amber-300/70 bg-[#fff9f0]/95 p-5 shadow-xl backdrop-blur-sm">
       <h2 className="text-lg font-bold text-amber-950">Contractor setup</h2>
       <p className="mt-1 text-xs leading-relaxed text-amber-900/70">
-        Tell us about your business. Fiber AI enriches your company profile, contact
-        channels, and key people from your address and description. This can take up
-        to a minute. Pick your business from Google autocomplete when you can.
+        Your address ranks nearby households on the bounty board. Company lookup runs in
+        the background while the map loads.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-3">
@@ -108,7 +107,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           disabled={loading}
           className="w-full rounded-xl bg-amber-900 px-4 py-2.5 text-sm font-bold text-amber-50 transition hover:bg-amber-800 disabled:opacity-60"
         >
-          {loading ? "Enriching with Fiber AI…" : "Start bounty board"}
+          {loading ? "Loading your board…" : "Start bounty board"}
         </button>
       </form>
     </aside>

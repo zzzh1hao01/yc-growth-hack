@@ -21,6 +21,9 @@ export const saveContractor = internalMutation({
     lng: v.number(),
     serviceProfile: v.any(),
     companyContext: v.optional(v.any()),
+    companyEnrichmentStatus: v.optional(
+      v.union(v.literal("pending"), v.literal("done"), v.literal("failed")),
+    ),
     serviceRegionIds: v.optional(v.array(v.string())),
     serviceRegionLabel: v.optional(v.string()),
   },
@@ -39,6 +42,7 @@ export const saveContractor = internalMutation({
       lng: args.lng,
       serviceProfile: args.serviceProfile,
       companyContext: args.companyContext,
+      companyEnrichmentStatus: args.companyEnrichmentStatus,
       serviceRegionIds: args.serviceRegionIds,
       serviceRegionLabel: args.serviceRegionLabel,
     };
@@ -49,6 +53,30 @@ export const saveContractor = internalMutation({
     }
 
     return await ctx.db.insert("contractors", payload);
+  },
+});
+
+export const patchCompanyContext = internalMutation({
+  args: {
+    sessionId: v.string(),
+    companyContext: v.optional(v.any()),
+    companyEnrichmentStatus: v.union(
+      v.literal("pending"),
+      v.literal("done"),
+      v.literal("failed"),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("contractors")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .first();
+    if (!existing) return;
+
+    await ctx.db.patch(existing._id, {
+      companyContext: args.companyContext,
+      companyEnrichmentStatus: args.companyEnrichmentStatus,
+    });
   },
 });
 

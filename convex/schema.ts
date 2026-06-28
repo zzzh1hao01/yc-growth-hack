@@ -35,6 +35,9 @@ export default defineSchema({
     lng: v.optional(v.number()),
     serviceProfile: v.optional(v.any()),
     companyContext: v.optional(v.any()),
+    companyEnrichmentStatus: v.optional(
+      v.union(v.literal("pending"), v.literal("done"), v.literal("failed")),
+    ),
     serviceRegionIds: v.optional(v.array(v.string())),
     serviceRegionLabel: v.optional(v.string()),
   }).index("by_session", ["sessionId"]),

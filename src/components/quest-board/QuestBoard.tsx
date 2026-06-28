@@ -28,11 +28,11 @@ export function QuestBoard() {
 
   const storedContractor = useQuery(
     api.contractors.getContractor,
-    sessionId && !onboarded ? { sessionId } : "skip",
+    sessionId ? { sessionId } : "skip",
   );
 
   useEffect(() => {
-    if (storedContractor && storedContractor.lat != null) {
+    if (storedContractor && storedContractor.lat != null && !onboarded) {
       setContractor({
         name: storedContractor.name,
         businessDescription: storedContractor.businessDescription,
@@ -41,12 +41,30 @@ export function QuestBoard() {
         lng: storedContractor.lng,
         serviceProfile: storedContractor.serviceProfile ?? undefined,
         companyContext: storedContractor.companyContext as CompanyContext | undefined,
+        companyEnrichmentStatus: storedContractor.companyEnrichmentStatus ?? undefined,
         serviceRegionLabel: storedContractor.serviceRegionLabel ?? undefined,
         serviceRegionIds: storedContractor.serviceRegionIds ?? undefined,
       });
       setOnboarded(true);
     }
   }, [storedContractor, onboarded]);
+
+  useEffect(() => {
+    if (!onboarded || !storedContractor || storedContractor.lat == null) return;
+
+    setContractor((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        companyContext: storedContractor.companyContext as CompanyContext | undefined,
+        companyEnrichmentStatus: storedContractor.companyEnrichmentStatus ?? undefined,
+      };
+    });
+  }, [
+    onboarded,
+    storedContractor?.companyContext,
+    storedContractor?.companyEnrichmentStatus,
+  ]);
 
   const convexLeads = useQuery(
     api.leads.listLeads,
@@ -153,30 +171,13 @@ export function QuestBoard() {
           <OnboardingPanel key={onboardingKey} onComplete={handleOnboardingComplete} />
         )}
 
-        {onboarded && convexLeads === undefined && (
-          <div className="flex h-full items-center justify-center">
-            <p className="animate-pulse font-semibold text-amber-950">
-              Loading ranked leads…
-            </p>
-          </div>
-        )}
-
-        {onboarded && convexLeads !== undefined && leads.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <p className="text-lg font-bold text-amber-950">No leads in your service area</p>
-            <p className="max-w-md text-sm text-amber-900/70">
-              Your business maps to{" "}
-              <span className="font-semibold">
-                {contractor?.serviceRegionLabel ?? "nearby SF neighborhoods"}
-              </span>
-              . Household data for this zone has not been imported yet — leads appear as ETL
-              coverage expands across the city.
-            </p>
-          </div>
-        )}
-
-        {onboarded && convexLeads !== undefined && leads.length > 0 && (
+        {onboarded && leads.length > 0 && (
           <>
+            {convexLeads === undefined && (
+              <div className="absolute right-4 top-4 z-30 rounded-full border border-amber-300/70 bg-white/90 px-3 py-1 text-xs font-semibold text-amber-950 shadow-sm">
+                Ranking 30 nearby leads…
+              </div>
+            )}
             <QuestMap
               leads={leads}
               selectedLeadId={selectedLead?.id ?? null}
@@ -198,14 +199,34 @@ export function QuestBoard() {
                 businessAddress={contractor.businessAddress}
                 serviceTypes={contractor.serviceProfile?.service_types}
                 companyContext={contractor.companyContext}
+                enrichmentStatus={contractor.companyEnrichmentStatus}
                 onContextRefresh={(companyContext) =>
                   setContractor((current) =>
                     current ? { ...current, companyContext } : current,
                   )
                 }
+                onEnrichmentStatusChange={(companyEnrichmentStatus) =>
+                  setContractor((current) =>
+                    current ? { ...current, companyEnrichmentStatus } : current,
+                  )
+                }
               />
             )}
           </>
+        )}
+
+        {onboarded && convexLeads !== undefined && leads.length === 0 && (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="text-lg font-bold text-amber-950">No leads in your service area</p>
+            <p className="max-w-md text-sm text-amber-900/70">
+              Your business maps to{" "}
+              <span className="font-semibold">
+                {contractor?.serviceRegionLabel ?? "nearby SF neighborhoods"}
+              </span>
+              . Household data for this zone has not been imported yet — leads appear as ETL
+              coverage expands across the city.
+            </p>
+          </div>
         )}
       </main>
 

@@ -1,12 +1,86 @@
 "use node";
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { chatCompletion } from "./lib/openai";
 import { geocodeAddress } from "./lib/google";
 import { searchBusinessContext } from "./lib/fiber";
 import { resolveServiceAreas } from "./lib/sfRegions";
+
+function parseServiceProfile(
+  profileRaw: string,
+  businessDescription: string,
+): {
+  serviceProfile: {
+    service_types: string[];
+    price_point: string;
+    customer_preferences: string;
+  };
+  businessName: string;
+} {
+  try {
+    const parsed = JSON.parse(profileRaw) as {
+      service_types?: string[];
+      price_point?: string;
+      customer_preferences?: string;
+      business_name?: string;
+    };
+    return {
+      serviceProfile: {
+        service_types: parsed.service_types ?? ["hvac"],
+        price_point: parsed.price_point ?? "mid",
+        customer_preferences:
+          parsed.customer_preferences ?? businessDescription.slice(0, 200),
+      },
+      businessName: parsed.business_name?.trim() ?? "",
+    };
+  } catch {
+    return {
+      serviceProfile: {
+        service_types: ["hvac"],
+        price_point: "mid",
+        customer_preferences: businessDescription.slice(0, 200),
+      },
+      businessName: "",
+    };
+  }
+}
+
+export const enrichCompanyContextJob = internalAction({
+  args: {
+    sessionId: v.string(),
+    businessDescription: v.string(),
+    businessAddress: v.string(),
+    formattedAddress: v.string(),
+    lat: v.number(),
+    lng: v.number(),
+    businessName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const companyContext = await searchBusinessContext({
+        businessDescription: args.businessDescription,
+        businessAddress: args.businessAddress,
+        formattedAddress: args.formattedAddress,
+        lat: args.lat,
+        lng: args.lng,
+        businessName: args.businessName,
+      });
+
+      await ctx.runMutation(internal.contractors.patchCompanyContext, {
+        sessionId: args.sessionId,
+        companyContext: companyContext ?? undefined,
+        companyEnrichmentStatus: "done",
+      });
+    } catch {
+      await ctx.runMutation(internal.contractors.patchCompanyContext, {
+        sessionId: args.sessionId,
+        companyEnrichmentStatus: "failed",
+      });
+    }
+  },
+});
 
 export const completeOnboarding = action({
   args: {
@@ -16,61 +90,28 @@ export const completeOnboarding = action({
     businessAddress: v.string(),
   },
   handler: async (ctx, args) => {
-    const geocoded = await geocodeAddress(args.businessAddress);
+    const [geocoded, profileRaw] = await Promise.all([
+      geocodeAddress(args.businessAddress),
+      chatCompletion(
+        [
+          {
+            role: "system",
+            content:
+              "Extract a structured contractor service profile from the description. Return JSON only with keys: service_types (string array, values like hvac, electrical, panel, ev), price_point (low|mid|high), customer_preferences (short string), business_name (company name if mentioned, else empty string).",
+          },
+          {
+            role: "user",
+            content: args.businessDescription,
+          },
+        ],
+        { json: true },
+      ),
+    ]);
 
-    const profileRaw = await chatCompletion(
-      [
-        {
-          role: "system",
-          content:
-            "Extract a structured contractor service profile from the description. Return JSON only with keys: service_types (string array, values like hvac, electrical, panel, ev), price_point (low|mid|high), customer_preferences (short string), business_name (company name if mentioned, else empty string).",
-        },
-        {
-          role: "user",
-          content: args.businessDescription,
-        },
-      ],
-      { json: true },
+    const { serviceProfile, businessName } = parseServiceProfile(
+      profileRaw,
+      args.businessDescription,
     );
-
-    let serviceProfile: {
-      service_types: string[];
-      price_point: string;
-      customer_preferences: string;
-    };
-    let businessName = "";
-
-    try {
-      const parsed = JSON.parse(profileRaw) as {
-        service_types?: string[];
-        price_point?: string;
-        customer_preferences?: string;
-        business_name?: string;
-      };
-      serviceProfile = {
-        service_types: parsed.service_types ?? ["hvac"],
-        price_point: parsed.price_point ?? "mid",
-        customer_preferences:
-          parsed.customer_preferences ?? args.businessDescription.slice(0, 200),
-      };
-      businessName = parsed.business_name?.trim() ?? "";
-    } catch {
-      serviceProfile = {
-        service_types: ["hvac"],
-        price_point: "mid",
-        customer_preferences: args.businessDescription.slice(0, 200),
-      };
-    }
-
-    const companyContext = await searchBusinessContext({
-      businessDescription: args.businessDescription,
-      businessAddress: args.businessAddress,
-      formattedAddress: geocoded.formattedAddress,
-      lat: geocoded.lat,
-      lng: geocoded.lng,
-      businessName: businessName || undefined,
-    });
-
     const serviceAreas = resolveServiceAreas(geocoded.lat, geocoded.lng);
 
     await ctx.runMutation(internal.contractors.saveContractor, {
@@ -81,9 +122,19 @@ export const completeOnboarding = action({
       lat: geocoded.lat,
       lng: geocoded.lng,
       serviceProfile,
-      companyContext: companyContext ?? undefined,
+      companyEnrichmentStatus: "pending",
       serviceRegionIds: serviceAreas.regionIds,
       serviceRegionLabel: serviceAreas.label,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.onboarding.enrichCompanyContextJob, {
+      sessionId: args.sessionId,
+      businessDescription: args.businessDescription,
+      businessAddress: args.businessAddress,
+      formattedAddress: geocoded.formattedAddress,
+      lat: geocoded.lat,
+      lng: geocoded.lng,
+      businessName: businessName || undefined,
     });
 
     return {
@@ -91,7 +142,7 @@ export const completeOnboarding = action({
       businessAddress: geocoded.formattedAddress,
       lat: geocoded.lat,
       lng: geocoded.lng,
-      companyContext,
+      companyEnrichmentStatus: "pending" as const,
       serviceRegionLabel: serviceAreas.label,
       serviceRegionIds: serviceAreas.regionIds,
     };
@@ -105,6 +156,11 @@ export const refreshCompanyContext = action({
     if (!contractor?.lat || !contractor?.lng) {
       throw new Error("Complete onboarding before refreshing business intelligence.");
     }
+
+    await ctx.runMutation(internal.contractors.patchCompanyContext, {
+      sessionId,
+      companyEnrichmentStatus: "pending",
+    });
 
     let businessName = "";
     try {
@@ -134,17 +190,10 @@ export const refreshCompanyContext = action({
       businessName: businessName || undefined,
     });
 
-    await ctx.runMutation(internal.contractors.saveContractor, {
+    await ctx.runMutation(internal.contractors.patchCompanyContext, {
       sessionId: contractor.sessionId,
-      name: contractor.name,
-      businessDescription: contractor.businessDescription,
-      businessAddress: contractor.businessAddress,
-      lat: contractor.lat,
-      lng: contractor.lng,
-      serviceProfile: contractor.serviceProfile,
       companyContext: companyContext ?? undefined,
-      serviceRegionIds: contractor.serviceRegionIds,
-      serviceRegionLabel: contractor.serviceRegionLabel,
+      companyEnrichmentStatus: "done",
     });
 
     return { companyContext };

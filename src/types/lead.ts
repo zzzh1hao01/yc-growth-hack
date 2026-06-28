@@ -117,6 +117,7 @@ export type Contractor = {
   lng?: number;
   serviceProfile?: ServiceProfile;
   companyContext?: CompanyContext;
+  companyEnrichmentStatus?: "pending" | "done" | "failed";
   serviceRegionLabel?: string;
   serviceRegionIds?: string[];
 };
