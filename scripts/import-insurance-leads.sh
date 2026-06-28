@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Pull household_records.json from origin/insurance and import into Convex.
+# Pull insurance household records from origin/insurance and import into Convex.
+# Default source: household_demo_records.json (balanced hot/warm/cold spread for the map).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC_JSON="${ROOT}/.cache/household_records.json"
+DATA_FILE="${INSURANCE_DATA_FILE:-household_demo_records.json}"
+SRC_JSON="${ROOT}/.cache/${DATA_FILE}"
 OUT_JSONL="${ROOT}/convex/seed/insurance_leads.jsonl"
 
 mkdir -p "${ROOT}/.cache"
-echo "Fetching household_records.json from origin/insurance..."
+echo "Fetching ${DATA_FILE} from origin/insurance..."
 git -C "$ROOT" fetch origin insurance 2>/dev/null || true
-git -C "$ROOT" show origin/insurance:household_records.json > "$SRC_JSON"
+git -C "$ROOT" show "origin/insurance:${DATA_FILE}" > "$SRC_JSON"
 
 python3 << PY
 import json

@@ -22,7 +22,7 @@ From repo root, with Convex linked to your **insurance** deployment:
 ./scripts/import-insurance-leads.sh
 ```
 
-This fetches `origin/insurance:household_records.json`, transforms to JSONL, and runs `npx convex import --table leads --replace`.
+This fetches `origin/insurance:household_demo_records.json` (2,000 records, balanced score spread). Override with `INSURANCE_DATA_FILE=household_records.json` for the top-scored-only export.
 
 To regenerate ETL data from scratch (Python, offline):
 
