@@ -7,8 +7,10 @@ import { api } from "../../../convex/_generated/api";
 import { PLACEHOLDER_LEADS } from "@/data/placeholderLeads";
 import { getSessionId, resetSession } from "@/lib/session";
 import type { Agent, CompanyContext, Lead } from "@/types/lead";
+import { filterLeadsByImportance } from "@/lib/lead-utils";
 import { BoardLegend } from "./BoardLegend";
 import { ContractorContextPanel } from "./ContractorContextPanel";
+import { LeadFocusFilter } from "./LeadFocusFilter";
 import { LeadSidePanel } from "./LeadSidePanel";
 import { OnboardingPanel } from "./OnboardingPanel";
 import { QuestMap } from "./QuestMap";
@@ -19,6 +21,7 @@ export function QuestBoard() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [onboarded, setOnboarded] = useState(false);
   const [onboardingKey, setOnboardingKey] = useState(0);
+  const [minLeadScore, setMinLeadScore] = useState(0);
 
   const clearContractor = useMutation(api.contractors.clearContractor);
 
@@ -96,6 +99,20 @@ export function QuestBoard() {
     };
   }, [convexLeads, onboarded]);
 
+  const visibleLeads = useMemo(
+    () => filterLeadsByImportance(leads, { minScore: minLeadScore }),
+    [leads, minLeadScore],
+  );
+
+  useEffect(() => {
+    if (
+      selectedLead &&
+      !visibleLeads.some((lead) => lead.id === selectedLead.id)
+    ) {
+      setSelectedLead(null);
+    }
+  }, [selectedLead, visibleLeads]);
+
   const handleOnboardingComplete = useCallback((a: Agent) => {
     setAgent(a);
     setOnboarded(true);
@@ -108,6 +125,7 @@ export function QuestBoard() {
     setSelectedLead(null);
     setAgent(null);
     setOnboarded(false);
+    setMinLeadScore(0);
     setOnboardingKey((k) => k + 1);
     setSessionId(resetSession());
   }, [sessionId, clearContractor]);
@@ -155,6 +173,14 @@ export function QuestBoard() {
               {linesOfBusiness.join(", ")} · {agent?.serviceProfile?.price_point} tier
             </span>
           )}
+          {onboarded && leads.length > 0 && (
+            <LeadFocusFilter
+              minScore={minLeadScore}
+              visibleCount={visibleLeads.length}
+              totalCount={leads.length}
+              onChange={setMinLeadScore}
+            />
+          )}
           {onboarded && <BoardLegend />}
           <button
             type="button"
@@ -179,7 +205,7 @@ export function QuestBoard() {
               </div>
             )}
             <QuestMap
-              leads={leads}
+              leads={visibleLeads}
               selectedLeadId={selectedLead?.id ?? null}
               onSelectLead={handleSelectLead}
               businessLocation={
