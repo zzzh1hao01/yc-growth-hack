@@ -26,12 +26,13 @@ export function ContractorContextPanel({
   enrichmentStatus,
 }: ContractorContextProps) {
   const ctx = asCompanyContext(companyContext);
-  const displayName = businessName?.trim() || asDisplayText(ctx?.name) || "Your agency";
+  const displayName = businessName?.trim() || asDisplayText(ctx?.name) || "Your business";
+  const fiberLookups = ctx?.fiberLookups ?? [];
 
   return (
     <aside className="absolute bottom-4 left-4 z-20 w-full max-w-sm rounded-xl border border-amber-300/60 bg-[#fff9f0]/95 p-4 shadow-lg backdrop-blur-sm">
       <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/70">
-        Your agency
+        Your business
       </p>
       <p className="mt-1 text-sm font-semibold text-amber-950">{displayName}</p>
       {serviceTypes && serviceTypes.length > 0 && (
@@ -42,7 +43,7 @@ export function ContractorContextPanel({
 
       {enrichmentStatus === "pending" && (
         <p className="mt-2 animate-pulse text-[11px] text-amber-900/70">
-          Loading business details…
+          Loading company details from Fiber…
         </p>
       )}
 
@@ -75,6 +76,23 @@ export function ContractorContextPanel({
             </li>
           )}
         </ul>
+      )}
+
+      {fiberLookups.length > 0 && (
+        <ul className="mt-2 space-y-0.5 text-[10px] leading-relaxed text-amber-900/60">
+          {fiberLookups.map((lookup, index) => (
+            <li key={`${lookup.api}-${index}`}>
+              {lookup.api}
+              {lookup.credits != null ? ` (${lookup.credits} cr)` : ""}: {lookup.summary}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {enrichmentStatus === "done" && !ctx?.phone && !ctx?.email && !ctx?.stats?.rating && (
+        <p className="mt-2 text-[11px] text-amber-900/65">
+          Fiber ran successfully — this business has limited public data in their database.
+        </p>
       )}
     </aside>
   );

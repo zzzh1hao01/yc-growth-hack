@@ -16,9 +16,9 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "HouseholdIQ — Coverage Board",
+  title: "HouseholdIQ — Bounty Board",
   description:
-    "Insurance lead qualification for SF homeowners — discover underinsured households ranked by need and timing on a cartoony map.",
+    "Cartoony quest board for home service contractors — discover warm leads on a map of San Francisco.",
 };
 
 export default function RootLayout({

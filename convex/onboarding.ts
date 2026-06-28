@@ -19,12 +19,12 @@ function resolveBusinessName(
   return firstLine || "Your business";
 }
 
-function parseAgentProfile(
+function parseServiceProfile(
   profileRaw: string,
   businessDescription: string,
 ): {
   serviceProfile: {
-    lines_of_business: string[];
+    service_types: string[];
     price_point: string;
     customer_preferences: string;
   };
@@ -32,19 +32,14 @@ function parseAgentProfile(
 } {
   try {
     const parsed = JSON.parse(profileRaw) as {
-      lines_of_business?: string[];
       service_types?: string[];
       price_point?: string;
       customer_preferences?: string;
       business_name?: string;
     };
-    const lines =
-      parsed.lines_of_business ??
-      parsed.service_types ??
-      ["home"];
     return {
       serviceProfile: {
-        lines_of_business: lines,
+        service_types: parsed.service_types ?? ["hvac"],
         price_point: parsed.price_point ?? "mid",
         customer_preferences:
           parsed.customer_preferences ?? businessDescription.slice(0, 200),
@@ -54,7 +49,7 @@ function parseAgentProfile(
   } catch {
     return {
       serviceProfile: {
-        lines_of_business: ["home"],
+        service_types: ["hvac"],
         price_point: "mid",
         customer_preferences: businessDescription.slice(0, 200),
       },
@@ -113,7 +108,7 @@ export const completeOnboarding = action({
           {
             role: "system",
             content:
-              "Extract a structured insurance agent profile from the description. Return JSON only with keys: lines_of_business (string array, values like home, auto, life, umbrella), price_point (low|mid|high), customer_preferences (short string), business_name (agency name if mentioned, else empty string).",
+              "Extract a structured contractor service profile from the description. Return JSON only with keys: service_types (string array, values like hvac, electrical, panel, ev), price_point (low|mid|high), customer_preferences (short string), business_name (company name if mentioned, else empty string).",
           },
           {
             role: "user",
@@ -124,7 +119,7 @@ export const completeOnboarding = action({
       ),
     ]);
 
-    const { serviceProfile, businessName: parsedBusinessName } = parseAgentProfile(
+    const { serviceProfile, businessName: parsedBusinessName } = parseServiceProfile(
       profileRaw,
       args.businessDescription,
     );
@@ -209,7 +204,7 @@ export const refreshCompanyContext = action({
       formattedAddress: contractor.businessAddress,
       lat: contractor.lat,
       lng: contractor.lng,
-      businessName: (contractor.businessName ?? businessName) || undefined,
+      businessName: businessName || undefined,
     });
 
     await ctx.runMutation(internal.contractors.patchCompanyContext, {

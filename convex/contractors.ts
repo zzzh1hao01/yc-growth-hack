@@ -27,7 +27,6 @@ export const saveContractor = internalMutation({
     ),
     serviceRegionIds: v.optional(v.array(v.string())),
     serviceRegionLabel: v.optional(v.string()),
-    targetNeighborhoods: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -48,7 +47,6 @@ export const saveContractor = internalMutation({
       companyEnrichmentStatus: args.companyEnrichmentStatus,
       serviceRegionIds: args.serviceRegionIds,
       serviceRegionLabel: args.serviceRegionLabel,
-      targetNeighborhoods: args.targetNeighborhoods,
     };
 
     if (existing) {

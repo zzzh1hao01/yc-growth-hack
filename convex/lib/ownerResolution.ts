@@ -1,11 +1,6 @@
 import { chatCompletion } from "./openai";
 import { exaSearch, formatExaResults, type ExaSearchResult } from "./exa";
 import { orangeslicePost } from "./orangesliceClient";
-import {
-  assessorEvidenceText,
-  fetchAssessorParcelByHouseholdId,
-  type AssessorParcel,
-} from "./datasfAssessor";
 
 export type ContactRole = "owner" | "resident" | "unknown";
 
@@ -17,11 +12,11 @@ export type OwnerIdentity = {
   source: string;
   confidence?: "high" | "medium" | "low";
   contactRole?: ContactRole;
-  assessorParcel?: {
-    block: string;
-    lot: string;
-    parcelNumber: string;
-  };
+};
+
+type EvidenceChunk = {
+  source: string;
+  text: string;
 };
 
 type ResolveOwnerOptions = {
@@ -30,19 +25,6 @@ type ResolveOwnerOptions = {
   ownerOccupied?: boolean;
   exaApiKey?: string;
   orangeSliceApiKey?: string;
-  recordedOwnerFullName?: string;
-  recordedOwnerSource?: string;
-};
-
-export type ResolveOwnerResult = {
-  owner: OwnerIdentity;
-  assessorParcel?: AssessorParcel;
-  ownerOccupied: boolean;
-};
-
-type EvidenceChunk = {
-  source: string;
-  text: string;
 };
 
 const PROPERTY_DOMAINS = [
@@ -320,80 +302,9 @@ async function findLinkedInUrl(
 export async function resolveOwnerFromAddress(
   options: ResolveOwnerOptions,
 ): Promise<OwnerIdentity> {
-  const result = await resolveOwnerWithAssessor(options);
-  return result.owner;
-}
-
-export async function resolveOwnerWithAssessor(
-  options: ResolveOwnerOptions,
-): Promise<ResolveOwnerResult> {
-  const {
-    address,
-    householdId,
-    ownerOccupied: ownerOccupiedInput = true,
-    exaApiKey,
-    orangeSliceApiKey,
-    recordedOwnerFullName,
-    recordedOwnerSource,
-  } = options;
-
-  let ownerOccupied = ownerOccupiedInput;
-  let assessorParcel: AssessorParcel | undefined;
-
-  if (recordedOwnerFullName?.trim()) {
-    const nameParts = parseFullName(recordedOwnerFullName.trim());
-    if (nameParts) {
-      const owner: OwnerIdentity = {
-        firstName: nameParts.firstName,
-        lastName: nameParts.lastName,
-        fullName: recordedOwnerFullName.trim(),
-        source: recordedOwnerSource ?? "ingest",
-        confidence: "high",
-        contactRole: ownerOccupied ? "owner" : "unknown",
-      };
-      if (householdId) {
-        try {
-          assessorParcel =
-            (await fetchAssessorParcelByHouseholdId(householdId)) ?? undefined;
-          if (assessorParcel?.homeownerExemption) ownerOccupied = true;
-          if (assessorParcel) {
-            owner.assessorParcel = {
-              block: assessorParcel.block,
-              lot: assessorParcel.lot,
-              parcelNumber: assessorParcel.parcelNumber,
-            };
-          }
-        } catch {
-          // optional parcel enrichment
-        }
-      }
-      if (orangeSliceApiKey) {
-        const linkedinUrl = await findLinkedInUrl(orangeSliceApiKey, owner, address);
-        if (linkedinUrl) {
-          return {
-            owner: { ...owner, linkedinUrl, source: `${owner.source}+linkedin` },
-            assessorParcel,
-            ownerOccupied,
-          };
-        }
-      }
-      return { owner, assessorParcel, ownerOccupied };
-    }
-  }
-
-  if (householdId) {
-    try {
-      assessorParcel = (await fetchAssessorParcelByHouseholdId(householdId)) ?? undefined;
-      if (assessorParcel?.homeownerExemption) ownerOccupied = true;
-    } catch {
-      // DataSF is best-effort; continue with web search
-    }
-  }
-
+  const { address, householdId, ownerOccupied = true, exaApiKey, orangeSliceApiKey } =
+    options;
   const evidence: EvidenceChunk[] = [];
-  if (assessorParcel) {
-    evidence.push({ source: "datasf_assessor", text: assessorEvidenceText(assessorParcel) });
-  }
 
   if (exaApiKey) {
     const exaText = await gatherExaEvidence(
@@ -417,12 +328,13 @@ export async function resolveOwnerWithAssessor(
           `"${street}" San Francisco property owner resident`,
           `"${street}" San Francisco whitepages OR truepeoplesearch`,
           parcelHint
-            ? `San Francisco assessor block ${parcelHint} property owner`
+            ? `San Francisco parcel block ${parcelHint} property owner`
             : `"${street}" San Francisco assessor parcel owner`,
         ]
       : [
           `"${street}" San Francisco CA who lives resident`,
           `"${street}" San Francisco current resident tenant address`,
+          `"${street}" San Francisco whitepages OR spokeo lives at`,
           parcelHint
             ? `San Francisco parcel block ${parcelHint} resident`
             : `"who lives at ${street}" San Francisco`,
@@ -451,47 +363,30 @@ export async function resolveOwnerWithAssessor(
         ownerOccupied,
       );
       if (owner) {
-        owner = {
-          ...owner,
-          source: owner.source.includes("exa") ? `${owner.source}+deep` : "exa+deep",
-        };
+        owner = { ...owner, source: owner.source.includes("exa") ? `${owner.source}+deep` : "exa+deep" };
       }
     }
   }
 
   if (!owner) {
-    owner = {
-      firstName: "Property",
-      lastName: "Owner",
-      fullName: "Property Owner",
-      source: assessorParcel ? "datasf_parcel_only" : "unresolved",
-      confidence: "low",
-      contactRole: ownerOccupied ? "owner" : "resident",
-    };
-  }
-
-  if (assessorParcel) {
-    owner = {
-      ...owner,
-      assessorParcel: {
-        block: assessorParcel.block,
-        lot: assessorParcel.lot,
-        parcelNumber: assessorParcel.parcelNumber,
-      },
-      source: owner.source.includes("datasf") ? owner.source : `${owner.source}+datasf`,
-    };
+    const configured = [exaApiKey ? "Exa" : null, orangeSliceApiKey ? "web search" : null]
+      .filter(Boolean)
+      .join(" + ");
+    throw new Error(
+      `Could not identify a contact name for this address (${configured || "no search providers configured"}). Partner assessor owner names would be the most reliable source.`,
+    );
   }
 
   if (orangeSliceApiKey) {
     const linkedinUrl = await findLinkedInUrl(orangeSliceApiKey, owner, address);
     if (linkedinUrl) {
       return {
-        owner: { ...owner, linkedinUrl, source: `${owner.source}+linkedin` },
-        assessorParcel,
-        ownerOccupied,
+        ...owner,
+        linkedinUrl,
+        source: `${owner.source}+linkedin`,
       };
     }
   }
 
-  return { owner, assessorParcel, ownerOccupied };
+  return owner;
 }

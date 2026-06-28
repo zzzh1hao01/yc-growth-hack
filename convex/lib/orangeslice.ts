@@ -1,19 +1,12 @@
 import {
-  resolveOwnerWithAssessor,
+  resolveOwnerFromAddress,
   type OwnerIdentity,
 } from "./ownerResolution";
 import { orangeslicePost } from "./orangesliceClient";
-import {
-  buildChannels,
-  contactConfidence,
-  legacyContactFields,
-  type EnrichmentContact,
-} from "./enrichmentTypes";
 
 export type { OwnerIdentity } from "./ownerResolution";
-export { resolveOwnerFromAddress, resolveOwnerWithAssessor } from "./ownerResolution";
+export { resolveOwnerFromAddress } from "./ownerResolution";
 
-/** @deprecated Use EnrichmentContact */
 export type ContactInfo = {
   phone: string;
   email: string;
@@ -28,36 +21,6 @@ type PersonContactResult = {
   unknown_phones?: string[];
 };
 
-function uniqueStrings(values: (string | undefined)[]): string[] {
-  return [...new Set(values.filter((v): v is string => Boolean(v?.trim())))];
-}
-
-function buildEnrichmentContact(
-  result: PersonContactResult,
-  ownerName: string,
-  linkedinUrl?: string,
-): EnrichmentContact | null {
-  const emails = uniqueStrings([
-    ...(result.personal_emails ?? []),
-    ...(result.work_emails ?? []),
-  ]);
-  const phones = uniqueStrings([
-    ...(result.personal_phones ?? []),
-    ...(result.work_phones ?? []),
-    ...(result.unknown_phones ?? []),
-  ]);
-  if (emails.length === 0 && phones.length === 0 && !linkedinUrl) return null;
-
-  return {
-    emails,
-    phones,
-    linkedinUrl,
-    confidence: contactConfidence({ emails, phones, linkedinUrl }),
-    channels: buildChannels({ emails, phones, linkedinUrl }),
-    ...legacyContactFields(ownerName, emails, phones),
-  };
-}
-
 export async function findLinkedInUrl(
   apiKey: string,
   owner: OwnerIdentity,
@@ -69,64 +32,53 @@ export async function findLinkedInUrl(
       "/execute/linkedin-find-profile-url",
       {
         name: owner.fullName,
-        location: "San Francisco, CA",
+        location: "San Francisco, California",
         keyword: address,
-        company: address,
+        company: "Homeowner",
       },
     );
     if (typeof url === "string" && url.includes("linkedin.com/in/")) {
       return url;
     }
   } catch {
-    // optional
+    // optional step
   }
   return undefined;
+}
+
+function pickContact(
+  result: PersonContactResult,
+  ownerName: string,
+): ContactInfo | null {
+  const email =
+    result.personal_emails?.[0] ??
+    result.work_emails?.[0] ??
+    undefined;
+  const phone =
+    result.personal_phones?.[0] ??
+    result.work_phones?.[0] ??
+    result.unknown_phones?.[0] ??
+    undefined;
+
+  if (!email && !phone) return null;
+
+  return {
+    name: ownerName,
+    email: email ?? "Not found",
+    phone: phone ?? "Not found",
+  };
 }
 
 async function contactWaterfall(
   apiKey: string,
   owner: OwnerIdentity,
   address: string,
-  householdId?: string,
-): Promise<EnrichmentContact | null> {
-  const parcelHint = householdId?.replace("-", " ") ?? "";
+): Promise<ContactInfo | null> {
   const attempts: Array<Record<string, unknown>> = [];
 
   if (owner.linkedinUrl) {
-    for (const required of [["email", "phone"], ["email"], ["phone"]]) {
-      attempts.push({
-        linkedinUrl: owner.linkedinUrl,
-        required,
-        maxCoverage: true,
-      });
-    }
-  }
-
-  attempts.push(
-    {
-      firstName: owner.firstName,
-      lastName: owner.lastName,
-      location: "San Francisco, CA",
-      company: address,
-      required: ["email", "phone"],
-      maxCoverage: true,
-    },
-    {
-      firstName: owner.firstName,
-      lastName: owner.lastName,
-      location: "San Francisco, CA",
-      company: "San Francisco Homeowner",
-      required: ["email", "phone"],
-      maxCoverage: true,
-    },
-  );
-
-  if (parcelHint) {
     attempts.push({
-      firstName: owner.firstName,
-      lastName: owner.lastName,
-      location: "San Francisco, CA",
-      company: parcelHint,
+      linkedinUrl: owner.linkedinUrl,
       required: ["email", "phone"],
       maxCoverage: true,
     });
@@ -136,20 +88,32 @@ async function contactWaterfall(
     {
       firstName: owner.firstName,
       lastName: owner.lastName,
-      location: "San Francisco, CA",
+      company: "San Francisco Homeowner",
+      domain: undefined,
+      required: ["email", "phone"],
+      maxCoverage: true,
+    },
+    {
+      firstName: owner.firstName,
+      lastName: owner.lastName,
+      company: address,
+      required: ["email", "phone"],
+      maxCoverage: true,
+    },
+    {
+      firstName: owner.firstName,
+      lastName: owner.lastName,
       required: ["email"],
       maxCoverage: true,
     },
     {
       firstName: owner.firstName,
       lastName: owner.lastName,
-      location: "San Francisco, CA",
       required: ["phone"],
       maxCoverage: true,
     },
   );
 
-  let best: EnrichmentContact | null = null;
   for (const payload of attempts) {
     try {
       const contact = await orangeslicePost<PersonContactResult>(
@@ -157,20 +121,14 @@ async function contactWaterfall(
         "/execute/contact-waterfall",
         payload,
       );
-      const picked = buildEnrichmentContact(contact, owner.fullName, owner.linkedinUrl);
-      if (!picked) continue;
-      if (picked.confidence === "high") return picked;
-      if (
-        !best ||
-        picked.emails.length + picked.phones.length > best.emails.length + best.phones.length
-      ) {
-        best = picked;
-      }
+      const picked = pickContact(contact, owner.fullName);
+      if (picked) return picked;
     } catch {
-      // try next
+      // try next strategy
     }
   }
-  return best;
+
+  return null;
 }
 
 export async function enrichHomeownerContact(
@@ -179,67 +137,30 @@ export async function enrichHomeownerContact(
   existingOwner?: Partial<OwnerIdentity>,
   householdId?: string,
   exaApiKey?: string,
-  recordedOwner?: { fullName?: string; source?: string },
-  ownerOccupied = true,
-): Promise<{ contact: EnrichmentContact; owner: OwnerIdentity }> {
-  let owner: OwnerIdentity;
+): Promise<{ contact: ContactInfo; owner: OwnerIdentity }> {
+  const owner =
+    existingOwner?.firstName && existingOwner?.lastName
+      ? {
+          firstName: existingOwner.firstName,
+          lastName: existingOwner.lastName,
+          fullName:
+            existingOwner.fullName ??
+            `${existingOwner.firstName} ${existingOwner.lastName}`,
+          linkedinUrl: existingOwner.linkedinUrl,
+          source: existingOwner.source ?? "cached",
+        }
+      : await resolveOwnerFromAddress({
+          address,
+          householdId,
+          exaApiKey,
+          orangeSliceApiKey: apiKey,
+        });
 
-  if (existingOwner?.firstName && existingOwner?.lastName) {
-    owner = {
-      firstName: existingOwner.firstName,
-      lastName: existingOwner.lastName,
-      fullName:
-        existingOwner.fullName ??
-        `${existingOwner.firstName} ${existingOwner.lastName}`,
-      linkedinUrl: existingOwner.linkedinUrl,
-      source: existingOwner.source ?? "cached",
-      contactRole: existingOwner.contactRole,
-      confidence: existingOwner.confidence,
-      assessorParcel: existingOwner.assessorParcel,
-    };
-  } else {
-    const resolved = await resolveOwnerWithAssessor({
-      address,
-      householdId,
-      ownerOccupied,
-      exaApiKey,
-      orangeSliceApiKey: apiKey,
-      recordedOwnerFullName: recordedOwner?.fullName,
-      recordedOwnerSource: recordedOwner?.source,
-    });
-    owner = resolved.owner;
-  }
-
-  if (!owner.linkedinUrl) {
-    const linkedinUrl = await findLinkedInUrl(apiKey, owner, address);
-    if (linkedinUrl) {
-      owner = { ...owner, linkedinUrl, source: `${owner.source}+linkedin` };
-    }
-  }
-
-  const contact = await contactWaterfall(apiKey, owner, address, householdId);
+  const contact = await contactWaterfall(apiKey, owner, address);
   if (!contact) {
-    return {
-      contact: {
-        emails: [],
-        phones: [],
-        linkedinUrl: owner.linkedinUrl,
-        confidence: owner.linkedinUrl ? "medium" : "low",
-        channels: buildChannels({
-          emails: [],
-          phones: [],
-          linkedinUrl: owner.linkedinUrl,
-        }),
-        ...legacyContactFields(owner.fullName, [], []),
-      },
-      owner,
-    };
-  }
-
-  if (owner.linkedinUrl && !contact.linkedinUrl) {
-    contact.linkedinUrl = owner.linkedinUrl;
-    contact.channels = buildChannels(contact);
-    contact.confidence = contactConfidence(contact);
+    throw new Error(
+      `Found homeowner "${owner.fullName}" but no phone/email via Orange Slice. Name was resolved from ${owner.source}.`,
+    );
   }
 
   return { contact, owner };

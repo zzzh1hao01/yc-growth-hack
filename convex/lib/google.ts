@@ -173,7 +173,7 @@ function pickBestTextSearchResult(
   lng: number,
 ): TextSearchResult | null {
   const candidates = results.filter(isLikelyBusinessListing);
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) return results[0] ?? null;
 
   return candidates
     .map((result) => {
@@ -217,23 +217,13 @@ export async function lookupBusinessContext(
   formattedAddress: string,
   lat: number,
   lng: number,
-  businessName?: string,
 ): Promise<Record<string, unknown> | null> {
   const apiKey = mapsApiKey();
   if (!apiKey) return null;
 
-  const trimmedName = businessName?.trim();
-  const queries = [
-    ...new Set(
-      [
-        trimmedName,
-        trimmedName ? `${trimmedName} San Francisco` : undefined,
-        trimmedName ? `${trimmedName} ${formattedAddress}` : undefined,
-        addressQuery.trim(),
-        formattedAddress.trim(),
-      ].filter((query): query is string => Boolean(query)),
-    ),
-  ];
+  const queries = [...new Set([addressQuery.trim(), formattedAddress.trim()])].filter(
+    Boolean,
+  );
 
   for (const query of queries) {
     const results = await textSearchPlaces(apiKey, query);

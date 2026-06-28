@@ -6,31 +6,22 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # HouseholdIQ — Agent Notes
 
-## Insurance product (`feature/insurance-app`)
+## Data integration (read first for backend/ETL work)
 
-**Branch:** `feature/insurance-app` — full-stack insurance app (this is the active product branch).
+**[docs/DATA_INTEGRATION.md](docs/DATA_INTEGRATION.md)** — full guide for inserting real lead data.
 
-**Data source:** `origin/insurance` branch — NOT contractor permit data.
+Quick reference:
 
 | Task | Where |
 |------|-------|
 | Type contract | `src/types/lead.ts` |
 | Demo mocks | `src/data/placeholderLeads.ts` |
-| Convex schema | `convex/schema.ts` (insurance fields) |
-| Ingest | `convex/leads.ts` → `bulkUpsertHouseholds` |
-| Import script | `scripts/import-insurance-leads.sh` |
-| ETL reference | `explore/insurance.py`, `INSURANCE_BUILD.md` |
-| Wire UI | `QuestBoard.tsx` → `useQuery(api.leads.listLeads)` |
+| Convex schema | `convex/schema.ts` |
+| Ingest mutations | `convex/leads.ts` → `upsertLead`, `bulkUpsertLeads` |
+| Example ETL row | `convex/seed.example.json` |
+| Wire UI to backend | `QuestBoard.tsx` → `useQuery(api.leads.listLeads)` |
 
-Every lead **must** have geocoded `lat`/`lng` tied to a real `address`.
-
-**Ranking:** need score + timing score (precomputed in ETL). Proximity is display-only.
-
-**Outreach:** Orange Slice backend preserved; UI hidden (`OUTREACH_ENABLED = false` in `src/types/lead.ts`).
-
-## Contractor demo (legacy)
-
-Branch `feature/quest-board-ui` + Convex `watchful-condor-23` — kept live separately. Do not mix data.
+Every lead **must** have geocoded `lat`/`lng` tied to a real `address` — not neighborhood centroids.
 
 ## UI demo
 
