@@ -1,138 +1,124 @@
-# SF Building Permit Taxonomy — HVAC & Electrical
+# SF Building Permit Taxonomy — HVAC & Electrical (CORRECTED)
 
-## Dataset
+> **Slice 1 correction.** The original version of this doc queried **only** the
+> Building Permits dataset (`i98e-djp9`) and undercounted the electrical vertical
+> by ~195× (it reported 366 panel permits; the real number is ~82k). SF files
+> electrical and mechanical work in **separate datasets**. This version pulls each
+> vertical's signal from the dataset it actually lives in. All counts below were
+> regenerated live against SF Open Data.
 
-**Source:** SF Open Data — Building Permits (`i98e-djp9`)
-**Record count:** ~540,000 permits (1983–2026)
-**Date range:** 1983 to present (digital filings start ~2007; bulk of HVAC/electrical permits from 2008+)
-**Access:** Socrata API at `https://data.sfgov.org/resource/i98e-djp9.json`
+## Datasets — one per signal
 
----
+| Vertical | Dataset | ID | Why |
+|---|---|---|---|
+| Panel upgrades, EV chargers | **Electrical Permits** | `ftty-kx6y` | All electrical work; the lead signal for electricians |
+| HVAC / furnace / mechanical | **Plumbing Permits** | `a6aw-rudh` | SF files mechanical/HVAC as "plumbing", `work category: 1m` |
+| Large remodels w/ HVAC scope | Building Permits | `i98e-djp9` | Secondary; bigger jobs only, noisier (catches commercial TIs) |
+| ~~Boiler~~ | ~~Boiler Permits~~ | ~~`5dp4-gtxk`~~ | **Excluded** — "Permit To Operate Boiler" is a recurring *operational* permit (mostly commercial), not an install/replace lead |
 
-## How SF Categorizes Permits
-
-SF does **not** have a dedicated "HVAC" or "Electrical" permit type. All mechanical and electrical work is filed under two general `permit_type_definition` values:
-
-| `permit_type_definition` | Description |
-|---|---|
-| `otc alterations permit` | Over-the-counter (same-day approval); most residential HVAC/electrical upgrades |
-| `additions alterations or repairs` | Jobs requiring plan review; larger installs |
-
-HVAC and electrical work is identified **only** through the free-text `description` field. The `existing_use` field is essential for filtering to residential properties.
-
----
-
-## HVAC Permit Codes
-
-### Identification Strategy
-
-Filter `description` (case-insensitive) on any of:
-
-| Keyword | Specificity | Notes |
-|---|---|---|
-| `HVAC` | High | Explicit HVAC work |
-| `HEAT PUMP` | High | Includes mini-splits and ground-source |
-| `FURNACE` | High | Gas/electric furnace replacement |
-| `DUCTLESS` | High | Ductless mini-split systems |
-| `SPLIT SYSTEM` | High | Central split HVAC |
-| `CONDENSING UNIT` | High | Outdoor AC compressor |
-| `HEATING` | Medium | Broad; includes radiant, baseboard — review needed |
-| `COOLING` | Medium | Broad; includes commercial refrigeration |
-| `AIR CONDITION` | Medium | Matches "air conditioning" and "air conditioner" |
-| `BOILER` | Low | Mixed residential/commercial; many are plumbing |
-
-### Recommended Filter for Pipeline
-
-```sql
-upper(description) like '%HVAC%'
-OR upper(description) like '%HEAT PUMP%'
-OR upper(description) like '%FURNACE%'
-OR upper(description) like '%DUCTLESS%'
-OR upper(description) like '%SPLIT SYSTEM%'
-OR upper(description) like '%CONDENSING UNIT%'
-```
-
-**With residential constraint (required for lead gen):**
-```sql
-AND (existing_use like '%family dwelling%'
-     OR existing_use = 'apartments'
-     OR existing_use = 'residential hotel')
-```
-
-### Record Counts (residential, all years)
-
-| Filter | Records |
-|---|---|
-| HVAC (high-specificity keywords above) | ~13,100 |
-| + residential `existing_use` filter | ~7,200 combined HVAC + electrical |
+All join on `block` + `lot` — confirmed present in all permit datasets **and** the
+assessor roll (`wv5m-vpq2` has separate `block` and `lot` columns). See
+`neighborhood-selection.md` for the validated join rate.
 
 ---
 
-## Electrical Permit Codes
+## Electrical vertical — `ftty-kx6y` (the big correction)
 
-### Panel Upgrades
+Dataset total: **349,773** electrical permits.
 
-Filter `description` on any of:
-
-| Keyword | Specificity | Example description snippet |
-|---|---|---|
-| `PANEL UPGRADE` | High | "200 amp panel upgrade" |
-| `SERVICE UPGRADE` | High | "upgrade electrical service to 200A" |
-| `ELECTRICAL SERVICE UPGRADE` | High | — |
-| `UPGRADE ELECTRICAL SERVICE` | High | — |
-| `200 AMP` | Medium | Matches 200A service upgrades (may include non-panel work) |
-| `400 AMP` | Medium | Larger service upgrades |
-| `MAIN PANEL` + `UPGRADE` | High | Two-term match; very specific |
-
-**Record count (panel upgrade, all use types):** ~473 explicit panel upgrade permits
-
-### EV Charger Installs
-
-| Keyword | Specificity | Example |
-|---|---|---|
-| `EV CHARGER` | High | "install level 2 ev charger" |
-| `EV CHARGING` | High | "new ev charging station" |
-| `ELECTRIC VEHICLE CHARGER` | High | Full phrase |
-| `EVSE` | High | Industry acronym for charger hardware |
-| `LEVEL 2 CHARGING` | High | L2 EVSE installs |
-
-**Record count (EV charger, all use types):** ~135 explicit EV charger permits
-**Note:** EV charger installs accelerated post-2020; dataset likely undercounts as many early installs lack explicit keyword.
-
-### Recommended Filter for Pipeline
+### Panel upgrades
 
 ```sql
-upper(description) like '%PANEL UPGRADE%'
+upper(description) like '%PANEL%'
 OR upper(description) like '%SERVICE UPGRADE%'
-OR (upper(description) like '%MAIN PANEL%' AND upper(description) like '%UPGRADE%')
-OR upper(description) like '%EV CHARGER%'
-OR upper(description) like '%EVSE%'
-OR upper(description) like '%ELECTRIC VEHICLE CHARGER%'
+OR upper(description) like '%200A%'
+OR upper(description) like '%400A%'
 ```
 
----
-
-## Key Fields for Pipeline
-
-| Field | Use |
+| Filter | Count |
 |---|---|
-| `permit_number` | Join key; unique permit ID |
-| `description` | Keyword filter for work type |
-| `existing_use` | Filter to residential (`%family dwelling%`, `apartments`) |
-| `permit_type_definition` | Coarse bucket (`otc alterations permit` vs plan review) |
-| `filed_date` | Permit age signal (lead scoring) |
-| `issued_date` | More reliable than filed for actual work date |
-| `completed_date` / `finaled_date` | Work completion; open permits (no finaled) → active construction exclusion |
-| `street_number` + `street_name` | Address for parcel join |
-| `neighborhoods_analysis_boundaries` | Neighborhood label for geographic filtering |
-| `block` + `lot` | Parcel identifier for joining to Assessor data |
+| `%PANEL%` alone | **71,619** |
+| Recommended filter (above) | **82,420** |
+| ~~Old building-permits-only count~~ | ~~366~~ ❌ |
+
+**Example passing the filter:** *"replace 4000amp main breaker in basement electric panel room"* — a real panel/service signal, not a minor line item.
+
+### EV charger installs
+
+```sql
+upper(description) like '%EV CHARGER%'
+OR upper(description) like '%ELECTRIC VEHICLE%'
+OR upper(description) like '%EVSE%'
+OR upper(description) like '%CHARGING STATION%'
+```
+
+| Filter | Count |
+|---|---|
+| Recommended filter (above) | **3,151** |
+| ~~Old building-permits-only count~~ | ~~135~~ ❌ |
+
+**Example passing the filter:** *"(01) enphase iq 50 ev charger"* — specific EV install.
+Volume is modest but trending up post-2020; high-intent.
 
 ---
 
-## Assessor Data — Pool Flag
+## HVAC vertical — `a6aw-rudh` (filed as "plumbing")
 
-**Finding: `has_pool` does not exist in the SF Assessor Historical Secured Property Tax Roll (`wv5m-vpq2`).**
+Dataset total: **518,886** plumbing/mechanical permits.
 
-The Assessor dataset fields cover: `year_property_built`, `current_sales_date`, `homeowner_exemption_value`, `use_definition`, `property_class_code`, `number_of_bathrooms`, `number_of_bedrooms`, `number_of_rooms`, `lot_area`.
+```sql
+upper(description) like '%WORK CATEGORY: 1M%'   -- SF mechanical code
+OR upper(description) like '%FURNACE%'
+OR upper(description) like '%HEAT PUMP%'
+```
 
-No pool indicator is available. **Recommendation: use `current_sales_date` (recent-mover vertical) as the primary behavioral signal instead.** Homeowners who purchased within the last 3 years are statistically more likely to invest in home upgrades — this is a cleaner and more data-rich signal than pool ownership.
+| Filter | Count |
+|---|---|
+| `work category: 1m` (clean mechanical code) | **20,631** |
+| `%FURNACE%` (catches legacy pre-code records) | **50,749** |
+| Recommended union (above) | **64,248** |
+
+**Example passing the filter:** *"replace two furnace units in kind."* — clean install/replace lead.
+
+### Secondary HVAC source — building permits (`i98e-djp9`)
+
+```sql
+upper(description) like '%HVAC%' OR '%FURNACE%' OR '%HEAT PUMP%' OR '%AIR CONDITION%'
+```
+Count: **13,132**. Use only as a supplement — example passing the filter is a
+commercial tenant-improvement (*"8th floor t.i. ..."*), so this source is
+**noisier** and should be residential-filtered hard before use.
+
+---
+
+## Residential filtering — important caveat
+
+The **electrical and plumbing datasets have no `existing_use` / use-type field**
+(only building permits does). To restrict to residential leads you **must join
+block/lot → assessor** and filter on the assessor's `use_definition` /
+`property_class_code`. This makes the assessor join load-bearing, not optional.
+
+---
+
+## Key fields for the pipeline
+
+| Field | Dataset(s) | Use |
+|---|---|---|
+| `block` + `lot` | all | **Join key** to assessor — the clean equi-join |
+| `description` | all | Keyword filter for work type |
+| `filed_date` / `issued_date` | all | Permit-age signal for lead scoring |
+| `completed_date` | electrical, building | Open (no completed) → active construction exclusion |
+| `existing_use` | building only | Residential filter (electrical/plumbing need assessor join) |
+| `street_number` + `street_name` | all | Display + fallback join only |
+
+> **Pagination note:** the original `fetch_permit_sample(limit=50000)` silently
+> capped results. All counts in this doc come from server-side `count(*)`
+> (`explore/sources.count_records`), which is never truncated.
+
+---
+
+## Assessor data — no pool flag (unchanged finding)
+
+`wv5m-vpq2` has **no `has_pool` field**. Use **recent-mover** (`current_sales_date`
+within ~3 years) as the substitute behavioral signal — a cleaner, data-rich
+proxy. Modeled as a secondary boost in the lead score, not a primary filter.
