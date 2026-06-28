@@ -31,6 +31,7 @@ export default defineSchema({
     name: v.string(),
     businessDescription: v.string(),
     businessAddress: v.string(),
+    businessName: v.optional(v.string()),
     lat: v.optional(v.number()),
     lng: v.optional(v.number()),
     serviceProfile: v.optional(v.any()),

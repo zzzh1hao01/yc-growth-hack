@@ -43,6 +43,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           lng: result.lng,
           serviceProfile: result.serviceProfile as ServiceProfile,
           companyEnrichmentStatus: result.companyEnrichmentStatus,
+          businessName: result.businessName as string | undefined,
           serviceRegionLabel: result.serviceRegionLabel as string | undefined,
           serviceRegionIds: result.serviceRegionIds as string[] | undefined,
         });

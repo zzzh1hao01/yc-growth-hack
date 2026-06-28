@@ -4,10 +4,8 @@ import {
   demoSampleLeads,
   pickVertical,
   rankLeads,
-  type ScoreVertical,
   type ServiceProfile,
 } from "./lib/scoring";
-import { haversineMiles } from "./lib/geo";
 import {
   findPrimaryRegion,
   leadInServiceAreas,
@@ -29,26 +27,6 @@ const householdFields = {
 };
 
 const DEMO_MAP_CAP = 30;
-/** Score only the top candidates before building the balanced 30-pin demo sample. */
-const RANK_CANDIDATE_CAP = 500;
-
-function quickLeadScore(
-  doc: {
-    lat: number;
-    lng: number;
-    verticalScores: Record<string, { score?: number }>;
-  },
-  vertical: ScoreVertical,
-  contractorLat?: number,
-  contractorLng?: number,
-): number {
-  const baseScore = doc.verticalScores[vertical]?.score ?? doc.verticalScores.hvac?.score ?? 0;
-  if (contractorLat == null || contractorLng == null) return baseScore;
-
-  const miles = haversineMiles(contractorLat, contractorLng, doc.lat, doc.lng);
-  const proximity = miles <= 2.5 ? 1 : miles <= 5 ? 0.85 : miles <= 8 ? 0.65 : 0.4;
-  return baseScore * proximity;
-}
 
 export const listLeads = query({
   args: { sessionId: v.optional(v.string()) },
@@ -86,19 +64,8 @@ export const listLeads = query({
     }
 
     const vertical = pickVertical(serviceProfile);
-    const candidates =
-      scoped.length > RANK_CANDIDATE_CAP
-        ? [...scoped]
-            .sort(
-              (a, b) =>
-                quickLeadScore(b, vertical, contractorLat, contractorLng) -
-                quickLeadScore(a, vertical, contractorLat, contractorLng),
-            )
-            .slice(0, RANK_CANDIDATE_CAP)
-        : scoped;
-
     const ranked = rankLeads(
-      candidates,
+      scoped,
       vertical,
       contractorLat,
       contractorLng,

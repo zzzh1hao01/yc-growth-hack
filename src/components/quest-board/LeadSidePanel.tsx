@@ -145,6 +145,7 @@ export function LeadSidePanel({ lead, sessionId, onClose }: LeadSidePanelProps) 
   const handleEnrich = useCallback(async () => {
     if (!leadConvexId) return;
     setContactLoading(true);
+    setChatError(null);
     try {
       const info = (await enrichContact({
         sessionId,
@@ -423,10 +424,31 @@ export function LeadSidePanel({ lead, sessionId, onClose }: LeadSidePanelProps) 
             {contactLoading ? "Looking up contact…" : "Get contact info"}
           </button>
           {contactInfo && (
-            <div className="mt-3 rounded-lg bg-white p-3 text-sm text-amber-950">
+            <div className="rounded-lg bg-white p-3 text-sm text-amber-950">
               <p className="font-semibold">{contactInfo.name}</p>
               <p>{contactInfo.phone}</p>
               <p>{contactInfo.email}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {contactInfo.phone && contactInfo.phone !== "Not found" && (
+                  <a
+                    href={`tel:${contactInfo.phone.replace(/[^\d+]/g, "")}`}
+                    className="rounded-lg bg-amber-800 px-3 py-2 text-xs font-bold text-white hover:bg-amber-700"
+                  >
+                    Call
+                  </a>
+                )}
+                {contactInfo.email && contactInfo.email !== "Not found" && (
+                  <a
+                    href={`mailto:${encodeURIComponent(contactInfo.email)}?subject=${encodeURIComponent(`Inquiry about ${lead.address}`)}`}
+                    className="rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100"
+                  >
+                    Email
+                  </a>
+                )}
+              </div>
+              <p className="mt-2 text-[10px] text-amber-800/60">
+                Enriched via Orange Slice contact waterfall
+              </p>
             </div>
           )}
         </div>

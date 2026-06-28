@@ -8,6 +8,17 @@ import { geocodeAddress } from "./lib/google";
 import { searchBusinessContext } from "./lib/fiber";
 import { resolveServiceAreas } from "./lib/sfRegions";
 
+function resolveBusinessName(
+  parsedName: string,
+  businessDescription: string,
+  placesName?: string,
+): string {
+  if (parsedName.trim()) return parsedName.trim();
+  if (placesName?.trim()) return placesName.trim();
+  const firstLine = businessDescription.split(/[.!?\n]/)[0]?.trim();
+  return firstLine || "Your business";
+}
+
 function parseServiceProfile(
   profileRaw: string,
   businessDescription: string,
@@ -108,8 +119,12 @@ export const completeOnboarding = action({
       ),
     ]);
 
-    const { serviceProfile, businessName } = parseServiceProfile(
+    const { serviceProfile, businessName: parsedBusinessName } = parseServiceProfile(
       profileRaw,
+      args.businessDescription,
+    );
+    const businessName = resolveBusinessName(
+      parsedBusinessName,
       args.businessDescription,
     );
     const serviceAreas = resolveServiceAreas(geocoded.lat, geocoded.lng);
@@ -119,6 +134,7 @@ export const completeOnboarding = action({
       name: args.name,
       businessDescription: args.businessDescription,
       businessAddress: geocoded.formattedAddress,
+      businessName,
       lat: geocoded.lat,
       lng: geocoded.lng,
       serviceProfile,
@@ -140,6 +156,7 @@ export const completeOnboarding = action({
     return {
       serviceProfile,
       businessAddress: geocoded.formattedAddress,
+      businessName,
       lat: geocoded.lat,
       lng: geocoded.lng,
       companyEnrichmentStatus: "pending" as const,

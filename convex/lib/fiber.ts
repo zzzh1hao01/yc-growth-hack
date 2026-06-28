@@ -113,7 +113,11 @@ function chargeCredits(chargeInfo?: Record<string, unknown>): number | undefined
 async function fiberPost<T>(
   path: string,
   body: Record<string, unknown>,
-): Promise<{ output?: T; chargeInfo?: Record<string, unknown> } | null> {
+): Promise<{
+  output?: T;
+  chargeInfo?: Record<string, unknown>;
+  error?: string;
+} | null> {
   const apiKey = fiberApiKey();
   if (!apiKey) return null;
 
@@ -124,10 +128,17 @@ async function fiberPost<T>(
       body: JSON.stringify({ apiKey, ...body }),
     });
 
-    if (!response.ok) return null;
-    return (await response.json()) as { output?: T; chargeInfo?: Record<string, unknown> };
-  } catch {
-    return null;
+    const text = await response.text();
+    if (!response.ok) {
+      return { error: `HTTP ${response.status}: ${text.slice(0, 240)}` };
+    }
+
+    if (!text) return {};
+    return JSON.parse(text) as { output?: T; chargeInfo?: Record<string, unknown> };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Fiber request failed",
+    };
   }
 }
 
@@ -147,6 +158,16 @@ async function kitchenSinkCompanyLookup(params: {
     "/v1/kitchen-sink/company",
     body,
   );
+
+  if (response?.error) {
+    return {
+      company: null,
+      lookup: {
+        api: "kitchen-sink/company",
+        summary: `Request failed — ${response.error}`,
+      },
+    };
+  }
 
   const company = response?.output?.data?.[0] ?? null;
   const credits = chargeCredits(response?.chargeInfo);
@@ -204,6 +225,17 @@ async function pollLocalBusinessSearch(input: {
 
   const researchRunId = started?.output?.researchRunId;
   const startCredits = chargeCredits(started?.chargeInfo);
+
+  if (started?.error) {
+    return {
+      observation: null,
+      lookup: {
+        api: "local-business-search",
+        credits: startCredits,
+        summary: `Request failed — ${started.error}`,
+      },
+    };
+  }
 
   if (!researchRunId) {
     return {

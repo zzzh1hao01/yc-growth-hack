@@ -42,6 +42,7 @@ export function QuestBoard() {
         serviceProfile: storedContractor.serviceProfile ?? undefined,
         companyContext: storedContractor.companyContext as CompanyContext | undefined,
         companyEnrichmentStatus: storedContractor.companyEnrichmentStatus ?? undefined,
+        businessName: storedContractor.businessName ?? undefined,
         serviceRegionLabel: storedContractor.serviceRegionLabel ?? undefined,
         serviceRegionIds: storedContractor.serviceRegionIds ?? undefined,
       });
@@ -58,6 +59,7 @@ export function QuestBoard() {
         ...current,
         companyContext: storedContractor.companyContext as CompanyContext | undefined,
         companyEnrichmentStatus: storedContractor.companyEnrichmentStatus ?? undefined,
+        businessName: storedContractor.businessName ?? current.businessName,
       };
     });
   }, [
@@ -194,22 +196,11 @@ export function QuestBoard() {
             />
             {contractor && (
               <ContractorContextPanel
-                sessionId={sessionId}
-                businessDescription={contractor.businessDescription}
+                businessName={contractor.businessName}
                 businessAddress={contractor.businessAddress}
                 serviceTypes={contractor.serviceProfile?.service_types}
                 companyContext={contractor.companyContext}
                 enrichmentStatus={contractor.companyEnrichmentStatus}
-                onContextRefresh={(companyContext) =>
-                  setContractor((current) =>
-                    current ? { ...current, companyContext } : current,
-                  )
-                }
-                onEnrichmentStatusChange={(companyEnrichmentStatus) =>
-                  setContractor((current) =>
-                    current ? { ...current, companyEnrichmentStatus } : current,
-                  )
-                }
               />
             )}
           </>

@@ -135,11 +135,9 @@ export const enrichContact = action({
         await ctx.runMutation(internal.leads.clearLeadPersona, { leadId });
       }
     } else {
-      contactInfo = {
-        name: "Homeowner (stub)",
-        phone: "415-555-0100",
-        email: `homeowner+${lead.householdId.replace(/[^a-zA-Z0-9]/g, "")}@example.com`,
-      };
+      throw new Error(
+        "Orange Slice contact lookup is not configured. Set ORANGE_SLICE_API_KEY and ORANGE_SLICE_ENABLED=true in Convex.",
+      );
     }
 
     await ctx.runMutation(internal.leads.patchLeadContactInfo, {
