@@ -2,7 +2,7 @@
 
 import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 
 import { api } from "../../../convex/_generated/api";
@@ -12,11 +12,18 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import type { Agent, CompanyContext, Lead } from "@/types/lead";
 import { filterLeadsByImportance } from "@/lib/lead-utils";
 import { BoardLegend } from "./BoardLegend";
+import {
+  BoardHeaderMenu,
+  BoardHeaderMenuItem,
+  boardHeaderMenuButtonClassName,
+  boardHeaderMenuLinkClassName,
+} from "./BoardHeaderMenu";
 import { ContractorContextPanel } from "./ContractorContextPanel";
 import { LeadFocusFilter } from "./LeadFocusFilter";
 import { LeadSidePanel } from "./LeadSidePanel";
 import { OnboardingPanel } from "./OnboardingPanel";
 import { QuestMap } from "./QuestMap";
+import type { LassoState } from "./lasso-state";
 
 export function QuestBoard({
   userId,
@@ -31,6 +38,9 @@ export function QuestBoard({
   const [onboarded, setOnboarded] = useState(false);
   const [onboardingKey, setOnboardingKey] = useState(0);
   const [minLeadScore, setMinLeadScore] = useState(0);
+  const [lassoState, setLassoState] = useState<LassoState | null>(null);
+  const leadsLoadedRef = useRef(false);
+  const [stableLeads, setStableLeads] = useState<Lead[]>([]);
 
   const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
@@ -94,27 +104,28 @@ export function QuestBoard({
     sessionId && onboarded ? { sessionId, userId } : "skip",
   );
 
-  const { leads, dataSourceLabel } = useMemo(() => {
+  useEffect(() => {
+    if (convexLeads === undefined) return;
+    leadsLoadedRef.current = true;
+    setStableLeads((convexLeads.length > 0 ? convexLeads : []) as Lead[]);
+  }, [convexLeads]);
+
+  const leads = useMemo(() => {
     if (!onboarded) {
-      return { leads: [] as Lead[], dataSourceLabel: "Awaiting setup" };
+      return [] as Lead[];
     }
 
     if (convexLeads === undefined) {
-      return { leads: PLACEHOLDER_LEADS, dataSourceLabel: "Loading…" };
+      if (leadsLoadedRef.current) {
+        return stableLeads;
+      }
+      return PLACEHOLDER_LEADS;
     }
 
-    if (convexLeads.length > 0) {
-      return {
-        leads: convexLeads as Lead[],
-        dataSourceLabel: "Insurance leads · citywide sample (max 400)",
-      };
-    }
+    return (convexLeads.length > 0 ? convexLeads : []) as Lead[];
+  }, [convexLeads, onboarded, stableLeads]);
 
-    return {
-      leads: [] as Lead[],
-      dataSourceLabel: "No household data loaded",
-    };
-  }, [convexLeads, onboarded]);
+  const reconnectingLeads = onboarded && convexLeads === undefined && leadsLoadedRef.current;
 
   const visibleLeads = useMemo(
     () => filterLeadsByImportance(leads, { minScore: minLeadScore }),
@@ -170,31 +181,17 @@ export function QuestBoard({
   const linesOfBusiness = agent?.serviceProfile?.lines_of_business;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#f5e6c8]">
-      <header className="z-50 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-amber-300/50 bg-[#f5e6c8] px-5 py-3 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-800 text-lg shadow-md">
-            🏠
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-amber-950">
-              Coverage Board
-            </h1>
-            <p className="text-xs text-amber-900/60">HouseholdIQ · San Francisco</p>
-          </div>
+    <div className="game-board-shell flex h-screen flex-col overflow-hidden">
+      <header className="western-hud relative z-50 flex h-[var(--quest-header-height)] shrink-0 items-center justify-between gap-2 overflow-visible px-3 sm:px-4">
+        <div className="min-w-0 leading-none">
+          <h1 className="western-title truncate text-sm sm:text-base">Coverage Board</h1>
+          <p className="western-label mt-0.5 hidden truncate sm:block">HouseholdIQ · SF</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
-          <span className="rounded-full border border-amber-400/60 bg-white/70 px-3 py-1 text-xs font-semibold text-amber-950">
-            {agent?.name ?? "Agent"} · {dataSourceLabel}
-          </span>
-          {Array.isArray(linesOfBusiness) && linesOfBusiness.length > 0 && (
-            <span className="hidden text-xs text-amber-900/70 sm:inline">
-              {linesOfBusiness.join(", ")} · {agent?.serviceProfile?.price_point} tier
-            </span>
-          )}
+        <div className="flex min-w-0 items-center justify-end gap-2">
           {onboarded && leads.length > 0 && (
             <LeadFocusFilter
+              compact
               minScore={minLeadScore}
               visibleCount={visibleLeads.length}
               totalCount={leads.length}
@@ -202,54 +199,74 @@ export function QuestBoard({
             />
           )}
           {onboarded && <BoardLegend />}
-          {clerkEnabled && orgId && (
-            <>
-              <Link
-                href="/pipeline"
-                className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+
+          <BoardHeaderMenu>
+            {onboarded && (
+              <BoardHeaderMenuItem>
+                <p className="western-label px-3 py-1.5">
+                  {agent?.name ?? "Agent"}
+                  {Array.isArray(linesOfBusiness) && linesOfBusiness.length > 0 && (
+                    <span className="mt-0.5 block truncate font-[family-name:var(--font-body)] normal-case tracking-normal text-[10px] text-amber-900/60">
+                      {linesOfBusiness.join(", ")}
+                    </span>
+                  )}
+                </p>
+              </BoardHeaderMenuItem>
+            )}
+            {clerkEnabled && orgId && (
+              <>
+                <BoardHeaderMenuItem>
+                  <Link href="/pipeline" className={boardHeaderMenuLinkClassName()}>
+                    Pipeline
+                  </Link>
+                </BoardHeaderMenuItem>
+                <BoardHeaderMenuItem>
+                  <Link href="/settings" className={boardHeaderMenuLinkClassName()}>
+                    Settings
+                  </Link>
+                </BoardHeaderMenuItem>
+              </>
+            )}
+            {clerkEnabled && (
+              <>
+                <Show when="signed-out">
+                  <BoardHeaderMenuItem>
+                    <SignInButton mode="modal">
+                      <button type="button" className={boardHeaderMenuButtonClassName()}>
+                        Sign in
+                      </button>
+                    </SignInButton>
+                  </BoardHeaderMenuItem>
+                  <BoardHeaderMenuItem>
+                    <SignUpButton mode="modal">
+                      <button
+                        type="button"
+                        className={`${boardHeaderMenuButtonClassName()} western-btn-primary border-0 shadow-[2px_2px_0_0_#451a03]`}
+                      >
+                        Sign up
+                      </button>
+                    </SignUpButton>
+                  </BoardHeaderMenuItem>
+                </Show>
+                <Show when="signed-in">
+                  <BoardHeaderMenuItem>
+                    <div className="flex items-center px-3 py-2">
+                      <UserButton />
+                    </div>
+                  </BoardHeaderMenuItem>
+                </Show>
+              </>
+            )}
+            <BoardHeaderMenuItem>
+              <button
+                type="button"
+                onClick={() => void handleStartOver()}
+                className={boardHeaderMenuButtonClassName()}
               >
-                Pipeline
-              </Link>
-              <Link
-                href="/settings"
-                className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
-              >
-                Settings
-              </Link>
-            </>
-          )}
-          {clerkEnabled && (
-            <>
-              <Show when="signed-out">
-                <SignInButton mode="modal">
-                  <button
-                    type="button"
-                    className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
-                  >
-                    Sign in
-                  </button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <button
-                    type="button"
-                    className="rounded-full bg-amber-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-amber-800"
-                  >
-                    Sign up
-                  </button>
-                </SignUpButton>
-              </Show>
-              <Show when="signed-in">
-                <UserButton />
-              </Show>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={() => void handleStartOver()}
-            className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
-          >
-            Start over
-          </button>
+                Start over
+              </button>
+            </BoardHeaderMenuItem>
+          </BoardHeaderMenu>
         </div>
       </header>
 
@@ -265,14 +282,20 @@ export function QuestBoard({
 
         {onboarded && leads.length > 0 && (
           <>
-            {convexLeads === undefined && (
-              <div className="absolute right-4 top-4 z-30 rounded-full border border-amber-300/70 bg-white/90 px-3 py-1 text-xs font-semibold text-amber-950 shadow-sm">
-                Loading ~400 leads…
+            {reconnectingLeads && (
+              <div className="western-toast absolute right-4 top-4 z-30">
+                Reconnecting…
+              </div>
+            )}
+            {convexLeads === undefined && !leadsLoadedRef.current && (
+              <div className="western-toast absolute right-4 top-4 z-30">
+                Loading ~150 leads…
               </div>
             )}
             <QuestMap
               leads={visibleLeads}
               selectedLeadId={selectedLead?.id ?? null}
+              lassoState={lassoState}
               onSelectLead={handleSelectLead}
               businessLocation={
                 agent?.lat != null && agent?.lng != null
@@ -297,14 +320,11 @@ export function QuestBoard({
         )}
 
         {onboarded && convexLeads !== undefined && leads.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <p className="text-lg font-bold text-amber-950">No household data loaded</p>
-            <p className="max-w-md text-sm text-amber-900/70">
-              The insurance bounty board needs household records in Convex. Run{" "}
-              <code className="rounded bg-white/80 px-1 py-0.5 text-xs">
-                scripts/import-insurance-leads.sh
-              </code>{" "}
-              then refresh.
+          <div className="western-empty mx-auto flex h-full max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="western-title text-lg">No household data loaded</p>
+            <p className="western-body">
+              The coverage board needs household records in Convex. Run{" "}
+              <code className="western-code">scripts/import-insurance-leads.sh</code> then refresh.
             </p>
           </div>
         )}
@@ -317,6 +337,9 @@ export function QuestBoard({
           orgId={orgId}
           userId={userId}
           onClose={handleClosePanel}
+          onPursueStart={(leadId) => setLassoState({ leadId, phase: "dragging" })}
+          onPursueCaptured={(leadId) => setLassoState({ leadId, phase: "captured" })}
+          onPursueEnd={() => setLassoState(null)}
         />
       )}
     </div>

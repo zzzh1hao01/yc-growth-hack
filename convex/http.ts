@@ -209,6 +209,30 @@ http.route({
       event: typeof body.event === "string" ? body.event : "sheet_webhook",
       detail: typeof body.detail === "string" ? body.detail : undefined,
       sessionId: typeof body.sessionId === "string" ? body.sessionId : undefined,
+      email:
+        typeof body.email === "string"
+          ? body.email
+          : typeof body.primary_email === "string"
+            ? body.primary_email
+            : undefined,
+      phone:
+        typeof body.phone === "string"
+          ? body.phone
+          : typeof body.primary_phone === "string"
+            ? body.primary_phone
+            : undefined,
+      linkedinUrl:
+        typeof body.linkedinUrl === "string"
+          ? body.linkedinUrl
+          : typeof body.linkedin_url === "string"
+            ? body.linkedin_url
+            : undefined,
+      emails: Array.isArray(body.emails)
+        ? body.emails.filter((value): value is string => typeof value === "string")
+        : undefined,
+      phones: Array.isArray(body.phones)
+        ? body.phones.filter((value): value is string => typeof value === "string")
+        : undefined,
     });
 
     return jsonResponse({ ok: true, ...result });

@@ -26,7 +26,9 @@ function ConvexClerkProvider({ children }: { children: ReactNode }) {
 
 export function ConvexClientProvider({ children }: { children: ReactNode }) {
   // ClerkProvider lives in src/app/layout.tsx (clerk init).
-  if (clerkKey) {
+  // Keep a single Convex client for the session — recreating it drops subscriptions
+  // and looks like a full page reload.
+  if (clerkKey && convex) {
     return <ConvexClerkProvider>{children}</ConvexClerkProvider>;
   }
 

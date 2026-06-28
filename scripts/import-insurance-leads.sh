@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 # Pull insurance household records from origin/insurance and import into Convex.
 #
-# INSURANCE_DATA_SCOPE (default: acs):
-#   acs       — citywide demo + ACS-enriched records (~4k unique, 40 neighborhoods)
-#   merged    — all insurance household JSON files, deduped (~5.5k unique)
-#   citywide  — household_demo_citywide.json (~2k, spread across SF)
-#   full      — household_records.json (~2k top composite leads)
-#   demo      — household_demo_records.json (legacy demo spread)
-#   file      — single file via INSURANCE_DATA_FILE=my.json
+# INSURANCE_DATA_SCOPE (default: acs-citywide):
+#   acs-citywide — household_records_acs_citywide.json (preferred; falls back to merged citywide+ACS)
+#   acs          — legacy merge of household_demo_citywide + household_records_acs
+#   merged       — all insurance household JSON files, deduped
+#   citywide     — household_demo_citywide.json
+#   full         — household_records.json
+#   demo         — household_demo_records.json
+#   file         — single file via INSURANCE_DATA_FILE=my.json
 #
-# Rows are deduped by household_id (highest composite_score wins) before import.
+# Rows are deduped by household_id (prefer ACS-enriched rows, then higher composite_score).
 # Uses --replace so Convex leads table has no stale or duplicate households.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SCOPE="${INSURANCE_DATA_SCOPE:-acs}"
+SCOPE="${INSURANCE_DATA_SCOPE:-acs-citywide}"
 OUT_JSONL="${ROOT}/convex/seed/insurance_leads.jsonl"
 CACHE_DIR="${ROOT}/.cache/insurance-import"
 
@@ -32,18 +33,37 @@ SCOPE = "${SCOPE}"
 OUT = Path("${OUT_JSONL}")
 
 INSURANCE_HOUSEHOLD_FILES = [
+    "household_records_acs_citywide.json",
     "household_records_acs.json",
     "household_demo_citywide.json",
     "household_records.json",
     "household_demo_records.json",
 ]
 
-def git_show(path: str) -> bytes:
-    return subprocess.check_output(["git", "-C", str(ROOT), "show", f"origin/insurance:{path}"])
+ACS_CITYWIDE_FILE = "household_records_acs_citywide.json"
+ACS_CITYWIDE_FALLBACK = [
+    "household_demo_citywide.json",
+    "household_records_acs.json",
+]
+
+def git_show(path: str) -> bytes | None:
+    try:
+        return subprocess.check_output(
+            ["git", "-C", str(ROOT), "show", f"origin/insurance:{path}"],
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        return None
 
 def load_json(path: str) -> list:
     cache_path = CACHE / path.replace("/", "__")
-    cache_path.write_bytes(git_show(path))
+    local_path = ROOT / path
+    raw = git_show(path)
+    if raw is None and local_path.is_file():
+        raw = local_path.read_bytes()
+    if raw is None:
+        raise FileNotFoundError(path)
+    cache_path.write_bytes(raw)
     with cache_path.open() as f:
         data = json.load(f)
     if not isinstance(data, list):
@@ -51,7 +71,8 @@ def load_json(path: str) -> list:
     return data
 
 SCOPE_FILES = {
-    "acs": ["household_demo_citywide.json", "household_records_acs.json"],
+    "acs-citywide": [ACS_CITYWIDE_FILE],
+    "acs": ACS_CITYWIDE_FALLBACK,
     "merged": INSURANCE_HOUSEHOLD_FILES,
     "citywide": ["household_demo_citywide.json"],
     "full": ["household_records.json"],
@@ -64,9 +85,16 @@ if SCOPE == "file":
         raise SystemExit("INSURANCE_DATA_SCOPE=file requires INSURANCE_DATA_FILE")
     sources = [single]
 elif SCOPE in SCOPE_FILES:
-    sources = SCOPE_FILES[SCOPE]
+    sources = list(SCOPE_FILES[SCOPE])
 else:
     raise SystemExit(f"Unknown INSURANCE_DATA_SCOPE={SCOPE}")
+
+if SCOPE == "acs-citywide" and git_show(ACS_CITYWIDE_FILE) is None:
+    print(
+        f"Note: {ACS_CITYWIDE_FILE} not on origin/insurance yet — "
+        f"using fallback merge {ACS_CITYWIDE_FALLBACK}",
+    )
+    sources = ACS_CITYWIDE_FALLBACK
 
 REQUIRED_KEYS = {
     "household_id",
@@ -78,6 +106,17 @@ REQUIRED_KEYS = {
     "need_score",
     "timing_score",
 }
+
+ACS_FIELDS = (
+    "archetype",
+    "acs_receptivity_score",
+    "financial_sophistication",
+    "inertia_score",
+    "coverage_stakes",
+)
+
+def acs_richness(row: dict) -> int:
+    return sum(1 for key in ACS_FIELDS if row.get(key) is not None)
 
 def row_to_doc(row: dict, sprite_variant: int) -> dict:
     doc = {
@@ -115,14 +154,43 @@ def row_to_doc(row: dict, sprite_variant: int) -> dict:
         doc["inertiaScore"] = row["inertia_score"]
     if row.get("coverage_stakes") is not None:
         doc["coverageStakes"] = row["coverage_stakes"]
+    if row.get("recorded_owner_full_name"):
+        doc["recordedOwnerFullName"] = row["recorded_owner_full_name"]
+    if row.get("recorded_owner_source"):
+        doc["recordedOwnerSource"] = row["recorded_owner_source"]
+    if row.get("owner_first_name"):
+        doc["ownerFirstName"] = row["owner_first_name"]
+    if row.get("owner_last_name"):
+        doc["ownerLastName"] = row["owner_last_name"]
+    if row.get("owner_full_name"):
+        doc["ownerFullName"] = row["owner_full_name"]
+    if row.get("parcel_number"):
+        doc["parcelNumber"] = row["parcel_number"]
+    if row.get("assessor_block"):
+        doc["assessorBlock"] = row["assessor_block"]
+    if row.get("assessor_lot"):
+        doc["assessorLot"] = row["assessor_lot"]
     return doc
+
+def should_replace(prev_row: dict, row: dict) -> bool:
+    prev_acs = acs_richness(prev_row)
+    row_acs = acs_richness(row)
+    if row_acs != prev_acs:
+        return row_acs > prev_acs
+    prev_score = float(prev_row.get("composite_score") or 0)
+    row_score = float(row.get("composite_score") or 0)
+    return row_score > prev_score
 
 merged: dict[str, tuple[dict, str]] = {}
 source_dupes = 0
 skipped_non_insurance = 0
 
 for source in sources:
-    rows = load_json(source)
+    try:
+        rows = load_json(source)
+    except FileNotFoundError:
+        print(f"Skipping missing source: {source}")
+        continue
     for row in rows:
         hid = row.get("household_id")
         if not hid:
@@ -131,18 +199,10 @@ for source in sources:
         if not REQUIRED_KEYS.issubset(row.keys()):
             skipped_non_insurance += 1
             continue
-        score = float(row.get("composite_score") or 0)
         prev = merged.get(hid)
         if prev is not None:
             source_dupes += 1
-            # ACS file wins on overlap; otherwise keep higher composite score.
-            prev_is_acs = prev[1] == "household_records_acs.json"
-            row_is_acs = source == "household_records_acs.json"
-            if row_is_acs and not prev_is_acs:
-                pass
-            elif prev_is_acs and not row_is_acs:
-                continue
-            elif score <= float(prev[0].get("composite_score") or 0):
+            if not should_replace(prev[0], row):
                 continue
         merged[hid] = (row, source)
 
@@ -160,11 +220,13 @@ with OUT.open("w") as f:
     for i, (row, _source) in enumerate(records):
         f.write(json.dumps(row_to_doc(row, i % 4), separators=(",", ":")) + "\\n")
 
+with_acs = sum(1 for row, _ in merged.values() if acs_richness(row) > 0)
+neighborhoods = len({row["neighborhood"] for row, _ in merged.values()})
 print(
     f"Scope={SCOPE} sources={sources} "
     f"skipped_non_insurance={skipped_non_insurance} "
     f"source_dupes_dropped={source_dupes} "
-    f"unique={len(records)} -> {OUT}"
+    f"unique={len(records)} acs_enriched={with_acs} neighborhoods={neighborhoods} -> {OUT}"
 )
 PY
 

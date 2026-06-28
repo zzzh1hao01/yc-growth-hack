@@ -5,6 +5,7 @@ import {
   query,
 } from "./_generated/server";
 import { requireMembership } from "./lib/auth";
+import { isSlackConfigured } from "./lib/slack";
 
 function slugify(name: string): string {
   return name
@@ -56,7 +57,11 @@ export const getMyMembership = query({
         slug: org.slug,
         sheetUrl: org.sheetUrl ?? null,
         sheetWebhookUrl: org.sheetWebhookUrl ?? null,
-        slackConnected: Boolean(org.slackAccessToken && org.slackChannelId),
+        slackConnected: isSlackConfigured(
+          org.slackChannelId,
+          org.slackAccessToken,
+          org.slackWebhookUrl,
+        ),
       },
     };
   },
@@ -149,6 +154,7 @@ export const updateOrgIntegrations = mutation({
     sheetWebhookUrl: v.optional(v.string()),
     slackTeamId: v.optional(v.string()),
     slackChannelId: v.optional(v.string()),
+    slackWebhookUrl: v.optional(v.string()),
     slackAccessToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -167,6 +173,13 @@ export const updateOrgIntegrations = mutation({
     }
     if (args.slackTeamId !== undefined) patch.slackTeamId = args.slackTeamId;
     if (args.slackChannelId !== undefined) patch.slackChannelId = args.slackChannelId;
+    if (args.slackWebhookUrl !== undefined) {
+      const url = args.slackWebhookUrl.trim();
+      if (url && !url.startsWith("https://hooks.slack.com/")) {
+        throw new Error("Slack webhook must start with https://hooks.slack.com/");
+      }
+      patch.slackWebhookUrl = url || undefined;
+    }
     if (args.slackAccessToken !== undefined) {
       patch.slackAccessToken = args.slackAccessToken;
     }
@@ -198,8 +211,14 @@ export const getOrgSettings = query({
       inviteCode: org.inviteCode,
       sheetUrl: org.sheetUrl ?? null,
       sheetWebhookUrl: org.sheetWebhookUrl ?? null,
-      slackConnected: Boolean(org.slackAccessToken && org.slackChannelId),
+      slackConnected: isSlackConfigured(
+        org.slackChannelId,
+        org.slackAccessToken,
+        org.slackWebhookUrl,
+      ),
       slackChannelId: org.slackChannelId ?? null,
+      slackWebhookUrl: org.slackWebhookUrl ?? null,
+      slackWebhookConfigured: Boolean(org.slackWebhookUrl?.trim()),
       memberCount: members.length,
     };
   },

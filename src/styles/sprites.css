@@ -4,7 +4,7 @@
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-4px);
+    transform: translateY(-3px);
   }
 }
 
@@ -28,13 +28,58 @@
     opacity: 1;
   }
   50% {
-    transform: scale(1.15);
-    opacity: 0.85;
+    transform: scale(1.1);
+    opacity: 0.9;
+  }
+}
+
+@keyframes lasso-swing {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(0.9);
+    opacity: 0.65;
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(180deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg) scale(0.92);
+    opacity: 0.75;
+  }
+}
+
+@keyframes lasso-capture-burst {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes lasso-captured-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -4px) scale(0.85);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
   }
 }
 
 .sprite-bob {
-  animation: sprite-bob 2.4s ease-in-out infinite;
+  animation: sprite-bob 2.6s ease-in-out infinite;
+}
+
+.sprite-lasso-idle {
+  animation: none;
 }
 
 .sprite-wave-arm {
@@ -46,6 +91,60 @@
   animation: urgent-pulse 1.5s ease-in-out infinite;
 }
 
+.sprite-hot-glow {
+  filter: drop-shadow(0 0 7px rgba(74, 222, 128, 0.55));
+}
+
 .sprite-selected-ring {
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.95), 0 0 0 6px rgba(251, 191, 36, 0.9);
+  box-shadow:
+    0 0 0 2px #fff9f0,
+    0 0 0 5px #fbbf24,
+    0 0 12px rgba(251, 191, 36, 0.55);
+}
+
+.sprite-lassoing .lasso-loop {
+  animation: lasso-swing 2.4s ease-in-out infinite;
+}
+
+.sprite-lasso-captured {
+  filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.65));
+}
+
+.lasso-capture-burst {
+  animation: lasso-capture-burst 700ms ease-out forwards;
+}
+
+.lasso-captured-badge {
+  border: 2px solid var(--western-border, #a67c52);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-display), serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #451a03;
+  box-shadow: 2px 2px 0 0 rgba(107, 83, 68, 0.35);
+  white-space: nowrap;
+  animation: lasso-captured-pop 500ms ease-out both;
+}
+
+.pixel-sprite-svg {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.lasso-rope-line {
+  stroke: #c2410c;
+  stroke-width: 2.5;
+  stroke-dasharray: 10 6;
+  fill: none;
+  opacity: 0.85;
+  transition: d 80ms linear;
+}
+
+.lasso-rope-tight {
+  stroke-dasharray: none;
+  stroke-width: 3;
+  opacity: 1;
 }

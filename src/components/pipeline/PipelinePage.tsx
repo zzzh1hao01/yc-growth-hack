@@ -37,8 +37,8 @@ export function PipelinePage({ orgId }: PipelinePageProps) {
 
   if (rows === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5e6c8]">
-        Loading pipeline…
+      <div className="western-page-shell flex min-h-screen items-center justify-center">
+        <p className="western-title">Loading pipeline…</p>
       </div>
     );
   }
@@ -52,26 +52,20 @@ export function PipelinePage({ orgId }: PipelinePageProps) {
   );
 
   return (
-    <div className="min-h-screen bg-[#f5e6c8] p-6">
-      <div className="mx-auto max-w-5xl space-y-6">
+    <div className="western-page-shell">
+      <div className="western-page-inner mx-auto max-w-5xl space-y-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-amber-950">Outreach pipeline</h1>
-            <p className="text-sm text-amber-900/70">
+            <h1 className="western-title text-2xl">Outreach pipeline</h1>
+            <p className="western-body mt-1">
               Status updates from Orange Slice sync back here automatically.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900"
-            >
+          <div className="flex items-center gap-2">
+            <Link href="/" className="western-btn western-btn-ghost western-btn-sm">
               Coverage board
             </Link>
-            <Link
-              href="/settings"
-              className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900"
-            >
+            <Link href="/settings" className="western-btn western-btn-ghost western-btn-sm">
               Settings
             </Link>
             <UserButton />
@@ -80,61 +74,56 @@ export function PipelinePage({ orgId }: PipelinePageProps) {
 
         <div className="flex flex-wrap gap-2">
           {Object.entries(byStatus).map(([status, count]) => (
-            <span
-              key={status}
-              className="rounded-full border border-amber-300 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-950"
-            >
+            <span key={status} className="western-chip">
               {OUTREACH_STATUS_LABELS[status as keyof typeof OUTREACH_STATUS_LABELS] ?? status}:{" "}
               {count}
             </span>
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-amber-300/70 bg-[#fff9f0] shadow-sm">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-amber-200 bg-amber-100/50 text-xs uppercase tracking-wide text-amber-800">
+        <div className="western-table-wrap">
+          <table className="western-table">
+            <thead>
               <tr>
-                <th className="px-4 py-3">Address</th>
-                <th className="px-4 py-3">Gap</th>
-                <th className="px-4 py-3">Score</th>
-                <th className="px-4 py-3">Agent</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Last activity</th>
-                <th className="px-4 py-3">Actions</th>
+                <th>Address</th>
+                <th>Gap</th>
+                <th>Score</th>
+                <th>Agent</th>
+                <th>Status</th>
+                <th>Last activity</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-amber-900/60">
+                  <td colSpan={7} className="western-body py-8 text-center">
                     No outreach yet — pursue a lead on the coverage board.
                   </td>
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={row.id} className="border-b border-amber-100/80">
-                    <td className="px-4 py-3 font-medium text-amber-950">
+                  <tr key={row.id}>
+                    <td className="font-semibold text-[var(--foreground)]">
                       {row.address}
                       {row.neighborhood && (
-                        <span className="block text-xs text-amber-800/60">{row.neighborhood}</span>
+                        <span className="western-body block text-xs">{row.neighborhood}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="western-body">
                       {row.gapDollars != null ? formatCurrency(row.gapDollars) : "—"}
                     </td>
-                    <td className="px-4 py-3">{row.matchScore ?? "—"}</td>
-                    <td className="px-4 py-3">{row.agentName}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold">
+                    <td className="western-body">{row.matchScore ?? "—"}</td>
+                    <td className="western-body">{row.agentName}</td>
+                    <td>
+                      <span className="western-chip">
                         {OUTREACH_STATUS_LABELS[
                           row.status as keyof typeof OUTREACH_STATUS_LABELS
                         ] ?? row.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-amber-900/70">
-                      {formatDate(row.lastActivityAt)}
-                    </td>
-                    <td className="px-4 py-3">
+                    <td className="western-body text-xs">{formatDate(row.lastActivityAt)}</td>
+                    <td>
                       <div className="flex flex-wrap gap-1">
                         {(["replied", "meeting", "won", "lost"] as const).map((status) => (
                           <button
@@ -149,7 +138,7 @@ export function PipelinePage({ orgId }: PipelinePageProps) {
                                 status,
                               })
                             }
-                            className="rounded border border-amber-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-amber-900 hover:bg-amber-50"
+                            className="western-btn western-btn-ghost western-btn-sm px-2 py-0.5 normal-case"
                           >
                             {status}
                           </button>

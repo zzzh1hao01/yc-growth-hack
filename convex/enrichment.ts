@@ -12,16 +12,20 @@ import {
 } from "./lib/orangeslice";
 import {
   isEnrichmentResult,
+  isPlaceholderOwner,
+  isWeakEnrichment,
   normalizeStoredContactInfo,
   type EnrichmentContact,
   type EnrichmentResult,
 } from "./lib/enrichmentTypes";
 import { coverageEmailHook } from "./lib/coverageHooks";
+import { sanitizeEnrichmentContact } from "./lib/homeownerEmail";
 import { generateOutreachPlaybook } from "./lib/playbook";
 
 type LeadDoc = {
   householdId: string;
   address: string;
+  neighborhood?: string;
   ownerOccupied: boolean;
   ownerFirstName?: string;
   ownerLastName?: string;
@@ -31,6 +35,8 @@ type LeadDoc = {
   ownerContactRole?: "owner" | "resident" | "unknown";
   recordedOwnerFullName?: string;
   recordedOwnerSource?: string;
+  parcelNumber?: string;
+  yearBuilt?: number;
   contactInfo?: unknown;
   persona?: unknown;
   replacementCostGapDollars?: number;
@@ -69,16 +75,18 @@ function ownerLookupConfig() {
   const exaApiKey = process.env.EXA_API_KEY;
   const orangeSliceApiKey = process.env.ORANGE_SLICE_API_KEY;
   const orangeSliceEnabled = process.env.ORANGE_SLICE_ENABLED === "true";
+  const orangeSlice =
+    orangeSliceApiKey && orangeSliceEnabled ? orangeSliceApiKey : undefined;
 
-  if (!orangeSliceApiKey || !orangeSliceEnabled) {
+  if (!exaApiKey && !orangeSlice) {
     throw new Error(
-      "Owner lookup requires ORANGE_SLICE_API_KEY and ORANGE_SLICE_ENABLED=true (web search via Orange Slice SERP). Exa is optional.",
+      "Contact enrichment requires EXA_API_KEY and/or ORANGE_SLICE_API_KEY with ORANGE_SLICE_ENABLED=true.",
     );
   }
 
   return {
     exaApiKey,
-    orangeSliceApiKey,
+    orangeSliceApiKey: orangeSlice,
   };
 }
 
@@ -116,7 +124,9 @@ async function runContactResolution(
 
   if (!force && lead.contactInfo) {
     const cached = normalizeStoredContactInfo(lead.contactInfo);
-    if (cached && isEnrichmentResult(cached)) return cached;
+    if (cached && isEnrichmentResult(cached) && !isWeakEnrichment(cached)) {
+      return cached;
+    }
   }
 
   const { exaApiKey, orangeSliceApiKey } = ownerLookupConfig();
@@ -125,7 +135,13 @@ async function runContactResolution(
   let ownerOccupied = lead.ownerOccupied;
   let assessorParcel = owner?.assessorParcel;
 
-  if (!owner?.firstName || !owner?.lastName || force) {
+  const needsOwnerResolution =
+    force ||
+    !owner?.firstName ||
+    !owner?.lastName ||
+    isPlaceholderOwner(owner ?? {});
+
+  if (needsOwnerResolution) {
     const resolved = await resolveOwnerWithAssessor({
       address: lead.address,
       householdId: lead.householdId,
@@ -141,8 +157,8 @@ async function runContactResolution(
     await persistOwner(ctx, leadId, owner, ownerOccupied);
   }
 
-  const { contact, owner: enrichedOwner } = await enrichHomeownerContact(
-    orangeSliceApiKey!,
+  const { contact: rawContact, owner: enrichedOwner } = await enrichHomeownerContact(
+    orangeSliceApiKey,
     lead.address,
     owner,
     lead.householdId,
@@ -152,7 +168,14 @@ async function runContactResolution(
       source: lead.recordedOwnerSource,
     },
     ownerOccupied,
+    {
+      neighborhood: lead.neighborhood,
+      parcelNumber: lead.parcelNumber ?? assessorParcel?.parcelNumber,
+      yearBuilt: lead.yearBuilt,
+    },
   );
+
+  const contact = await sanitizeEnrichmentContact(rawContact, enrichedOwner);
 
   if (!lead.ownerFirstName || force) {
     await persistOwner(ctx, leadId, enrichedOwner, ownerOccupied);
@@ -190,10 +213,12 @@ async function runContactResolution(
       : enrichedOwner.assessorParcel,
   };
 
-  await ctx.runMutation(internal.leads.patchLeadContactInfo, {
-    leadId,
-    contactInfo: enrichment,
-  });
+  if (!isWeakEnrichment(enrichment)) {
+    await ctx.runMutation(internal.leads.patchLeadContactInfo, {
+      leadId,
+      contactInfo: enrichment,
+    });
+  }
 
   return enrichment;
 }
@@ -208,7 +233,7 @@ export const lookupOwnerName = action({
     if (!lead) throw new Error("Lead not found");
 
     const existing = cachedOwner(lead);
-    if (!force && existing?.firstName && existing?.lastName) {
+    if (!force && existing?.firstName && existing?.lastName && !isPlaceholderOwner(existing)) {
       return existing as OwnerIdentity;
     }
 
@@ -243,8 +268,20 @@ export const enrichContact = action({
   args: {
     sessionId: v.string(),
     leadId: v.id("leads"),
+    force: v.optional(v.boolean()),
   },
-  handler: async (ctx, { sessionId, leadId }): Promise<EnrichmentResult> => {
-    return runContactResolution(ctx, sessionId, leadId, false);
+  handler: async (ctx, { sessionId, leadId, force }): Promise<EnrichmentResult> => {
+    return runContactResolution(ctx, sessionId, leadId, force ?? false);
+  },
+});
+
+/** Resolve email / phone / LinkedIn from gathered household + owner data. */
+export const enrichContactFromLead = action({
+  args: {
+    leadId: v.id("leads"),
+    force: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { leadId, force }): Promise<EnrichmentResult> => {
+    return runContactResolution(ctx, "", leadId, force ?? false);
   },
 });

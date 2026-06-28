@@ -6,12 +6,28 @@ import { orangeslicePost } from "./orangesliceClient";
 import {
   buildChannels,
   contactConfidence,
+  isPlaceholderOwner,
   legacyContactFields,
   type EnrichmentContact,
 } from "./enrichmentTypes";
+import { resolveHomeownerContacts } from "./peopleSearchContacts";
 
 export type { OwnerIdentity } from "./ownerResolution";
 export { resolveOwnerFromAddress, resolveOwnerWithAssessor } from "./ownerResolution";
+
+export type ContactEnrichmentContext = {
+  neighborhood?: string;
+  parcelNumber?: string;
+  yearBuilt?: number;
+};
+
+function locationHints(context?: ContactEnrichmentContext): string[] {
+  const hints = ["San Francisco, CA"];
+  if (context?.neighborhood?.trim()) {
+    hints.unshift(`${context.neighborhood.trim()}, San Francisco, CA`);
+  }
+  return [...new Set(hints)];
+}
 
 /** @deprecated Use EnrichmentContact */
 export type ContactInfo = {
@@ -88,66 +104,61 @@ async function contactWaterfall(
   owner: OwnerIdentity,
   address: string,
   householdId?: string,
+  context?: ContactEnrichmentContext,
 ): Promise<EnrichmentContact | null> {
-  const parcelHint = householdId?.replace("-", " ") ?? "";
+  const parcelHint = context?.parcelNumber?.trim() || householdId?.replace("-", " ") || "";
+  const locations = locationHints(context);
+  const companyHints = uniqueStrings([
+    address,
+    "San Francisco Homeowner",
+    parcelHint,
+    context?.neighborhood ? `${context.neighborhood} homeowner` : undefined,
+    context?.yearBuilt ? `Built ${context.yearBuilt} SF homeowner` : undefined,
+  ]);
   const attempts: Array<Record<string, unknown>> = [];
+  const waterfallBase = { preferPersonal: true, maxCoverage: true };
 
   if (owner.linkedinUrl) {
     for (const required of [["email", "phone"], ["email"], ["phone"]]) {
       attempts.push({
         linkedinUrl: owner.linkedinUrl,
         required,
-        maxCoverage: true,
+        ...waterfallBase,
       });
     }
   }
 
-  attempts.push(
-    {
-      firstName: owner.firstName,
-      lastName: owner.lastName,
-      location: "San Francisco, CA",
-      company: address,
-      required: ["email", "phone"],
-      maxCoverage: true,
-    },
-    {
-      firstName: owner.firstName,
-      lastName: owner.lastName,
-      location: "San Francisco, CA",
-      company: "San Francisco Homeowner",
-      required: ["email", "phone"],
-      maxCoverage: true,
-    },
-  );
-
-  if (parcelHint) {
-    attempts.push({
-      firstName: owner.firstName,
-      lastName: owner.lastName,
-      location: "San Francisco, CA",
-      company: parcelHint,
-      required: ["email", "phone"],
-      maxCoverage: true,
-    });
+  for (const location of locations) {
+    for (const company of companyHints) {
+      attempts.push({
+        firstName: owner.firstName,
+        lastName: owner.lastName,
+        location,
+        company,
+        required: ["email", "phone"],
+        ...waterfallBase,
+      });
+    }
   }
 
-  attempts.push(
-    {
-      firstName: owner.firstName,
-      lastName: owner.lastName,
-      location: "San Francisco, CA",
-      required: ["email"],
-      maxCoverage: true,
-    },
-    {
-      firstName: owner.firstName,
-      lastName: owner.lastName,
-      location: "San Francisco, CA",
-      required: ["phone"],
-      maxCoverage: true,
-    },
-  );
+  for (const location of locations) {
+    attempts.push(
+      {
+        firstName: owner.firstName,
+        lastName: owner.lastName,
+        location,
+        required: ["email"],
+        ...waterfallBase,
+      },
+      {
+        firstName: owner.firstName,
+        lastName: owner.lastName,
+        location,
+        required: ["phone"],
+        ...waterfallBase,
+      },
+    );
+  }
 
   let best: EnrichmentContact | null = null;
   for (const payload of attempts) {
@@ -174,17 +185,22 @@ async function contactWaterfall(
 }
 
 export async function enrichHomeownerContact(
-  apiKey: string,
+  apiKey: string | undefined,
   address: string,
   existingOwner?: Partial<OwnerIdentity>,
   householdId?: string,
   exaApiKey?: string,
   recordedOwner?: { fullName?: string; source?: string },
   ownerOccupied = true,
+  context?: ContactEnrichmentContext,
 ): Promise<{ contact: EnrichmentContact; owner: OwnerIdentity }> {
   let owner: OwnerIdentity;
 
-  if (existingOwner?.firstName && existingOwner?.lastName) {
+  if (
+    existingOwner?.firstName &&
+    existingOwner?.lastName &&
+    !isPlaceholderOwner(existingOwner)
+  ) {
     owner = {
       firstName: existingOwner.firstName,
       lastName: existingOwner.lastName,
@@ -210,14 +226,22 @@ export async function enrichHomeownerContact(
     owner = resolved.owner;
   }
 
-  if (!owner.linkedinUrl) {
+  if (!owner.linkedinUrl && apiKey) {
     const linkedinUrl = await findLinkedInUrl(apiKey, owner, address);
     if (linkedinUrl) {
       owner = { ...owner, linkedinUrl, source: `${owner.source}+linkedin` };
     }
   }
 
-  const contact = await contactWaterfall(apiKey, owner, address, householdId);
+  const contact = await resolveHomeownerContacts({
+    orangeSliceApiKey: apiKey,
+    exaApiKey,
+    owner,
+    address,
+    householdId,
+    context,
+    contactWaterfall,
+  });
   if (!contact) {
     return {
       contact: {

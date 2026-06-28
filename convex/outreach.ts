@@ -2,6 +2,11 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { requireMembership } from "./lib/auth";
+import {
+  isEnrichmentResult,
+  mergeContactFields,
+  normalizeStoredContactInfo,
+} from "./lib/enrichmentTypes";
 
 const outreachStatus = v.union(
   v.literal("queued"),
@@ -209,6 +214,11 @@ export const applySheetStatus = internalMutation({
     event: v.optional(v.string()),
     detail: v.optional(v.string()),
     sessionId: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    linkedinUrl: v.optional(v.string()),
+    emails: v.optional(v.array(v.string())),
+    phones: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const records = await ctx.db
@@ -240,15 +250,54 @@ export const applySheetStatus = internalMutation({
       ],
     });
 
+    const hasContactUpdate =
+      Boolean(args.email?.trim()) ||
+      Boolean(args.phone?.trim()) ||
+      Boolean(args.linkedinUrl?.trim()) ||
+      (args.emails?.length ?? 0) > 0 ||
+      (args.phones?.length ?? 0) > 0;
+
     if (target.orgId && args.status) {
       const lead = await ctx.db.get(target.leadId);
       await ctx.scheduler.runAfter(0, internal.slackActions.notifyOrg, {
         orgId: target.orgId,
-        event: `Outreach ${args.status}`,
+        event: args.event ?? "status_update",
         address: lead?.address ?? target.householdId,
         status: args.status,
         gapDollars: lead?.replacementCostGapDollars,
+        source: "orangeslice",
+        detail: args.detail,
+        email: args.email,
+        phone: args.phone,
       });
+    } else if (target.orgId && hasContactUpdate) {
+      const lead = await ctx.db.get(target.leadId);
+      await ctx.scheduler.runAfter(0, internal.slackActions.notifyOrg, {
+        orgId: target.orgId,
+        event: "contact_found",
+        address: lead?.address ?? target.householdId,
+        source: "orangeslice",
+        email: args.email ?? args.emails?.[0],
+        phone: args.phone ?? args.phones?.[0],
+        detail: args.detail,
+      });
+    }
+
+    if (hasContactUpdate) {
+      const lead = await ctx.db.get(target.leadId);
+      if (lead) {
+        const existing = normalizeStoredContactInfo(lead.contactInfo);
+        const merged = mergeContactFields(isEnrichmentResult(existing) ? existing : null, {
+          email: args.email,
+          phone: args.phone,
+          linkedinUrl: args.linkedinUrl,
+          emails: args.emails,
+          phones: args.phones,
+        });
+        if (merged) {
+          await ctx.db.patch(target.leadId, { contactInfo: merged });
+        }
+      }
     }
 
     return { updated: true, outreachId: target._id };
@@ -365,6 +414,19 @@ export const ackSheetLeads = internalMutation({
           },
         ],
       });
+
+      if (target.orgId) {
+        const lead = await ctx.db.get(target.leadId);
+        await ctx.scheduler.runAfter(0, internal.slackActions.notifyOrg, {
+          orgId: target.orgId,
+          event: "sheet_imported",
+          address: lead?.address ?? householdId,
+          status: "sheet_synced",
+          source: "orangeslice",
+          detail: sheetRowIds?.[householdId],
+        });
+      }
+
       updated += 1;
     }
 

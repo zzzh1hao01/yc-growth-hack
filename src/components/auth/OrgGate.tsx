@@ -2,10 +2,23 @@
 
 import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+
+type Membership = {
+  orgId: Id<"organizations">;
+  role: "admin" | "member";
+  org: {
+    id: Id<"organizations">;
+    name: string;
+    slug: string;
+    sheetUrl: string | null;
+    sheetWebhookUrl: string | null;
+    slackConnected: boolean;
+  };
+} | null;
 
 type OrgGateProps = {
   children: (ctx: {
@@ -29,6 +42,22 @@ export function OrgGate({ children }: OrgGateProps) {
   const [mode, setMode] = useState<"create" | "join">("create");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const authReadyRef = useRef(false);
+  const membershipLoadedRef = useRef(false);
+  const [stableMembership, setStableMembership] = useState<Membership | undefined>(
+    undefined,
+  );
+
+  useEffect(() => {
+    if (isLoaded) authReadyRef.current = true;
+  }, [isLoaded]);
+
+  useEffect(() => {
+    if (membership === undefined) return;
+    membershipLoadedRef.current = true;
+    setStableMembership(membership);
+  }, [membership]);
 
   const handleCreate = useCallback(async () => {
     if (!userId) return;
@@ -56,42 +85,44 @@ export function OrgGate({ children }: OrgGateProps) {
     }
   }, [inviteCode, joinOrg, userId]);
 
-  if (!isLoaded) {
+  if (!authReadyRef.current && !isLoaded) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#f5e6c8] text-amber-950">
-        Loading…
+      <div className="western-page-shell flex h-screen items-center justify-center">
+        <p className="western-title">Loading…</p>
       </div>
     );
   }
 
   if (!userId) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-[#f5e6c8] p-6 text-center">
-        <p className="text-lg font-bold text-amber-950">Sign in to access HouseholdIQ</p>
-        <a
-          href="/sign-in"
-          className="rounded-xl bg-amber-900 px-5 py-2.5 text-sm font-bold text-white"
-        >
+      <div className="western-page-shell flex h-screen flex-col items-center justify-center gap-4 p-6 text-center">
+        <p className="western-title text-lg">Sign in to access HouseholdIQ</p>
+        <a href="/sign-in" className="western-btn western-btn-primary px-5 py-2.5">
           Sign in
         </a>
       </div>
     );
   }
 
-  if (membership === undefined) {
+  const reconnecting =
+    membership === undefined &&
+    membershipLoadedRef.current &&
+    stableMembership != null;
+
+  if (membership === undefined && !membershipLoadedRef.current) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#f5e6c8] text-amber-950">
-        Loading organization…
+      <div className="western-page-shell flex h-screen items-center justify-center">
+        <p className="western-title">Loading organization…</p>
       </div>
     );
   }
 
-  if (!membership) {
+  if (!stableMembership) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5e6c8] p-6">
-        <div className="w-full max-w-md rounded-2xl border border-amber-300/70 bg-[#fff9f0] p-6 shadow-xl">
-          <h1 className="text-xl font-bold text-amber-950">Connect your agency</h1>
-          <p className="mt-2 text-sm text-amber-900/70">
+      <div className="western-page-shell flex min-h-screen items-center justify-center p-6">
+        <div className="western-panel w-full max-w-md p-6">
+          <h1 className="western-title text-xl">Connect your agency</h1>
+          <p className="western-body mt-2">
             Create an organization or join with an invite code to access the coverage board and
             Orange Slice outbound.
           </p>
@@ -100,10 +131,8 @@ export function OrgGate({ children }: OrgGateProps) {
             <button
               type="button"
               onClick={() => setMode("create")}
-              className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold ${
-                mode === "create"
-                  ? "bg-amber-900 text-white"
-                  : "bg-white text-amber-900 border border-amber-200"
+              className={`western-btn flex-1 ${
+                mode === "create" ? "western-btn-primary" : "western-btn-ghost"
               }`}
             >
               Create agency
@@ -111,10 +140,8 @@ export function OrgGate({ children }: OrgGateProps) {
             <button
               type="button"
               onClick={() => setMode("join")}
-              className={`flex-1 rounded-lg px-3 py-2 text-xs font-bold ${
-                mode === "join"
-                  ? "bg-amber-900 text-white"
-                  : "bg-white text-amber-900 border border-amber-200"
+              className={`western-btn flex-1 ${
+                mode === "join" ? "western-btn-primary" : "western-btn-ghost"
               }`}
             >
               Join with code
@@ -122,36 +149,34 @@ export function OrgGate({ children }: OrgGateProps) {
           </div>
 
           {mode === "create" ? (
-            <label className="mt-4 block text-xs font-semibold text-amber-900">
-              Agency name
+            <label className="mt-4 block">
+              <span className="western-label">Agency name</span>
               <input
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm"
+                className="western-input mt-1"
                 placeholder="Bay Area Home Insurance"
               />
             </label>
           ) : (
-            <label className="mt-4 block text-xs font-semibold text-amber-900">
-              Invite code
+            <label className="mt-4 block">
+              <span className="western-label">Invite code</span>
               <input
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm font-mono"
+                className="western-input mt-1 font-mono"
                 placeholder="ABCD1234"
               />
             </label>
           )}
 
-          {error && (
-            <p className="mt-3 rounded-lg bg-red-100 px-3 py-2 text-xs text-red-800">{error}</p>
-          )}
+          {error && <p className="western-error mt-3">{error}</p>}
 
           <button
             type="button"
             disabled={loading}
             onClick={() => void (mode === "create" ? handleCreate() : handleJoin())}
-            className="mt-4 w-full rounded-xl bg-amber-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+            className="western-btn western-btn-primary mt-4 w-full py-2.5 disabled:opacity-60"
           >
             {loading ? "Saving…" : mode === "create" ? "Create organization" : "Join organization"}
           </button>
@@ -160,9 +185,18 @@ export function OrgGate({ children }: OrgGateProps) {
     );
   }
 
-  return children({
-    userId,
-    orgId: membership.orgId,
-    role: membership.role,
-  });
+  return (
+    <>
+      {reconnecting && (
+        <div className="western-toast fixed bottom-3 left-1/2 z-[70] -translate-x-1/2">
+          Reconnecting…
+        </div>
+      )}
+      {children({
+        userId,
+        orgId: stableMembership.orgId,
+        role: stableMembership.role,
+      })}
+    </>
+  );
 }

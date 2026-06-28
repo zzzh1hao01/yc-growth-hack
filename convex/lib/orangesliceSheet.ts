@@ -70,6 +70,10 @@ export type SheetImportRow = {
   vertical_hook: string;
   email: string;
   phone: string;
+  email_2: string;
+  phone_2: string;
+  emails_json: string;
+  phones_json: string;
   linkedin_url: string;
   playbook: string;
   channels: string;
@@ -109,6 +113,10 @@ export function flattenSheetPayload(payload: SheetLeadPayload): SheetImportRow {
     vertical_hook: payload.vertical_hook,
     email: payload.emails[0] ?? "",
     phone: payload.phones[0] ?? "",
+    email_2: payload.emails[1] ?? "",
+    phone_2: payload.phones[1] ?? "",
+    emails_json: JSON.stringify(payload.emails),
+    phones_json: JSON.stringify(payload.phones),
     linkedin_url: payload.linkedin_url ?? "",
     playbook: payload.playbook,
     channels: payload.channels.join(", "),

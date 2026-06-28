@@ -9,6 +9,7 @@ export const getOrgSlackConfig = internalQuery({
     return {
       slackAccessToken: org.slackAccessToken ?? null,
       slackChannelId: org.slackChannelId ?? null,
+      slackWebhookUrl: org.slackWebhookUrl ?? null,
     };
   },
 });

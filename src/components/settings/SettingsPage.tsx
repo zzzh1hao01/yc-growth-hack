@@ -17,13 +17,9 @@ function CopyField({ label, value }: { label: string; value: string }) {
 
   return (
     <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-800/70">
-        {label}
-      </p>
+      <p className="western-label">{label}</p>
       <div className="mt-1 flex gap-2">
-        <code className="flex-1 overflow-x-auto rounded bg-white px-2 py-1.5 text-[11px] text-amber-950">
-          {value}
-        </code>
+        <code className="western-code flex-1 overflow-x-auto py-1.5">{value}</code>
         <button
           type="button"
           onClick={() => {
@@ -31,7 +27,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
           }}
-          className="shrink-0 rounded border border-amber-200 bg-white px-2 py-1 text-[10px] font-semibold text-amber-900"
+          className="western-btn western-btn-ghost western-btn-sm shrink-0"
         >
           {copied ? "Copied" : "Copy"}
         </button>
@@ -54,6 +50,7 @@ export function SettingsPage({ orgId }: SettingsPageProps) {
 
   const [sheetUrl, setSheetUrl] = useState("");
   const [sheetWebhookUrl, setSheetWebhookUrl] = useState("");
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,6 +58,7 @@ export function SettingsPage({ orgId }: SettingsPageProps) {
     if (!settings) return;
     setSheetUrl(settings.sheetUrl ?? "");
     setSheetWebhookUrl(settings.sheetWebhookUrl ?? "");
+    setSlackWebhookUrl(settings.slackWebhookUrl ?? "");
   }, [settings]);
 
   const handleSave = useCallback(async () => {
@@ -73,158 +71,177 @@ export function SettingsPage({ orgId }: SettingsPageProps) {
         orgId,
         sheetUrl,
         sheetWebhookUrl,
+        slackWebhookUrl: slackWebhookUrl.trim() || undefined,
       });
       setSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
     }
-  }, [orgId, sheetUrl, sheetWebhookUrl, updateIntegrations, userId]);
+  }, [orgId, sheetUrl, sheetWebhookUrl, slackWebhookUrl, updateIntegrations, userId]);
 
   if (!settings || !outreachConfig) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5e6c8]">
-        Loading settings…
+      <div className="western-page-shell flex min-h-screen items-center justify-center">
+        <p className="western-title">Loading settings…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f5e6c8] p-6">
-      <div className="mx-auto max-w-2xl space-y-6">
+    <div className="western-page-shell">
+      <div className="western-page-inner mx-auto max-w-2xl space-y-6">
         <header className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-amber-950">Agency settings</h1>
-            <p className="text-sm text-amber-900/70">{settings.name}</p>
+            <h1 className="western-title text-2xl">Agency settings</h1>
+            <p className="western-body mt-1">{settings.name}</p>
           </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900"
-            >
+          <div className="flex items-center gap-2">
+            <Link href="/" className="western-btn western-btn-ghost western-btn-sm">
               Coverage board
             </Link>
-            <Link
-              href="/pipeline"
-              className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900"
-            >
+            <Link href="/pipeline" className="western-btn western-btn-ghost western-btn-sm">
               Pipeline
             </Link>
             <UserButton />
           </div>
         </header>
 
-        <section className="rounded-2xl border border-amber-300/70 bg-[#fff9f0] p-5 shadow-sm">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-amber-800">
-            Orange Slice setup (5 min)
-          </h2>
-          <ol className="mt-3 list-decimal space-y-2 pl-5 text-xs leading-relaxed text-amber-900/85">
-            <li>
-              Create a new Orange Slice spreadsheet (or reuse your insurance sheet).
-            </li>
+        <section className="western-panel p-5">
+          <h2 className="western-label">Orange Slice setup (5 min)</h2>
+          <ol className="western-body mt-3 list-decimal space-y-2 pl-5 text-xs leading-relaxed">
+            <li>Create a new Orange Slice spreadsheet (or reuse your insurance sheet).</li>
             <li>
               Paste{" "}
-              <code className="rounded bg-white px-1">docs/ORANGE_SLICE_INSURANCE_CHAT_PROMPT.txt</code>{" "}
-              into Orange Slice chat — replace{" "}
-              <code className="rounded bg-white px-1">YOUR_OUTREACH_WEBHOOK_SECRET</code> with your
-              Convex secret.
+              <code className="western-code">docs/ORANGE_SLICE_INSURANCE_CHAT_PROMPT.txt</code> into
+              Orange Slice chat — replace{" "}
+              <code className="western-code">YOUR_OUTREACH_WEBHOOK_SECRET</code> with your Convex
+              secret.
             </li>
-            <li>
-              In the sheet, add an <strong>Import from webhook</strong> column and copy its URL.
-            </li>
+            <li>In the sheet, add an <strong>Import from webhook</strong> column and copy its URL.</li>
             <li>Paste that webhook URL below and save.</li>
-            <li>
-              Pursue a lead on the map → row appears in sheet → run Find contact → Send touch 1.
-            </li>
+            <li>Pursue a lead on the map → row appears in sheet → run Find contact → Send touch 1.</li>
           </ol>
 
           {outreachConfig.importApiUrl && (
-            <div className="mt-4 space-y-3 border-t border-amber-200/60 pt-4">
+            <div className="mt-4 space-y-3 border-t border-[rgba(166,124,82,0.45)] pt-4">
               <CopyField label="Import API (fallback)" value={outreachConfig.importApiUrl} />
               <CopyField label="Status webhook" value={outreachConfig.statusWebhookUrl ?? ""} />
-              <p className="text-[10px] text-amber-800/60">
+              <p className="western-body text-[10px]">
                 Header on all Orange Slice HTTP calls:{" "}
-                <code>Authorization: Bearer &lt;OUTREACH_WEBHOOK_SECRET&gt;</code>
+                <code className="western-code">Authorization: Bearer &lt;OUTREACH_WEBHOOK_SECRET&gt;</code>
               </p>
             </div>
           )}
         </section>
 
-        <section className="rounded-2xl border border-amber-300/70 bg-[#fff9f0] p-5 shadow-sm">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-amber-800">
-            Team invite
-          </h2>
-          <p className="mt-2 text-sm text-amber-900/80">
+        <section className="western-panel p-5">
+          <h2 className="western-label">Team invite</h2>
+          <p className="western-body mt-2 text-sm">
             Share this code with agents:{" "}
-            <code className="rounded bg-white px-2 py-1 font-mono text-base font-bold">
-              {settings.inviteCode}
-            </code>
+            <code className="western-code text-base font-bold">{settings.inviteCode}</code>
           </p>
-          <p className="mt-1 text-xs text-amber-800/60">
+          <p className="western-body mt-1 text-xs">
             {settings.memberCount} member{settings.memberCount === 1 ? "" : "s"}
           </p>
         </section>
 
-        <section className="rounded-2xl border border-amber-300/70 bg-[#fff9f0] p-5 shadow-sm space-y-4">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-amber-800">
-            Orange Slice integration
-          </h2>
+        <section className="western-panel space-y-4 p-5">
+          <h2 className="western-label">Orange Slice integration</h2>
 
-          <label className="block text-xs font-semibold text-amber-900">
-            Sheet URL
+          <label className="block">
+            <span className="western-label">Sheet URL</span>
             <input
               value={sheetUrl}
               onChange={(e) => setSheetUrl(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm"
+              className="western-input mt-1"
               placeholder="https://www.orangeslice.ai/spreadsheets/..."
             />
           </label>
 
-          <label className="block text-xs font-semibold text-amber-900">
-            Import webhook URL
+          <label className="block">
+            <span className="western-label">Import webhook URL</span>
             <input
               value={sheetWebhookUrl}
               onChange={(e) => setSheetWebhookUrl(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm"
+              className="western-input mt-1"
               placeholder="https://..."
             />
           </label>
 
-          <p className="text-xs text-amber-800/70">
+          <p className="western-body text-xs">
             Status:{" "}
             {outreachConfig.sheetWebhookConfigured || settings.sheetWebhookUrl
               ? "Webhook configured — Pursue will auto-push rows"
               : "Webhook missing — Pursue queues rows; run Import from API in Orange Slice"}
           </p>
 
-          {error && (
-            <p className="rounded-lg bg-red-100 px-3 py-2 text-xs text-red-800">{error}</p>
-          )}
+          {error && <p className="western-error">{error}</p>}
           {saved && (
-            <p className="rounded-lg bg-green-100 px-3 py-2 text-xs text-green-800">Saved.</p>
+            <p className="western-card border-green-700 bg-green-50 text-xs text-green-900">
+              Saved.
+            </p>
           )}
 
           <button
             type="button"
             onClick={() => void handleSave()}
-            className="rounded-xl bg-amber-900 px-4 py-2 text-sm font-bold text-white"
+            className="western-btn western-btn-primary px-4 py-2"
           >
             Save Orange Slice settings
           </button>
         </section>
 
-        <section className="rounded-2xl border border-amber-300/70 bg-[#fff9f0] p-5 shadow-sm">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-amber-800">Slack</h2>
-          <p className="mt-2 text-xs text-amber-900/70">
-            {settings.slackConnected
-              ? `Connected to channel ${settings.slackChannelId}`
-              : "Connect Slack to post pursue / reply / meeting notifications."}
+        <section className="western-panel p-5 space-y-4">
+          <h2 className="western-label">Slack alerts (2 min)</h2>
+          <ol className="western-body mt-1 list-decimal space-y-2 pl-5 text-xs leading-relaxed">
+            <li>
+              In Slack, open your alerts channel → <strong>Integrations</strong> →{" "}
+              <strong>Incoming Webhooks</strong> → Add to Slack.
+            </li>
+            <li>Copy the webhook URL (starts with <code className="western-code">https://hooks.slack.com/</code>).</li>
+            <li>Paste it below and save.</li>
+          </ol>
+          <p className="western-body text-xs leading-relaxed">
+            HouseholdIQ will ping that channel when you pursue a lead, when Orange Slice finds
+            contact info, and when pipeline status changes sync back from the sheet.
           </p>
-          <a
-            href={`/api/slack/oauth?orgId=${orgId}`}
-            className="mt-3 inline-block rounded-xl bg-[#4A154B] px-4 py-2 text-sm font-bold text-white"
+          <p className="western-body text-xs">
+            {settings.slackConnected
+              ? "Slack alerts active — pursue a lead to test."
+              : "Not configured — add an incoming webhook below."}
+          </p>
+
+          <label className="block">
+            <span className="western-label">Slack incoming webhook URL</span>
+            <input
+              value={slackWebhookUrl}
+              onChange={(e) => setSlackWebhookUrl(e.target.value)}
+              className="western-input mt-1 font-mono text-xs"
+              placeholder="https://hooks.slack.com/services/..."
+              type="url"
+              autoComplete="off"
+            />
+          </label>
+          <p className="western-body text-[10px]">
+            Optional: also connect Orange Slice to Slack inside{" "}
+            <a
+              href="https://www.orangeslice.ai"
+              className="underline"
+              target="_blank"
+              rel="noreferrer"
+            >
+              orangeslice.ai
+            </a>{" "}
+            for native sheet-side notifications from the Orange Slice bot.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            className="western-btn western-btn-primary px-4 py-2"
           >
-            {settings.slackConnected ? "Reconnect Slack" : "Connect Slack"}
-          </a>
+            Save Slack webhook
+          </button>
         </section>
       </div>
     </div>

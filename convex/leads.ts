@@ -44,7 +44,7 @@ const insuranceHouseholdFields = {
   coverageStakes: v.optional(v.number()),
 };
 
-const MAP_CAP = 400;
+const MAP_CAP = 150;
 
 export const listLeads = query({
   args: {

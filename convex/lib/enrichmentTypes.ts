@@ -66,6 +66,102 @@ export function isEnrichmentResult(value: unknown): value is EnrichmentResult {
   return Boolean(obj.owner && obj.contact && typeof obj.playbook === "string");
 }
 
+const PLACEHOLDER_OWNER_NAMES = new Set([
+  "property owner",
+  "homeowner",
+  "owner",
+  "san francisco homeowner",
+]);
+
+export function isPlaceholderOwner(owner: {
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  source?: string;
+}): boolean {
+  const full = (
+    owner.fullName ?? `${owner.firstName ?? ""} ${owner.lastName ?? ""}`
+  )
+    .trim()
+    .toLowerCase();
+  if (PLACEHOLDER_OWNER_NAMES.has(full)) return true;
+  if (owner.source === "unresolved" || owner.source === "datasf_parcel_only") {
+    return true;
+  }
+  return false;
+}
+
+export function isWeakEnrichment(result: EnrichmentResult): boolean {
+  const { contact } = result;
+  return (
+    contact.confidence === "low" &&
+    contact.emails.length === 0 &&
+    contact.phones.length === 0 &&
+    !contact.linkedinUrl
+  );
+}
+
+export function mergeContactFields(
+  existing: EnrichmentResult | null,
+  incoming: {
+    email?: string;
+    phone?: string;
+    linkedinUrl?: string;
+    emails?: string[];
+    phones?: string[];
+  },
+): EnrichmentResult | null {
+  const emails = [
+    ...(incoming.emails ?? []),
+    ...(incoming.email ? [incoming.email] : []),
+  ].filter(Boolean);
+  const phones = [
+    ...(incoming.phones ?? []),
+    ...(incoming.phone ? [incoming.phone] : []),
+  ].filter(Boolean);
+  const linkedinUrl = incoming.linkedinUrl ?? existing?.contact.linkedinUrl;
+
+  if (emails.length === 0 && phones.length === 0 && !linkedinUrl) {
+    return existing;
+  }
+
+  const owner = existing?.owner ?? {
+    firstName: "",
+    lastName: "",
+    fullName: "",
+    source: "sheet_sync",
+  };
+  const uniqueEmails = [...new Set(emails.map((e) => e.trim()).filter(Boolean))];
+  const uniquePhones = [...new Set(phones.map((p) => p.trim()).filter(Boolean))];
+  const contact: EnrichmentContact = {
+    emails: uniqueEmails,
+    phones: uniquePhones,
+    linkedinUrl,
+    confidence: contactConfidence({
+      emails: uniqueEmails,
+      phones: uniquePhones,
+      linkedinUrl,
+    }),
+    channels: buildChannels({
+      emails: uniqueEmails,
+      phones: uniquePhones,
+      linkedinUrl,
+    }),
+    ...legacyContactFields(
+      owner.fullName || "Homeowner",
+      uniqueEmails,
+      uniquePhones,
+    ),
+  };
+
+  return {
+    owner: linkedinUrl ? { ...owner, linkedinUrl } : owner,
+    contact,
+    playbook: existing?.playbook ?? "",
+    assessorParcel: existing?.assessorParcel,
+  };
+}
+
 export function normalizeStoredContactInfo(value: unknown): EnrichmentResult | null {
   if (!value || typeof value !== "object") return null;
   if (isEnrichmentResult(value)) return value;

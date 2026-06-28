@@ -39,11 +39,15 @@ export const batchResolveRecordedOwners = action({
   }> => {
     const orangeSliceApiKey = process.env.ORANGE_SLICE_API_KEY;
     const orangeSliceEnabled = process.env.ORANGE_SLICE_ENABLED === "true";
-    if (!orangeSliceApiKey || !orangeSliceEnabled) {
-      throw new Error("Set ORANGE_SLICE_API_KEY and ORANGE_SLICE_ENABLED=true");
-    }
-
+    const orangeSlice =
+      orangeSliceApiKey && orangeSliceEnabled ? orangeSliceApiKey : undefined;
     const exaApiKey = process.env.EXA_API_KEY;
+
+    if (!exaApiKey && !orangeSlice) {
+      throw new Error(
+        "Set EXA_API_KEY and/or ORANGE_SLICE_API_KEY with ORANGE_SLICE_ENABLED=true",
+      );
+    }
     const allLeads = (await ctx.runQuery(api.leads.listLeads, {})) as LeadListItem[];
     const targets = (limit ? allLeads.slice(0, limit) : allLeads).filter(
       (lead: LeadListItem) => force || !lead.recordedOwnerFullName,
@@ -71,7 +75,7 @@ export const batchResolveRecordedOwners = action({
           householdId: lead.householdId,
           ownerOccupied: lead.ownerOccupied,
           exaApiKey,
-          orangeSliceApiKey,
+          orangeSliceApiKey: orangeSlice,
           recordedOwnerFullName: force ? undefined : lead.recordedOwnerFullName,
           recordedOwnerSource: lead.recordedOwnerSource,
         });

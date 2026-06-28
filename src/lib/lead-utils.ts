@@ -9,11 +9,11 @@ export function getMatchTier(score: number): MatchTier {
 export function getTierColor(tier: MatchTier): string {
   switch (tier) {
     case "hot":
-      return "#22c55e";
+      return "#4ade80";
     case "warm":
-      return "#eab308";
+      return "#fbbf24";
     case "cold":
-      return "#ef4444";
+      return "#f87171";
   }
 }
 

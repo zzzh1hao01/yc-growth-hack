@@ -63,7 +63,13 @@ export async function GET(request: Request) {
     orgId,
     slackTeamId: tokenData.team?.id,
     slackAccessToken: tokenData.access_token,
-    slackChannelId: tokenData.incoming_webhook?.channel_id,
+    ...(tokenData.incoming_webhook?.channel_id || process.env.SLACK_ORANGE_SLICE_CHANNEL_ID
+      ? {
+          slackChannelId:
+            tokenData.incoming_webhook?.channel_id ??
+            process.env.SLACK_ORANGE_SLICE_CHANNEL_ID,
+        }
+      : {}),
   });
 
   return NextResponse.redirect(`${appUrl}/settings?slack=connected`);

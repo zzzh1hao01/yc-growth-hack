@@ -69,56 +69,58 @@ export function OnboardingPanel({ onComplete, userId, orgId }: OnboardingPanelPr
   );
 
   return (
-    <aside className="absolute left-4 top-4 z-30 w-full max-w-sm overflow-visible rounded-2xl border border-amber-300/70 bg-[#fff9f0]/95 p-5 shadow-xl backdrop-blur-sm">
-      <h2 className="text-lg font-bold text-amber-950">Agent setup</h2>
-      <p className="mt-1 text-xs leading-relaxed text-amber-900/70">
-        Your office address centers the map. Leads are ranked by need and timing scores — not
-        distance from your office.
-      </p>
+    <aside className="western-panel absolute left-4 top-4 z-30 w-full max-w-sm overflow-visible p-5">
+      <div className="western-panel-header">
+        <h2 className="western-title text-lg">Saddle up, agent</h2>
+        <p className="western-body mt-1">
+          Your office address centers the map. Leads are ranked by need and timing — not distance
+          from your office.
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-        <label className="block text-xs font-semibold text-amber-900">
-          Your name
+        <label className="block">
+          <span className="western-label">Your name</span>
           <input
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-amber-950 outline-none focus:border-amber-500"
+            className="western-input mt-1"
             placeholder="Alex Chen"
           />
         </label>
 
-        <label className="block text-xs font-semibold text-amber-900">
-          Agency description
+        <label className="block">
+          <span className="western-label">Agency description</span>
           <textarea
             required
             rows={3}
             value={businessDescription}
             onChange={(e) => setBusinessDescription(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-amber-950 outline-none focus:border-amber-500"
+            className="western-textarea mt-1"
             placeholder="Independent home insurance advisor in SF, focused on owner-occupied SFR and coverage reviews…"
           />
         </label>
 
-        <label className="relative z-50 block text-xs font-semibold text-amber-900">
-          Office address (San Francisco)
-          <AddressAutocomplete
-            value={businessAddress}
-            onChange={setBusinessAddress}
-            placeholder="Start typing your address…"
-          />
+        <label className="relative z-50 block">
+          <span className="western-label">Office address (San Francisco)</span>
+          <div className="mt-1">
+            <AddressAutocomplete
+              value={businessAddress}
+              onChange={setBusinessAddress}
+              placeholder="Start typing your address…"
+            />
+          </div>
         </label>
 
-        {error && (
-          <p className="rounded-lg bg-red-100 px-3 py-2 text-xs text-red-800">{error}</p>
-        )}
+        {error && <p className="western-error">{error}</p>}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-amber-900 px-4 py-2.5 text-sm font-bold text-amber-50 transition hover:bg-amber-800 disabled:opacity-60"
+          className="western-btn western-btn-primary w-full py-2.5 disabled:opacity-60"
         >
-          {loading ? "Loading map…" : "Continue"}
+          {loading ? "Loading map…" : "Ride out"}
         </button>
       </form>
     </aside>

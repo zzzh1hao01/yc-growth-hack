@@ -83,6 +83,22 @@ Write first valid personal email to email column.
 Write first valid personal phone to phone column.
 Append "contact_waterfall" to activity_log.
 
+After enrichment succeeds, HTTP POST to https://compassionate-ptarmigan-622.convex.site/orangeslice/status with:
+{
+  "household_id": "<household_id>",
+  "status": "touch1_ready",
+  "event": "contact_found",
+  "email": "<email if found>",
+  "phone": "<phone if found>"
+}
+Header: Authorization: Bearer YOUR_OUTREACH_WEBHOOK_SECRET
+
+This syncs contact info back to HouseholdIQ, which posts a Slack alert if the agency saved an incoming webhook in Settings.
+
+Also add a **Slack message** column (Orange Slice built-in Slack integration) on the same row when contact is found:
+"🍊 Contact found for {address}: {email} · {phone}"
+Connect Slack in orangeslice.ai → Integrations if not already connected.
+
 Skip rows where owner_name is "Property Owner" or "Homeowner" with no real first/last.
 
 ---

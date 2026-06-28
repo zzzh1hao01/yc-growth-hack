@@ -74,6 +74,7 @@ export default defineSchema({
     sheetWebhookUrl: v.optional(v.string()),
     slackTeamId: v.optional(v.string()),
     slackChannelId: v.optional(v.string()),
+    slackWebhookUrl: v.optional(v.string()),
     slackAccessToken: v.optional(v.string()),
     createdAt: v.number(),
   })

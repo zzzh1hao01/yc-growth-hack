@@ -225,7 +225,7 @@ export function citywideMapSample<
     lng: number;
     matchScore: number;
   },
->(ranked: T[], sessionId: string, cap = 400): T[] {
+>(ranked: T[], sessionId: string, cap = 150): T[] {
   if (ranked.length <= cap) return ranked;
 
   const SF_BOUNDS = {

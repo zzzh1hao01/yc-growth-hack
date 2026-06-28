@@ -18,12 +18,14 @@ import type { EnrichmentResult } from "./lib/enrichmentTypes";
 import {
   buildChannels,
   isEnrichmentResult,
+  isWeakEnrichment,
   normalizeStoredContactInfo,
 } from "./lib/enrichmentTypes";
 import {
   orangeSliceSheetUrl,
   pushLeadToOrangeSliceSheet,
 } from "./lib/orangesliceSheet";
+import { sanitizeEnrichmentContact } from "./lib/homeownerEmail";
 
 type LeadDoc = {
   householdId: string;
@@ -205,9 +207,12 @@ export const startOutreach = action({
 
     let enrichment: EnrichmentResult | null = null;
     if (!forceEnrichment && lead.contactInfo) {
-      enrichment =
+      const cached =
         normalizeStoredContactInfo(lead.contactInfo) ??
         (isEnrichmentResult(lead.contactInfo) ? lead.contactInfo : null);
+      if (cached && !isWeakEnrichment(cached)) {
+        enrichment = cached;
+      }
     }
 
     if (!enrichment || forceEnrichment) {
@@ -225,6 +230,11 @@ export const startOutreach = action({
     if (!enrichment) {
       enrichment = buildFallbackEnrichment(lead);
     }
+
+    enrichment = {
+      ...enrichment,
+      contact: await sanitizeEnrichmentContact(enrichment.contact, enrichment.owner),
+    };
 
     const matchScore = insuranceMatchScore(lead);
     const campaign = pickCampaign(DEFAULT_CAMPAIGNS, campaignSlug);
