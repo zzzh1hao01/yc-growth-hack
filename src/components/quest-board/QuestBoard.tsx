@@ -6,7 +6,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { PLACEHOLDER_LEADS } from "@/data/placeholderLeads";
 import { getSessionId, resetSession } from "@/lib/session";
-import type { CompanyContext, Contractor, Lead } from "@/types/lead";
+import type { Agent, CompanyContext, Lead } from "@/types/lead";
 import { BoardLegend } from "./BoardLegend";
 import { ContractorContextPanel } from "./ContractorContextPanel";
 import { LeadSidePanel } from "./LeadSidePanel";
@@ -15,7 +15,7 @@ import { QuestMap } from "./QuestMap";
 
 export function QuestBoard() {
   const [sessionId, setSessionId] = useState("");
-  const [contractor, setContractor] = useState<Contractor | null>(null);
+  const [agent, setAgent] = useState<Agent | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [onboarded, setOnboarded] = useState(false);
   const [onboardingKey, setOnboardingKey] = useState(0);
@@ -26,46 +26,47 @@ export function QuestBoard() {
     setSessionId(getSessionId());
   }, []);
 
-  const storedContractor = useQuery(
+  const storedAgent = useQuery(
     api.contractors.getContractor,
     sessionId ? { sessionId } : "skip",
   );
 
   useEffect(() => {
-    if (storedContractor && storedContractor.lat != null && !onboarded) {
-      setContractor({
-        name: storedContractor.name,
-        businessDescription: storedContractor.businessDescription,
-        businessAddress: storedContractor.businessAddress,
-        lat: storedContractor.lat,
-        lng: storedContractor.lng,
-        serviceProfile: storedContractor.serviceProfile ?? undefined,
-        companyContext: storedContractor.companyContext as CompanyContext | undefined,
-        companyEnrichmentStatus: storedContractor.companyEnrichmentStatus ?? undefined,
-        businessName: storedContractor.businessName ?? undefined,
-        serviceRegionLabel: storedContractor.serviceRegionLabel ?? undefined,
-        serviceRegionIds: storedContractor.serviceRegionIds ?? undefined,
+    if (storedAgent && storedAgent.lat != null && !onboarded) {
+      setAgent({
+        name: storedAgent.name,
+        businessDescription: storedAgent.businessDescription,
+        businessAddress: storedAgent.businessAddress,
+        lat: storedAgent.lat,
+        lng: storedAgent.lng,
+        serviceProfile: storedAgent.serviceProfile ?? undefined,
+        companyContext: storedAgent.companyContext as CompanyContext | undefined,
+        companyEnrichmentStatus: storedAgent.companyEnrichmentStatus ?? undefined,
+        businessName: storedAgent.businessName ?? undefined,
+        serviceRegionLabel: storedAgent.serviceRegionLabel ?? undefined,
+        serviceRegionIds: storedAgent.serviceRegionIds ?? undefined,
+        targetNeighborhoods: storedAgent.targetNeighborhoods ?? undefined,
       });
       setOnboarded(true);
     }
-  }, [storedContractor, onboarded]);
+  }, [storedAgent, onboarded]);
 
   useEffect(() => {
-    if (!onboarded || !storedContractor || storedContractor.lat == null) return;
+    if (!onboarded || !storedAgent || storedAgent.lat == null) return;
 
-    setContractor((current) => {
+    setAgent((current) => {
       if (!current) return current;
       return {
         ...current,
-        companyContext: storedContractor.companyContext as CompanyContext | undefined,
-        companyEnrichmentStatus: storedContractor.companyEnrichmentStatus ?? undefined,
-        businessName: storedContractor.businessName ?? current.businessName,
+        companyContext: storedAgent.companyContext as CompanyContext | undefined,
+        companyEnrichmentStatus: storedAgent.companyEnrichmentStatus ?? undefined,
+        businessName: storedAgent.businessName ?? current.businessName,
       };
     });
   }, [
     onboarded,
-    storedContractor?.companyContext,
-    storedContractor?.companyEnrichmentStatus,
+    storedAgent?.companyContext,
+    storedAgent?.companyEnrichmentStatus,
   ]);
 
   const convexLeads = useQuery(
@@ -85,7 +86,7 @@ export function QuestBoard() {
     if (convexLeads.length > 0) {
       return {
         leads: convexLeads as Lead[],
-        dataSourceLabel: "Demo · Sunset / Parkside · ranked near you",
+        dataSourceLabel: "Insurance leads · ranked by need + timing",
       };
     }
 
@@ -95,8 +96,8 @@ export function QuestBoard() {
     };
   }, [convexLeads, onboarded]);
 
-  const handleOnboardingComplete = useCallback((c: Contractor) => {
-    setContractor(c);
+  const handleOnboardingComplete = useCallback((a: Agent) => {
+    setAgent(a);
     setOnboarded(true);
   }, []);
 
@@ -105,7 +106,7 @@ export function QuestBoard() {
       await clearContractor({ sessionId });
     }
     setSelectedLead(null);
-    setContractor(null);
+    setAgent(null);
     setOnboarded(false);
     setOnboardingKey((k) => k + 1);
     setSessionId(resetSession());
@@ -128,6 +129,8 @@ export function QuestBoard() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleClosePanel]);
 
+  const linesOfBusiness = agent?.serviceProfile?.lines_of_business;
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#f5e6c8]">
       <header className="z-50 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-amber-300/50 bg-[#f5e6c8] px-5 py-3 shadow-sm">
@@ -137,7 +140,7 @@ export function QuestBoard() {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-amber-950">
-              Bounty Board
+              Coverage Board
             </h1>
             <p className="text-xs text-amber-900/60">HouseholdIQ · San Francisco</p>
           </div>
@@ -145,12 +148,11 @@ export function QuestBoard() {
 
         <div className="flex flex-wrap items-center gap-4">
           <span className="rounded-full border border-amber-400/60 bg-white/70 px-3 py-1 text-xs font-semibold text-amber-950">
-            {contractor?.name ?? "Contractor"} · {dataSourceLabel}
+            {agent?.name ?? "Agent"} · {dataSourceLabel}
           </span>
-          {Array.isArray(contractor?.serviceProfile?.service_types) && (
+          {Array.isArray(linesOfBusiness) && linesOfBusiness.length > 0 && (
             <span className="hidden text-xs text-amber-900/70 sm:inline">
-              {contractor.serviceProfile.service_types.join(", ")} ·{" "}
-              {contractor.serviceProfile.price_point} tier
+              {linesOfBusiness.join(", ")} · {agent?.serviceProfile?.price_point} tier
             </span>
           )}
           {onboarded && <BoardLegend />}
@@ -173,7 +175,7 @@ export function QuestBoard() {
           <>
             {convexLeads === undefined && (
               <div className="absolute right-4 top-4 z-30 rounded-full border border-amber-300/70 bg-white/90 px-3 py-1 text-xs font-semibold text-amber-950 shadow-sm">
-                Ranking 30 nearby leads…
+                Ranking leads by need + timing…
               </div>
             )}
             <QuestMap
@@ -181,22 +183,22 @@ export function QuestBoard() {
               selectedLeadId={selectedLead?.id ?? null}
               onSelectLead={handleSelectLead}
               businessLocation={
-                contractor?.lat != null && contractor?.lng != null
+                agent?.lat != null && agent?.lng != null
                   ? {
-                      lat: contractor.lat,
-                      lng: contractor.lng,
-                      label: contractor.businessAddress,
+                      lat: agent.lat,
+                      lng: agent.lng,
+                      label: agent.businessAddress,
                     }
                   : null
               }
             />
-            {contractor && (
+            {agent && (
               <ContractorContextPanel
-                businessName={contractor.businessName}
-                businessAddress={contractor.businessAddress}
-                serviceTypes={contractor.serviceProfile?.service_types}
-                companyContext={contractor.companyContext}
-                enrichmentStatus={contractor.companyEnrichmentStatus}
+                businessName={agent.businessName}
+                businessAddress={agent.businessAddress}
+                serviceTypes={agent.serviceProfile?.lines_of_business}
+                companyContext={agent.companyContext}
+                enrichmentStatus={agent.companyEnrichmentStatus}
               />
             )}
           </>
@@ -206,9 +208,11 @@ export function QuestBoard() {
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
             <p className="text-lg font-bold text-amber-950">No household data loaded</p>
             <p className="max-w-md text-sm text-amber-900/70">
-              The demo bounty board needs Sunset / Parkside household records in Convex. Run{" "}
-              <code className="rounded bg-white/80 px-1 py-0.5 text-xs">scripts/import-sunset-leads.sh</code>{" "}
-              or seed the database, then refresh.
+              The insurance bounty board needs household records in Convex. Run{" "}
+              <code className="rounded bg-white/80 px-1 py-0.5 text-xs">
+                scripts/import-insurance-leads.sh
+              </code>{" "}
+              then refresh.
             </p>
           </div>
         )}

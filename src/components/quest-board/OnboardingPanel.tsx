@@ -6,10 +6,10 @@ import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 import { getSessionId } from "@/lib/session";
-import type { Contractor, ServiceProfile } from "@/types/lead";
+import type { Agent, AgentProfile } from "@/types/lead";
 
 type OnboardingPanelProps = {
-  onComplete: (contractor: Contractor) => void;
+  onComplete: (agent: Agent) => void;
 };
 
 export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
@@ -27,7 +27,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
 
       const trimmedAddress = businessAddress.trim();
       if (!trimmedAddress) {
-        setError("Enter your business address in San Francisco.");
+        setError("Enter your office address in San Francisco.");
         return;
       }
 
@@ -48,7 +48,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           businessAddress: result.businessAddress,
           lat: result.lat,
           lng: result.lng,
-          serviceProfile: result.serviceProfile as ServiceProfile,
+          serviceProfile: result.serviceProfile as AgentProfile,
           companyEnrichmentStatus: result.companyEnrichmentStatus,
           businessName: result.businessName as string | undefined,
           serviceRegionLabel: result.serviceRegionLabel as string | undefined,
@@ -65,10 +65,10 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
 
   return (
     <aside className="absolute left-4 top-4 z-30 w-full max-w-sm overflow-visible rounded-2xl border border-amber-300/70 bg-[#fff9f0]/95 p-5 shadow-xl backdrop-blur-sm">
-      <h2 className="text-lg font-bold text-amber-950">Contractor setup</h2>
+      <h2 className="text-lg font-bold text-amber-950">Agent setup</h2>
       <p className="mt-1 text-xs leading-relaxed text-amber-900/70">
-        Your address ranks nearby households on the bounty board. Company lookup runs in
-        the background while the map loads.
+        Your office address centers the map. Leads are ranked by need and timing scores — not
+        distance from your office.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-3">
@@ -84,19 +84,19 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
         </label>
 
         <label className="block text-xs font-semibold text-amber-900">
-          Business description
+          Agency description
           <textarea
             required
             rows={3}
             value={businessDescription}
             onChange={(e) => setBusinessDescription(e.target.value)}
             className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-amber-950 outline-none focus:border-amber-500"
-            placeholder="HVAC install and repair in the Sunset, mostly older single-family homes…"
+            placeholder="Independent home insurance advisor in SF, focused on owner-occupied SFR and coverage reviews…"
           />
         </label>
 
         <label className="relative z-50 block text-xs font-semibold text-amber-900">
-          Business address (San Francisco)
+          Office address (San Francisco)
           <AddressAutocomplete
             value={businessAddress}
             onChange={setBusinessAddress}

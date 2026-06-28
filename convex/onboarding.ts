@@ -19,12 +19,12 @@ function resolveBusinessName(
   return firstLine || "Your business";
 }
 
-function parseServiceProfile(
+function parseAgentProfile(
   profileRaw: string,
   businessDescription: string,
 ): {
   serviceProfile: {
-    service_types: string[];
+    lines_of_business: string[];
     price_point: string;
     customer_preferences: string;
   };
@@ -32,14 +32,19 @@ function parseServiceProfile(
 } {
   try {
     const parsed = JSON.parse(profileRaw) as {
+      lines_of_business?: string[];
       service_types?: string[];
       price_point?: string;
       customer_preferences?: string;
       business_name?: string;
     };
+    const lines =
+      parsed.lines_of_business ??
+      parsed.service_types ??
+      ["home"];
     return {
       serviceProfile: {
-        service_types: parsed.service_types ?? ["hvac"],
+        lines_of_business: lines,
         price_point: parsed.price_point ?? "mid",
         customer_preferences:
           parsed.customer_preferences ?? businessDescription.slice(0, 200),
@@ -49,7 +54,7 @@ function parseServiceProfile(
   } catch {
     return {
       serviceProfile: {
-        service_types: ["hvac"],
+        lines_of_business: ["home"],
         price_point: "mid",
         customer_preferences: businessDescription.slice(0, 200),
       },
@@ -108,7 +113,7 @@ export const completeOnboarding = action({
           {
             role: "system",
             content:
-              "Extract a structured contractor service profile from the description. Return JSON only with keys: service_types (string array, values like hvac, electrical, panel, ev), price_point (low|mid|high), customer_preferences (short string), business_name (company name if mentioned, else empty string).",
+              "Extract a structured insurance agent profile from the description. Return JSON only with keys: lines_of_business (string array, values like home, auto, life, umbrella), price_point (low|mid|high), customer_preferences (short string), business_name (agency name if mentioned, else empty string).",
           },
           {
             role: "user",
@@ -119,7 +124,7 @@ export const completeOnboarding = action({
       ),
     ]);
 
-    const { serviceProfile, businessName: parsedBusinessName } = parseServiceProfile(
+    const { serviceProfile, businessName: parsedBusinessName } = parseAgentProfile(
       profileRaw,
       args.businessDescription,
     );

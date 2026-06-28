@@ -1,1313 +1,632 @@
 [
   {
-    "household_id": "2127-13",
-    "address": "64 Linares Av",
-    "lat": 37.751810785,
-    "lng": -122.4632305,
-    "year_built": 1916,
+    "household_id": "5881-17",
+    "address": "39 Hale St",
+    "lat": 37.732599301,
+    "lng": -122.406448373,
+    "neighborhood": "Portola",
+    "year_built": 1948,
+    "sqft": 1319,
     "owner_occupied": true,
-    "assessed_value": 2074477,
-    "last_sale_date": "2003-08-07",
-    "cluster_id": 0,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1916 (110 yrs old)",
-          "owner-occupied",
-          "no permit + home age 110y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1916 (110 yrs old)",
-          "owner-occupied",
-          "no permit + home age 110y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.7,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "high assessed value $2,074,477",
-          "owner-occupied"
-        ]
-      }
-    }
+    "replacement_cost_today": 659500,
+    "coverage_anchor": 381729,
+    "replacement_cost_gap_dollars": 277771,
+    "replacement_cost_gap_pct": 0.4212,
+    "need_score": 1.0,
+    "timing_score": 0.279,
+    "timing_confidence": "high",
+    "composite_score": 0.784,
+    "worth_outreach": true,
+    "purchase_year": 1987,
+    "years_owned": 38
   },
   {
-    "household_id": "1374-9",
-    "address": "135 14Th Av",
-    "lat": 37.785577719,
-    "lng": -122.473550718,
-    "year_built": 1911,
-    "owner_occupied": true,
-    "assessed_value": 3627173,
-    "last_sale_date": "2014-07-23",
-    "cluster_id": 0,
-    "vertical_scores": {
-      "hvac": {
-        "score": 0.92,
-        "urgency_flag": false,
-        "last_relevant_permit_date": "2013-02-08",
-        "reasons": [
-          "last hvac permit 2013 (13 yrs ago)",
-          "home built 1911 (115 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1911 (115 yrs old)",
-          "owner-occupied",
-          "no permit + home age 115y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.7,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "high assessed value $3,627,173",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1265-2",
-    "address": "1225 Willard St",
-    "lat": 37.765711598,
-    "lng": -122.454877168,
-    "year_built": 1908,
-    "owner_occupied": true,
-    "assessed_value": 2673887,
-    "last_sale_date": "2018-02-28",
-    "cluster_id": 0,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1908 (118 yrs old)",
-          "owner-occupied",
-          "no permit + home age 118y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1908 (118 yrs old)",
-          "owner-occupied",
-          "no permit + home age 118y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.7,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "high assessed value $2,673,887",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1374-4",
-    "address": "115 14Th Av",
-    "lat": 37.785923381,
-    "lng": -122.473510779,
-    "year_built": 1912,
-    "owner_occupied": true,
-    "assessed_value": 3307663,
-    "last_sale_date": "2016-10-25",
-    "cluster_id": 0,
-    "vertical_scores": {
-      "hvac": {
-        "score": 0.76,
-        "urgency_flag": false,
-        "last_relevant_permit_date": "2017-12-07",
-        "reasons": [
-          "last hvac permit 2017 (9 yrs ago)",
-          "home built 1912 (114 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "panel": {
-        "score": 0.69,
-        "urgency_flag": false,
-        "last_relevant_permit_date": "2014-09-18",
-        "reasons": [
-          "last panel permit 2014 (12 yrs ago)",
-          "home built 1912 (114 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "ev": {
-        "score": 0.7,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "high assessed value $3,307,663",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1702-1A",
-    "address": "1207 48Th Av",
-    "lat": 37.76383479,
-    "lng": -122.508535263,
-    "year_built": 1947,
-    "owner_occupied": true,
-    "assessed_value": 69006,
-    "last_sale_date": null,
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1947 (79 yrs old)",
-          "owner-occupied",
-          "no permit + home age 79y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1947 (79 yrs old)",
-          "owner-occupied",
-          "no permit + home age 79y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1702-1B",
-    "address": "1219 48Th Av",
-    "lat": 37.763624533,
-    "lng": -122.508628732,
-    "year_built": 1947,
-    "owner_occupied": true,
-    "assessed_value": 800415,
-    "last_sale_date": "2012-12-18",
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1947 (79 yrs old)",
-          "owner-occupied",
-          "no permit + home age 79y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1947 (79 yrs old)",
-          "owner-occupied",
-          "no permit + home age 79y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1702-1C",
-    "address": "1223 48Th Av",
-    "lat": 37.763555982,
-    "lng": -122.508623904,
-    "year_built": 1947,
-    "owner_occupied": true,
-    "assessed_value": 70871,
-    "last_sale_date": null,
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1947 (79 yrs old)",
-          "owner-occupied",
-          "no permit + home age 79y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1947 (79 yrs old)",
-          "owner-occupied",
-          "no permit + home age 79y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1702-1K",
-    "address": "1215 48Th Av",
-    "lat": 37.763695846,
-    "lng": -122.508568789,
-    "year_built": 1947,
-    "owner_occupied": true,
-    "assessed_value": 122618,
-    "last_sale_date": null,
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1947 (79 yrs old)",
-          "owner-occupied",
-          "no permit + home age 79y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1947 (79 yrs old)",
-          "owner-occupied",
-          "no permit + home age 79y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1702-2",
-    "address": "1235 48Th Av",
-    "lat": 37.763350327,
-    "lng": -122.50860942,
-    "year_built": 1924,
-    "owner_occupied": true,
-    "assessed_value": 397017,
-    "last_sale_date": "1995-05-11",
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1924 (102 yrs old)",
-          "owner-occupied",
-          "no permit + home age 102y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1924 (102 yrs old)",
-          "owner-occupied",
-          "no permit + home age 102y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1702-3",
-    "address": "1239 48Th Av",
-    "lat": 37.763281775,
-    "lng": -122.508604592,
-    "year_built": 1924,
-    "owner_occupied": true,
-    "assessed_value": 204032,
-    "last_sale_date": null,
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1924 (102 yrs old)",
-          "owner-occupied",
-          "no permit + home age 102y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1924 (102 yrs old)",
-          "owner-occupied",
-          "no permit + home age 102y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "2127-2B",
-    "address": "1920 08Th Av",
-    "lat": 37.752594958,
-    "lng": -122.464203169,
+    "household_id": "5874-25",
+    "address": "29 Colby St",
+    "lat": 37.730382176,
+    "lng": -122.414643307,
+    "neighborhood": "Portola",
     "year_built": 1937,
+    "sqft": 1377,
     "owner_occupied": true,
-    "assessed_value": 622715,
-    "last_sale_date": "1997-10-01",
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": "1999-10-27",
-        "reasons": [
-          "last hvac permit 1999 (27 yrs ago)",
-          "home built 1937 (89 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1937 (89 yrs old)",
-          "owner-occupied",
-          "no permit + home age 89y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
+    "replacement_cost_today": 688500,
+    "coverage_anchor": 466855,
+    "replacement_cost_gap_dollars": 221645,
+    "replacement_cost_gap_pct": 0.3219,
+    "need_score": 0.805,
+    "timing_score": 0.353,
+    "timing_confidence": "high",
+    "composite_score": 0.669,
+    "worth_outreach": false,
+    "purchase_year": 1998,
+    "years_owned": 27
   },
   {
-    "household_id": "2127-4",
-    "address": "6 Linares Av",
-    "lat": 37.752428549,
-    "lng": -122.46403022,
+    "household_id": "5860-14",
+    "address": "350 Sweeny St",
+    "lat": 37.731906002,
+    "lng": -122.412135519,
+    "neighborhood": "Portola",
+    "year_built": 1938,
+    "sqft": 1144,
+    "owner_occupied": true,
+    "replacement_cost_today": 572000,
+    "coverage_anchor": 404969,
+    "replacement_cost_gap_dollars": 167031,
+    "replacement_cost_gap_pct": 0.292,
+    "need_score": 0.73,
+    "timing_score": 0.21,
+    "timing_confidence": "high",
+    "composite_score": 0.574,
+    "worth_outreach": false,
+    "purchase_year": 2001,
+    "years_owned": 24
+  },
+  {
+    "household_id": "5466-41",
+    "address": "3175 San Bruno Av",
+    "lat": 37.72206759,
+    "lng": -122.401105541,
+    "neighborhood": "Portola",
+    "year_built": 1978,
+    "sqft": 1180,
+    "owner_occupied": true,
+    "replacement_cost_today": 590000,
+    "coverage_anchor": 442459,
+    "replacement_cost_gap_dollars": 147541,
+    "replacement_cost_gap_pct": 0.2501,
+    "need_score": 0.625,
+    "timing_score": 0.045,
+    "timing_confidence": "low",
+    "composite_score": 0.451,
+    "worth_outreach": false,
+    "purchase_year": null,
+    "years_owned": null
+  },
+  {
+    "household_id": "5865-7",
+    "address": "22 Tulane St",
+    "lat": 37.729746299,
+    "lng": -122.416691852,
+    "neighborhood": "Portola",
+    "year_built": 1942,
+    "sqft": 862,
+    "owner_occupied": true,
+    "replacement_cost_today": 431000,
+    "coverage_anchor": 323220,
+    "replacement_cost_gap_dollars": 107780,
+    "replacement_cost_gap_pct": 0.2501,
+    "need_score": 0.625,
+    "timing_score": 0.045,
+    "timing_confidence": "low",
+    "composite_score": 0.451,
+    "worth_outreach": false,
+    "purchase_year": null,
+    "years_owned": null
+  },
+  {
+    "household_id": "5879-42",
+    "address": "131 Sweeny St",
+    "lat": 37.732762795,
+    "lng": -122.407936637,
+    "neighborhood": "Portola",
+    "year_built": 1908,
+    "sqft": 3118,
+    "owner_occupied": true,
+    "replacement_cost_today": 1559000,
+    "coverage_anchor": 1256354,
+    "replacement_cost_gap_dollars": 302646,
+    "replacement_cost_gap_pct": 0.1941,
+    "need_score": 0.485,
+    "timing_score": 0.3,
+    "timing_confidence": "high",
+    "composite_score": 0.43,
+    "worth_outreach": false,
+    "purchase_year": 2010,
+    "years_owned": 15
+  },
+  {
+    "household_id": "1382-49",
+    "address": "2115 Lake St",
+    "lat": 37.785631471,
+    "lng": -122.482218774,
+    "neighborhood": "Outer Richmond",
+    "year_built": 1956,
+    "sqft": 2543,
+    "owner_occupied": true,
+    "replacement_cost_today": 1271500,
+    "coverage_anchor": 735964,
+    "replacement_cost_gap_dollars": 535536,
+    "replacement_cost_gap_pct": 0.4212,
+    "need_score": 1.0,
+    "timing_score": 0.239,
+    "timing_confidence": "high",
+    "composite_score": 0.772,
+    "worth_outreach": true,
+    "purchase_year": 1987,
+    "years_owned": 38
+  },
+  {
+    "household_id": "1401-14",
+    "address": "33 Marvel Ct",
+    "lat": 37.782698705,
+    "lng": -122.493038719,
+    "neighborhood": "Outer Richmond",
+    "year_built": 1958,
+    "sqft": 1926,
+    "owner_occupied": true,
+    "replacement_cost_today": 963000,
+    "coverage_anchor": 643659,
+    "replacement_cost_gap_dollars": 319341,
+    "replacement_cost_gap_pct": 0.3316,
+    "need_score": 0.829,
+    "timing_score": 0.17,
+    "timing_confidence": "high",
+    "composite_score": 0.631,
+    "worth_outreach": false,
+    "purchase_year": 1997,
+    "years_owned": 28
+  },
+  {
+    "household_id": "1376-59",
+    "address": "5432 California St",
+    "lat": 37.784539109,
+    "lng": -122.476010286,
+    "neighborhood": "Outer Richmond",
+    "year_built": 2001,
+    "sqft": 1188,
+    "owner_occupied": true,
+    "replacement_cost_today": 594000,
+    "coverage_anchor": 451915,
+    "replacement_cost_gap_dollars": 142085,
+    "replacement_cost_gap_pct": 0.2392,
+    "need_score": 0.598,
+    "timing_score": 0.26,
+    "timing_confidence": "high",
+    "composite_score": 0.497,
+    "worth_outreach": false,
+    "purchase_year": 2006,
+    "years_owned": 19
+  },
+  {
+    "household_id": "1380-4",
+    "address": "137 20Th Av",
+    "lat": 37.785298712,
+    "lng": -122.480065633,
+    "neighborhood": "Outer Richmond",
+    "year_built": 1911,
+    "sqft": 3272,
+    "owner_occupied": true,
+    "replacement_cost_today": 1636000,
+    "coverage_anchor": 1226886,
+    "replacement_cost_gap_dollars": 409114,
+    "replacement_cost_gap_pct": 0.2501,
+    "need_score": 0.625,
+    "timing_score": 0.045,
+    "timing_confidence": "low",
+    "composite_score": 0.451,
+    "worth_outreach": false,
+    "purchase_year": null,
+    "years_owned": null
+  },
+  {
+    "household_id": "1410-5",
+    "address": "227 23Rd Av",
+    "lat": 37.783412553,
+    "lng": -122.483157903,
+    "neighborhood": "Outer Richmond",
+    "year_built": 1907,
+    "sqft": 2765,
+    "owner_occupied": true,
+    "replacement_cost_today": 1382500,
+    "coverage_anchor": 1036779,
+    "replacement_cost_gap_dollars": 345721,
+    "replacement_cost_gap_pct": 0.2501,
+    "need_score": 0.625,
+    "timing_score": 0.045,
+    "timing_confidence": "low",
+    "composite_score": 0.451,
+    "worth_outreach": false,
+    "purchase_year": null,
+    "years_owned": null
+  },
+  {
+    "household_id": "1410-49",
+    "address": "362 24Th Av0002",
+    "lat": 37.782776642,
+    "lng": -122.483525291,
+    "neighborhood": "Outer Richmond",
+    "year_built": 1992,
+    "sqft": 930,
+    "owner_occupied": true,
+    "replacement_cost_today": 465000,
+    "coverage_anchor": 396931,
+    "replacement_cost_gap_dollars": 68069,
+    "replacement_cost_gap_pct": 0.1464,
+    "need_score": 0.366,
+    "timing_score": 0.3,
+    "timing_confidence": "high",
+    "composite_score": 0.346,
+    "worth_outreach": false,
+    "purchase_year": 2014,
+    "years_owned": 11
+  },
+  {
+    "household_id": "2204-40",
+    "address": "2135 Funston Av",
+    "lat": 37.748157779,
+    "lng": -122.46982359,
+    "neighborhood": "West of Twin Peaks",
+    "year_built": 1976,
+    "sqft": 2340,
+    "owner_occupied": true,
+    "replacement_cost_today": 1170000,
+    "coverage_anchor": 687028,
+    "replacement_cost_gap_dollars": 482972,
+    "replacement_cost_gap_pct": 0.4128,
+    "need_score": 1.0,
+    "timing_score": 0.266,
+    "timing_confidence": "high",
+    "composite_score": 0.78,
+    "worth_outreach": true,
+    "purchase_year": 1988,
+    "years_owned": 37
+  },
+  {
+    "household_id": "2333A-3",
+    "address": "2211 16Th Av",
+    "lat": 37.74660367,
+    "lng": -122.473045162,
+    "neighborhood": "West of Twin Peaks",
+    "year_built": 1929,
+    "sqft": 1625,
+    "owner_occupied": true,
+    "replacement_cost_today": 812500,
+    "coverage_anchor": 550937,
+    "replacement_cost_gap_dollars": 261563,
+    "replacement_cost_gap_pct": 0.3219,
+    "need_score": 0.805,
+    "timing_score": 0.378,
+    "timing_confidence": "high",
+    "composite_score": 0.677,
+    "worth_outreach": false,
+    "purchase_year": 1998,
+    "years_owned": 27
+  },
+  {
+    "household_id": "2201-6",
+    "address": "2111 16Th Av",
+    "lat": 37.748495955,
+    "lng": -122.473074462,
+    "neighborhood": "West of Twin Peaks",
+    "year_built": 1940,
+    "sqft": 1155,
+    "owner_occupied": true,
+    "replacement_cost_today": 577500,
+    "coverage_anchor": 414788,
+    "replacement_cost_gap_dollars": 162712,
+    "replacement_cost_gap_pct": 0.2818,
+    "need_score": 0.704,
+    "timing_score": 0.22,
+    "timing_confidence": "high",
+    "composite_score": 0.559,
+    "worth_outreach": false,
+    "purchase_year": 2002,
+    "years_owned": 23
+  },
+  {
+    "household_id": "2200-2J",
+    "address": "2161 17Th Av",
+    "lat": 37.74759411,
+    "lng": -122.47419553,
+    "neighborhood": "West of Twin Peaks",
+    "year_built": 1926,
+    "sqft": 1624,
+    "owner_occupied": true,
+    "replacement_cost_today": 812000,
+    "coverage_anchor": 608944,
+    "replacement_cost_gap_dollars": 203056,
+    "replacement_cost_gap_pct": 0.2501,
+    "need_score": 0.625,
+    "timing_score": 0.045,
+    "timing_confidence": "low",
+    "composite_score": 0.451,
+    "worth_outreach": false,
+    "purchase_year": null,
+    "years_owned": null
+  },
+  {
+    "household_id": "2206-54",
+    "address": "215 Quintara St",
+    "lat": 37.748763738,
+    "lng": -122.467773886,
+    "neighborhood": "West of Twin Peaks",
+    "year_built": 1949,
+    "sqft": 1011,
+    "owner_occupied": true,
+    "replacement_cost_today": 505500,
+    "coverage_anchor": 379090,
+    "replacement_cost_gap_dollars": 126410,
+    "replacement_cost_gap_pct": 0.2501,
+    "need_score": 0.625,
+    "timing_score": 0.045,
+    "timing_confidence": "low",
+    "composite_score": 0.451,
+    "worth_outreach": false,
+    "purchase_year": null,
+    "years_owned": null
+  },
+  {
+    "household_id": "2200-17",
+    "address": "2112 18Th Av",
+    "lat": 37.748392166,
+    "lng": -122.47470165,
+    "neighborhood": "West of Twin Peaks",
+    "year_built": 1916,
+    "sqft": 2529,
+    "owner_occupied": true,
+    "replacement_cost_today": 1264500,
+    "coverage_anchor": 1063975,
+    "replacement_cost_gap_dollars": 200525,
+    "replacement_cost_gap_pct": 0.1586,
+    "need_score": 0.396,
+    "timing_score": 0.404,
+    "timing_confidence": "high",
+    "composite_score": 0.399,
+    "worth_outreach": false,
+    "purchase_year": 2013,
+    "years_owned": 12
+  },
+  {
+    "household_id": "1710-8",
+    "address": "1243 40Th Av",
+    "lat": 37.76358932,
+    "lng": -122.500028302,
+    "neighborhood": "Sunset/Parkside",
+    "year_built": 1950,
+    "sqft": 1504,
+    "owner_occupied": true,
+    "replacement_cost_today": 752000,
+    "coverage_anchor": 441577,
+    "replacement_cost_gap_dollars": 310423,
+    "replacement_cost_gap_pct": 0.4128,
+    "need_score": 1.0,
+    "timing_score": 0.254,
+    "timing_confidence": "high",
+    "composite_score": 0.776,
+    "worth_outreach": true,
+    "purchase_year": 1988,
+    "years_owned": 37
+  },
+  {
+    "household_id": "1713-30",
+    "address": "1270 38Th Av",
+    "lat": 37.763233351,
+    "lng": -122.497194855,
+    "neighborhood": "Sunset/Parkside",
+    "year_built": 1940,
+    "sqft": 1500,
+    "owner_occupied": true,
+    "replacement_cost_today": 750000,
+    "coverage_anchor": 480113,
+    "replacement_cost_gap_dollars": 269887,
+    "replacement_cost_gap_pct": 0.3598,
+    "need_score": 0.899,
+    "timing_score": 0.14,
+    "timing_confidence": "high",
+    "composite_score": 0.672,
+    "worth_outreach": false,
+    "purchase_year": 1994,
+    "years_owned": 31
+  },
+  {
+    "household_id": "1720-1",
+    "address": "2901 Lincoln Wy",
+    "lat": 37.764745262,
+    "lng": -122.489307244,
+    "neighborhood": "Sunset/Parkside",
     "year_built": 1924,
+    "sqft": 2227,
     "owner_occupied": true,
-    "assessed_value": 819979,
-    "last_sale_date": "1987-04-01",
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1924 (102 yrs old)",
-          "owner-occupied",
-          "no permit + home age 102y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1924 (102 yrs old)",
-          "owner-occupied",
-          "no permit + home age 102y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
+    "replacement_cost_today": 1113500,
+    "coverage_anchor": 811360,
+    "replacement_cost_gap_dollars": 302140,
+    "replacement_cost_gap_pct": 0.2713,
+    "need_score": 0.678,
+    "timing_score": 0.303,
+    "timing_confidence": "high",
+    "composite_score": 0.566,
+    "worth_outreach": false,
+    "purchase_year": 2003,
+    "years_owned": 22
   },
   {
-    "household_id": "1374-2",
-    "address": "107 14Th Av",
-    "lat": 37.786060471,
-    "lng": -122.473520715,
-    "year_built": 1912,
+    "household_id": "1704-34",
+    "address": "1248 47Th Av",
+    "lat": 37.763213813,
+    "lng": -122.506970253,
+    "neighborhood": "Sunset/Parkside",
+    "year_built": 1923,
+    "sqft": 1056,
     "owner_occupied": true,
-    "assessed_value": 795734,
-    "last_sale_date": "1992-04-07",
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": "2026-06-03",
-        "reasons": [
-          "last hvac permit 2026 (0 yrs ago)",
-          "home built 1912 (114 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1912 (114 yrs old)",
-          "owner-occupied",
-          "no permit + home age 114y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
+    "replacement_cost_today": 528000,
+    "coverage_anchor": 395963,
+    "replacement_cost_gap_dollars": 132037,
+    "replacement_cost_gap_pct": 0.2501,
+    "need_score": 0.625,
+    "timing_score": 0.045,
+    "timing_confidence": "low",
+    "composite_score": 0.451,
+    "worth_outreach": false,
+    "purchase_year": null,
+    "years_owned": null
   },
   {
-    "household_id": "1374-6",
-    "address": "123 14Th Av",
-    "lat": 37.785783355,
-    "lng": -122.473565622,
-    "year_built": 1911,
+    "household_id": "1715-24",
+    "address": "3434 Irving St",
+    "lat": 37.762936748,
+    "lng": -122.494922724,
+    "neighborhood": "Sunset/Parkside",
+    "year_built": 1940,
+    "sqft": 2190,
     "owner_occupied": true,
-    "assessed_value": 1037870,
-    "last_sale_date": "1998-04-28",
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1911 (115 yrs old)",
-          "owner-occupied",
-          "no permit + home age 115y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1911 (115 yrs old)",
-          "owner-occupied",
-          "no permit + home age 115y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
+    "replacement_cost_today": 1095000,
+    "coverage_anchor": 821174,
+    "replacement_cost_gap_dollars": 273826,
+    "replacement_cost_gap_pct": 0.2501,
+    "need_score": 0.625,
+    "timing_score": 0.045,
+    "timing_confidence": "low",
+    "composite_score": 0.451,
+    "worth_outreach": false,
+    "purchase_year": null,
+    "years_owned": null
   },
   {
-    "household_id": "1374-8",
-    "address": "131 14Th Av",
-    "lat": 37.785646264,
-    "lng": -122.473555686,
-    "year_built": 1911,
+    "household_id": "1704-24B",
+    "address": "1286 47Th Av",
+    "lat": 37.762528405,
+    "lng": -122.506929793,
+    "neighborhood": "Sunset/Parkside",
+    "year_built": 1950,
+    "sqft": 1186,
     "owner_occupied": true,
-    "assessed_value": 535407,
-    "last_sale_date": null,
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1911 (115 yrs old)",
-          "owner-occupied",
-          "no permit + home age 115y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1911 (115 yrs old)",
-          "owner-occupied",
-          "no permit + home age 115y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
+    "replacement_cost_today": 593000,
+    "coverage_anchor": 471055,
+    "replacement_cost_gap_dollars": 121945,
+    "replacement_cost_gap_pct": 0.2056,
+    "need_score": 0.514,
+    "timing_score": 0.29,
+    "timing_confidence": "high",
+    "composite_score": 0.447,
+    "worth_outreach": false,
+    "purchase_year": 2009,
+    "years_owned": 16
   },
   {
-    "household_id": "1374-10",
-    "address": "139 14Th Av",
-    "lat": 37.785509174,
-    "lng": -122.47354575,
-    "year_built": 1911,
+    "household_id": "1275-18",
+    "address": "38 Hill Point Av",
+    "lat": 37.764427205,
+    "lng": -122.455572177,
+    "neighborhood": "Inner Sunset",
+    "year_built": 1916,
+    "sqft": 1358,
     "owner_occupied": true,
-    "assessed_value": 221039,
-    "last_sale_date": null,
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": "2010-03-11",
-        "reasons": [
-          "last hvac permit 2010 (16 yrs ago)",
-          "home built 1911 (115 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1911 (115 yrs old)",
-          "owner-occupied",
-          "no permit + home age 115y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
+    "replacement_cost_today": 679000,
+    "coverage_anchor": 393016,
+    "replacement_cost_gap_dollars": 285984,
+    "replacement_cost_gap_pct": 0.4212,
+    "need_score": 1.0,
+    "timing_score": 0.272,
+    "timing_confidence": "high",
+    "composite_score": 0.782,
+    "worth_outreach": true,
+    "purchase_year": 1987,
+    "years_owned": 38
   },
   {
-    "household_id": "2765-1B",
-    "address": "18 Worth St",
-    "lat": 37.754946571,
-    "lng": -122.440081003,
-    "year_built": 1910,
+    "household_id": "1265A-103",
+    "address": "440 Carl St",
+    "lat": 37.765456053,
+    "lng": -122.456215207,
+    "neighborhood": "Inner Sunset",
+    "year_built": 1990,
+    "sqft": 1090,
     "owner_occupied": true,
-    "assessed_value": 558841,
-    "last_sale_date": "1998-05-15",
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1910 (116 yrs old)",
-          "owner-occupied",
-          "no permit + home age 116y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1910 (116 yrs old)",
-          "owner-occupied",
-          "no permit + home age 116y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
+    "replacement_cost_today": 545000,
+    "coverage_anchor": 374907,
+    "replacement_cost_gap_dollars": 170093,
+    "replacement_cost_gap_pct": 0.3121,
+    "need_score": 0.78,
+    "timing_score": 0.19,
+    "timing_confidence": "high",
+    "composite_score": 0.603,
+    "worth_outreach": false,
+    "purchase_year": 1999,
+    "years_owned": 26
   },
   {
-    "household_id": "2765-3",
-    "address": "40 Worth St",
-    "lat": 37.754725168,
-    "lng": -122.440223876,
-    "year_built": 1913,
+    "household_id": "1265A-18",
+    "address": "693 Frederick St",
+    "lat": 37.765456053,
+    "lng": -122.456215207,
+    "neighborhood": "Inner Sunset",
+    "year_built": 1990,
+    "sqft": 1152,
     "owner_occupied": true,
-    "assessed_value": 705451,
-    "last_sale_date": "1995-01-05",
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1913 (113 yrs old)",
-          "owner-occupied",
-          "no permit + home age 113y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1913 (113 yrs old)",
-          "owner-occupied",
-          "no permit + home age 113y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
+    "replacement_cost_today": 576000,
+    "coverage_anchor": 431960,
+    "replacement_cost_gap_dollars": 144040,
+    "replacement_cost_gap_pct": 0.2501,
+    "need_score": 0.625,
+    "timing_score": 0.05,
+    "timing_confidence": "low",
+    "composite_score": 0.453,
+    "worth_outreach": false,
+    "purchase_year": null,
+    "years_owned": null
   },
   {
-    "household_id": "2765-4",
-    "address": "44 Worth St",
-    "lat": 37.754659434,
-    "lng": -122.440217754,
-    "year_built": 1913,
+    "household_id": "1274-40",
+    "address": "222 Parnassus Av0000C",
+    "lat": 37.764716276,
+    "lng": -122.453195976,
+    "neighborhood": "Inner Sunset",
+    "year_built": 1982,
+    "sqft": 1126,
     "owner_occupied": true,
-    "assessed_value": 123082,
-    "last_sale_date": null,
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1913 (113 yrs old)",
-          "owner-occupied",
-          "no permit + home age 113y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1913 (113 yrs old)",
-          "owner-occupied",
-          "no permit + home age 113y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
+    "replacement_cost_today": 563000,
+    "coverage_anchor": 422211,
+    "replacement_cost_gap_dollars": 140789,
+    "replacement_cost_gap_pct": 0.2501,
+    "need_score": 0.625,
+    "timing_score": 0.045,
+    "timing_confidence": "low",
+    "composite_score": 0.451,
+    "worth_outreach": false,
+    "purchase_year": null,
+    "years_owned": null
   },
   {
-    "household_id": "2765-5",
-    "address": "48 Worth St",
-    "lat": 37.754593701,
-    "lng": -122.440211631,
-    "year_built": 1913,
+    "household_id": "1743-68",
+    "address": "1224 08Th Av",
+    "lat": 37.765478761,
+    "lng": -122.465013167,
+    "neighborhood": "Inner Sunset",
+    "year_built": 1916,
+    "sqft": 1941,
     "owner_occupied": true,
-    "assessed_value": 278609,
-    "last_sale_date": null,
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1913 (113 yrs old)",
-          "owner-occupied",
-          "no permit + home age 113y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1913 (113 yrs old)",
-          "owner-occupied",
-          "no permit + home age 113y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
+    "replacement_cost_today": 970500,
+    "coverage_anchor": 727808,
+    "replacement_cost_gap_dollars": 242692,
+    "replacement_cost_gap_pct": 0.2501,
+    "need_score": 0.625,
+    "timing_score": 0.045,
+    "timing_confidence": "low",
+    "composite_score": 0.451,
+    "worth_outreach": false,
+    "purchase_year": null,
+    "years_owned": null
   },
   {
-    "household_id": "2765-7",
-    "address": "4250 22Nd St",
-    "lat": 37.75436555,
-    "lng": -122.440025638,
-    "year_built": 1924,
-    "owner_occupied": true,
-    "assessed_value": 1153129,
-    "last_sale_date": "1996-08-30",
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": "2002-08-05",
-        "reasons": [
-          "last hvac permit 2002 (24 yrs ago)",
-          "home built 1924 (102 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1924 (102 yrs old)",
-          "owner-occupied",
-          "no permit + home age 102y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1265-8A",
-    "address": "324 Carl St",
-    "lat": 37.765437654,
-    "lng": -122.455047734,
+    "household_id": "1749-30",
+    "address": "44 Hugo St",
+    "lat": 37.765433492,
+    "lng": -122.458603695,
+    "neighborhood": "Inner Sunset",
     "year_built": 1922,
+    "sqft": 957,
     "owner_occupied": true,
-    "assessed_value": 144104,
-    "last_sale_date": null,
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": "1994-07-25",
-        "reasons": [
-          "last hvac permit 1994 (32 yrs ago)",
-          "home built 1922 (104 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1922 (104 yrs old)",
-          "owner-occupied",
-          "no permit + home age 104y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1265-14",
-    "address": "468 Carl St",
-    "lat": 37.765111831,
-    "lng": -122.457198057,
-    "year_built": 1906,
-    "owner_occupied": true,
-    "assessed_value": 484378,
-    "last_sale_date": "1994-05-27",
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": "2010-08-30",
-        "reasons": [
-          "last hvac permit 2010 (16 yrs ago)",
-          "home built 1906 (120 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1906 (120 yrs old)",
-          "owner-occupied",
-          "no permit + home age 120y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "2127-2A",
-    "address": "1926 08Th Av",
-    "lat": 37.752506508,
-    "lng": -122.46412779,
-    "year_built": 1925,
-    "owner_occupied": true,
-    "assessed_value": 163050,
-    "last_sale_date": null,
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": "2026-05-19",
-        "reasons": [
-          "last hvac permit 2026 (0 yrs ago)",
-          "home built 1925 (101 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "panel": {
-        "score": 0.71,
-        "urgency_flag": false,
-        "last_relevant_permit_date": "2013-11-12",
-        "reasons": [
-          "last panel permit 2013 (13 yrs ago)",
-          "home built 1925 (101 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1374-3",
-    "address": "111 14Th Av",
-    "lat": 37.785991926,
-    "lng": -122.473515748,
-    "year_built": 1912,
-    "owner_occupied": true,
-    "assessed_value": 809995,
-    "last_sale_date": "1996-01-05",
-    "cluster_id": 1,
-    "vertical_scores": {
-      "hvac": {
-        "score": 0.44,
-        "urgency_flag": false,
-        "last_relevant_permit_date": "2025-11-25",
-        "reasons": [
-          "last hvac permit 2025 (1 yrs ago)",
-          "home built 1912 (114 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "panel": {
-        "score": 0.42,
-        "urgency_flag": false,
-        "last_relevant_permit_date": "2025-11-21",
-        "reasons": [
-          "last panel permit 2025 (1 yrs ago)",
-          "home built 1912 (114 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "ev": {
-        "score": 0.4,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1265-1",
-    "address": "1201 Willard St",
-    "lat": 37.765916299,
-    "lng": -122.454711078,
-    "year_built": 1906,
-    "owner_occupied": true,
-    "assessed_value": 1456560,
-    "last_sale_date": "2023-06-23",
-    "cluster_id": 2,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1906 (120 yrs old)",
-          "owner-occupied",
-          "no permit + home age 120y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 0.42,
-        "urgency_flag": false,
-        "last_relevant_permit_date": "2025-08-26",
-        "reasons": [
-          "last panel permit 2025 (1 yrs ago)",
-          "home built 1906 (120 yrs old)",
-          "owner-occupied"
-        ]
-      },
-      "ev": {
-        "score": 0.75,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "assessed value $1,456,560",
-          "owner-occupied",
-          "recent mover (purchased 2023)"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "2127-7",
-    "address": "30 Linares Av",
-    "lat": 37.752197323,
-    "lng": -122.463730254,
-    "year_built": 1955,
-    "owner_occupied": true,
-    "assessed_value": 1272171,
-    "last_sale_date": "2000-02-24",
-    "cluster_id": 3,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1955 (71 yrs old)",
-          "owner-occupied",
-          "no permit + home age 71y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1955 (71 yrs old)",
-          "owner-occupied",
-          "no permit + home age 71y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.55,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "assessed value $1,272,171",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1374-11",
-    "address": "143 14Th Av",
-    "lat": 37.785440629,
-    "lng": -122.473540784,
-    "year_built": 1911,
-    "owner_occupied": true,
-    "assessed_value": 1479967,
-    "last_sale_date": null,
-    "cluster_id": 3,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1911 (115 yrs old)",
-          "owner-occupied",
-          "no permit + home age 115y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1911 (115 yrs old)",
-          "owner-occupied",
-          "no permit + home age 115y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.55,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "assessed value $1,479,967",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1265-13",
-    "address": "466 Carl St",
-    "lat": 37.765122727,
-    "lng": -122.457112665,
-    "year_built": 1906,
-    "owner_occupied": true,
-    "assessed_value": 1655023,
-    "last_sale_date": "2008-06-24",
-    "cluster_id": 3,
-    "vertical_scores": {
-      "hvac": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no hvac permit on record",
-          "home built 1906 (120 yrs old)",
-          "owner-occupied",
-          "no permit + home age 120y exceeds 15y threshold"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1906 (120 yrs old)",
-          "owner-occupied",
-          "no permit + home age 120y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.55,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record",
-          "assessed value $1,655,023",
-          "owner-occupied"
-        ]
-      }
-    }
-  },
-  {
-    "household_id": "1702-1",
-    "address": "1201 48Th Av",
-    "lat": 37.763903341,
-    "lng": -122.508540091,
-    "year_built": 1947,
-    "owner_occupied": false,
-    "assessed_value": 422918,
-    "last_sale_date": "1997-06-10",
-    "cluster_id": 4,
-    "vertical_scores": {
-      "hvac": {
-        "score": 0.5,
-        "urgency_flag": false,
-        "last_relevant_permit_date": "2021-11-19",
-        "reasons": [
-          "last hvac permit 2021 (5 yrs ago)",
-          "home built 1947 (79 yrs old)"
-        ]
-      },
-      "panel": {
-        "score": 1.0,
-        "urgency_flag": true,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no panel permit on record",
-          "home built 1947 (79 yrs old)",
-          "no permit + home age 79y exceeds 25y threshold"
-        ]
-      },
-      "ev": {
-        "score": 0.3,
-        "urgency_flag": false,
-        "last_relevant_permit_date": null,
-        "reasons": [
-          "no EV charger permit on record"
-        ]
-      }
-    }
+    "replacement_cost_today": 478500,
+    "coverage_anchor": 408454,
+    "replacement_cost_gap_dollars": 70046,
+    "replacement_cost_gap_pct": 0.1464,
+    "need_score": 0.366,
+    "timing_score": 0.3,
+    "timing_confidence": "high",
+    "composite_score": 0.346,
+    "worth_outreach": false,
+    "purchase_year": 2014,
+    "years_owned": 11
   }
 ]

@@ -457,8 +457,6 @@ function mergeCompanyContext(parts: {
 export async function searchBusinessContext(
   input: BusinessContextInput,
 ): Promise<CompanyContext | null> {
-  const fiberLookups: FiberLookup[] = [];
-
   const places =
     (await googlePlacesLookup(
       input.businessAddress,
@@ -468,62 +466,16 @@ export async function searchBusinessContext(
       input.businessName,
     )) ?? null;
 
-  const googleBusinessName = businessNameFromGooglePlace(places);
-
-  if (googleBusinessName) {
-    fiberLookups.push({
-      api: "google-places",
-      credits: 0,
-      summary: `Matched "${googleBusinessName}" (rating, phone, category)`,
-    });
-  } else {
-    fiberLookups.push({
-      api: "google-places",
-      credits: 0,
-      summary: places
-        ? "Address verified on Google Maps — no business listing at this location"
-        : "No Google business listing found for this company or address",
-    });
-  }
+  if (!places) return null;
 
   const seedName =
     input.businessName?.trim() ||
-    googleBusinessName ||
+    businessNameFromGooglePlace(places) ||
     input.businessDescription.split(/[.!?\n]/)[0]?.trim();
-
-  const companyName = seedName ?? "Your business";
-  const companyDomain =
-    extractDomain(asText(places?.website)) ??
-    extractDomain(input.businessDescription.match(/https?:\/\/[^\s,)]+/i)?.[0]);
-
-  if (fiberApiKey()) {
-    const { company, lookup } = await kitchenSinkCompanyLookup({
-      name: companyName,
-      domain: companyDomain,
-    });
-    if (lookup) fiberLookups.push(lookup);
-
-    const { observation, lookup: localLookup } = await pollLocalBusinessSearch({
-      companyName,
-      formattedAddress: input.formattedAddress,
-      businessDescription: input.businessDescription,
-    });
-    fiberLookups.push(localLookup);
-
-    return mergeCompanyContext({
-      seedName,
-      places,
-      kitchenSink: company,
-      localBusiness: observation,
-      fiberLookups,
-    });
-  }
-
-  if (!places) return null;
 
   return mergeCompanyContext({
     seedName,
     places,
-    fiberLookups,
+    fiberLookups: [],
   });
 }
