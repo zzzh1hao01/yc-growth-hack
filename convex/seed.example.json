@@ -1,0 +1,23 @@
+[
+  {
+    "externalId": "parcel-example-001",
+    "address": "2847 24th St, San Francisco, CA 94110",
+    "lat": 37.7524,
+    "lng": -122.4098,
+    "neighborhood": "Mission",
+    "matchScore": 92,
+    "urgent": true,
+    "spriteVariant": 0,
+    "permitAgeYears": 18,
+    "lastPermitType": "HVAC_REPLACEMENT",
+    "lastPermitDate": "2007-04-12",
+    "hasOpenPermit": false,
+    "homeAgeYears": 74,
+    "ownerOccupied": true,
+    "assessedValue": 1250000,
+    "clusterId": "cluster-budget-owner",
+    "cluster": "Long-time owner, budget-conscious",
+    "vertical": "hvac",
+    "dataSource": "etl"
+  }
+]
