@@ -173,7 +173,7 @@ BountyHunters gives you a map.
 
 **And know why — before you call.**
 
-HouseholdIQ helps insurance professionals move from broad searching to data-driven property discovery.
+BountyHunters helps insurance professionals move from broad searching to data-driven property discovery.
 
 Thank you.
 
