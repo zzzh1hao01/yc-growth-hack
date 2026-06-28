@@ -1,0 +1,1313 @@
+[
+  {
+    "household_id": "2127-13",
+    "address": "64 Linares Av",
+    "lat": 37.751810785,
+    "lng": -122.4632305,
+    "year_built": 1916,
+    "owner_occupied": true,
+    "assessed_value": 2074477,
+    "last_sale_date": "2003-08-07",
+    "cluster_id": 0,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1916 (110 yrs old)",
+          "owner-occupied",
+          "no permit + home age 110y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1916 (110 yrs old)",
+          "owner-occupied",
+          "no permit + home age 110y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.7,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "high assessed value $2,074,477",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1374-9",
+    "address": "135 14Th Av",
+    "lat": 37.785577719,
+    "lng": -122.473550718,
+    "year_built": 1911,
+    "owner_occupied": true,
+    "assessed_value": 3627173,
+    "last_sale_date": "2014-07-23",
+    "cluster_id": 0,
+    "vertical_scores": {
+      "hvac": {
+        "score": 0.92,
+        "urgency_flag": false,
+        "last_relevant_permit_date": "2013-02-08",
+        "reasons": [
+          "last hvac permit 2013 (13 yrs ago)",
+          "home built 1911 (115 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1911 (115 yrs old)",
+          "owner-occupied",
+          "no permit + home age 115y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.7,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "high assessed value $3,627,173",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1265-2",
+    "address": "1225 Willard St",
+    "lat": 37.765711598,
+    "lng": -122.454877168,
+    "year_built": 1908,
+    "owner_occupied": true,
+    "assessed_value": 2673887,
+    "last_sale_date": "2018-02-28",
+    "cluster_id": 0,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1908 (118 yrs old)",
+          "owner-occupied",
+          "no permit + home age 118y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1908 (118 yrs old)",
+          "owner-occupied",
+          "no permit + home age 118y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.7,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "high assessed value $2,673,887",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1374-4",
+    "address": "115 14Th Av",
+    "lat": 37.785923381,
+    "lng": -122.473510779,
+    "year_built": 1912,
+    "owner_occupied": true,
+    "assessed_value": 3307663,
+    "last_sale_date": "2016-10-25",
+    "cluster_id": 0,
+    "vertical_scores": {
+      "hvac": {
+        "score": 0.76,
+        "urgency_flag": false,
+        "last_relevant_permit_date": "2017-12-07",
+        "reasons": [
+          "last hvac permit 2017 (9 yrs ago)",
+          "home built 1912 (114 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "panel": {
+        "score": 0.69,
+        "urgency_flag": false,
+        "last_relevant_permit_date": "2014-09-18",
+        "reasons": [
+          "last panel permit 2014 (12 yrs ago)",
+          "home built 1912 (114 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "ev": {
+        "score": 0.7,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "high assessed value $3,307,663",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1702-1A",
+    "address": "1207 48Th Av",
+    "lat": 37.76383479,
+    "lng": -122.508535263,
+    "year_built": 1947,
+    "owner_occupied": true,
+    "assessed_value": 69006,
+    "last_sale_date": null,
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1947 (79 yrs old)",
+          "owner-occupied",
+          "no permit + home age 79y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1947 (79 yrs old)",
+          "owner-occupied",
+          "no permit + home age 79y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1702-1B",
+    "address": "1219 48Th Av",
+    "lat": 37.763624533,
+    "lng": -122.508628732,
+    "year_built": 1947,
+    "owner_occupied": true,
+    "assessed_value": 800415,
+    "last_sale_date": "2012-12-18",
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1947 (79 yrs old)",
+          "owner-occupied",
+          "no permit + home age 79y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1947 (79 yrs old)",
+          "owner-occupied",
+          "no permit + home age 79y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1702-1C",
+    "address": "1223 48Th Av",
+    "lat": 37.763555982,
+    "lng": -122.508623904,
+    "year_built": 1947,
+    "owner_occupied": true,
+    "assessed_value": 70871,
+    "last_sale_date": null,
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1947 (79 yrs old)",
+          "owner-occupied",
+          "no permit + home age 79y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1947 (79 yrs old)",
+          "owner-occupied",
+          "no permit + home age 79y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1702-1K",
+    "address": "1215 48Th Av",
+    "lat": 37.763695846,
+    "lng": -122.508568789,
+    "year_built": 1947,
+    "owner_occupied": true,
+    "assessed_value": 122618,
+    "last_sale_date": null,
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1947 (79 yrs old)",
+          "owner-occupied",
+          "no permit + home age 79y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1947 (79 yrs old)",
+          "owner-occupied",
+          "no permit + home age 79y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1702-2",
+    "address": "1235 48Th Av",
+    "lat": 37.763350327,
+    "lng": -122.50860942,
+    "year_built": 1924,
+    "owner_occupied": true,
+    "assessed_value": 397017,
+    "last_sale_date": "1995-05-11",
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1924 (102 yrs old)",
+          "owner-occupied",
+          "no permit + home age 102y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1924 (102 yrs old)",
+          "owner-occupied",
+          "no permit + home age 102y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1702-3",
+    "address": "1239 48Th Av",
+    "lat": 37.763281775,
+    "lng": -122.508604592,
+    "year_built": 1924,
+    "owner_occupied": true,
+    "assessed_value": 204032,
+    "last_sale_date": null,
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1924 (102 yrs old)",
+          "owner-occupied",
+          "no permit + home age 102y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1924 (102 yrs old)",
+          "owner-occupied",
+          "no permit + home age 102y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "2127-2B",
+    "address": "1920 08Th Av",
+    "lat": 37.752594958,
+    "lng": -122.464203169,
+    "year_built": 1937,
+    "owner_occupied": true,
+    "assessed_value": 622715,
+    "last_sale_date": "1997-10-01",
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": "1999-10-27",
+        "reasons": [
+          "last hvac permit 1999 (27 yrs ago)",
+          "home built 1937 (89 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1937 (89 yrs old)",
+          "owner-occupied",
+          "no permit + home age 89y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "2127-4",
+    "address": "6 Linares Av",
+    "lat": 37.752428549,
+    "lng": -122.46403022,
+    "year_built": 1924,
+    "owner_occupied": true,
+    "assessed_value": 819979,
+    "last_sale_date": "1987-04-01",
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1924 (102 yrs old)",
+          "owner-occupied",
+          "no permit + home age 102y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1924 (102 yrs old)",
+          "owner-occupied",
+          "no permit + home age 102y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1374-2",
+    "address": "107 14Th Av",
+    "lat": 37.786060471,
+    "lng": -122.473520715,
+    "year_built": 1912,
+    "owner_occupied": true,
+    "assessed_value": 795734,
+    "last_sale_date": "1992-04-07",
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": "2026-06-03",
+        "reasons": [
+          "last hvac permit 2026 (0 yrs ago)",
+          "home built 1912 (114 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1912 (114 yrs old)",
+          "owner-occupied",
+          "no permit + home age 114y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1374-6",
+    "address": "123 14Th Av",
+    "lat": 37.785783355,
+    "lng": -122.473565622,
+    "year_built": 1911,
+    "owner_occupied": true,
+    "assessed_value": 1037870,
+    "last_sale_date": "1998-04-28",
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1911 (115 yrs old)",
+          "owner-occupied",
+          "no permit + home age 115y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1911 (115 yrs old)",
+          "owner-occupied",
+          "no permit + home age 115y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1374-8",
+    "address": "131 14Th Av",
+    "lat": 37.785646264,
+    "lng": -122.473555686,
+    "year_built": 1911,
+    "owner_occupied": true,
+    "assessed_value": 535407,
+    "last_sale_date": null,
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1911 (115 yrs old)",
+          "owner-occupied",
+          "no permit + home age 115y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1911 (115 yrs old)",
+          "owner-occupied",
+          "no permit + home age 115y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1374-10",
+    "address": "139 14Th Av",
+    "lat": 37.785509174,
+    "lng": -122.47354575,
+    "year_built": 1911,
+    "owner_occupied": true,
+    "assessed_value": 221039,
+    "last_sale_date": null,
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": "2010-03-11",
+        "reasons": [
+          "last hvac permit 2010 (16 yrs ago)",
+          "home built 1911 (115 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1911 (115 yrs old)",
+          "owner-occupied",
+          "no permit + home age 115y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "2765-1B",
+    "address": "18 Worth St",
+    "lat": 37.754946571,
+    "lng": -122.440081003,
+    "year_built": 1910,
+    "owner_occupied": true,
+    "assessed_value": 558841,
+    "last_sale_date": "1998-05-15",
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1910 (116 yrs old)",
+          "owner-occupied",
+          "no permit + home age 116y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1910 (116 yrs old)",
+          "owner-occupied",
+          "no permit + home age 116y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "2765-3",
+    "address": "40 Worth St",
+    "lat": 37.754725168,
+    "lng": -122.440223876,
+    "year_built": 1913,
+    "owner_occupied": true,
+    "assessed_value": 705451,
+    "last_sale_date": "1995-01-05",
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1913 (113 yrs old)",
+          "owner-occupied",
+          "no permit + home age 113y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1913 (113 yrs old)",
+          "owner-occupied",
+          "no permit + home age 113y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "2765-4",
+    "address": "44 Worth St",
+    "lat": 37.754659434,
+    "lng": -122.440217754,
+    "year_built": 1913,
+    "owner_occupied": true,
+    "assessed_value": 123082,
+    "last_sale_date": null,
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1913 (113 yrs old)",
+          "owner-occupied",
+          "no permit + home age 113y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1913 (113 yrs old)",
+          "owner-occupied",
+          "no permit + home age 113y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "2765-5",
+    "address": "48 Worth St",
+    "lat": 37.754593701,
+    "lng": -122.440211631,
+    "year_built": 1913,
+    "owner_occupied": true,
+    "assessed_value": 278609,
+    "last_sale_date": null,
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1913 (113 yrs old)",
+          "owner-occupied",
+          "no permit + home age 113y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1913 (113 yrs old)",
+          "owner-occupied",
+          "no permit + home age 113y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "2765-7",
+    "address": "4250 22Nd St",
+    "lat": 37.75436555,
+    "lng": -122.440025638,
+    "year_built": 1924,
+    "owner_occupied": true,
+    "assessed_value": 1153129,
+    "last_sale_date": "1996-08-30",
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": "2002-08-05",
+        "reasons": [
+          "last hvac permit 2002 (24 yrs ago)",
+          "home built 1924 (102 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1924 (102 yrs old)",
+          "owner-occupied",
+          "no permit + home age 102y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1265-8A",
+    "address": "324 Carl St",
+    "lat": 37.765437654,
+    "lng": -122.455047734,
+    "year_built": 1922,
+    "owner_occupied": true,
+    "assessed_value": 144104,
+    "last_sale_date": null,
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": "1994-07-25",
+        "reasons": [
+          "last hvac permit 1994 (32 yrs ago)",
+          "home built 1922 (104 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1922 (104 yrs old)",
+          "owner-occupied",
+          "no permit + home age 104y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1265-14",
+    "address": "468 Carl St",
+    "lat": 37.765111831,
+    "lng": -122.457198057,
+    "year_built": 1906,
+    "owner_occupied": true,
+    "assessed_value": 484378,
+    "last_sale_date": "1994-05-27",
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": "2010-08-30",
+        "reasons": [
+          "last hvac permit 2010 (16 yrs ago)",
+          "home built 1906 (120 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1906 (120 yrs old)",
+          "owner-occupied",
+          "no permit + home age 120y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "2127-2A",
+    "address": "1926 08Th Av",
+    "lat": 37.752506508,
+    "lng": -122.46412779,
+    "year_built": 1925,
+    "owner_occupied": true,
+    "assessed_value": 163050,
+    "last_sale_date": null,
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": "2026-05-19",
+        "reasons": [
+          "last hvac permit 2026 (0 yrs ago)",
+          "home built 1925 (101 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "panel": {
+        "score": 0.71,
+        "urgency_flag": false,
+        "last_relevant_permit_date": "2013-11-12",
+        "reasons": [
+          "last panel permit 2013 (13 yrs ago)",
+          "home built 1925 (101 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1374-3",
+    "address": "111 14Th Av",
+    "lat": 37.785991926,
+    "lng": -122.473515748,
+    "year_built": 1912,
+    "owner_occupied": true,
+    "assessed_value": 809995,
+    "last_sale_date": "1996-01-05",
+    "cluster_id": 1,
+    "vertical_scores": {
+      "hvac": {
+        "score": 0.44,
+        "urgency_flag": false,
+        "last_relevant_permit_date": "2025-11-25",
+        "reasons": [
+          "last hvac permit 2025 (1 yrs ago)",
+          "home built 1912 (114 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "panel": {
+        "score": 0.42,
+        "urgency_flag": false,
+        "last_relevant_permit_date": "2025-11-21",
+        "reasons": [
+          "last panel permit 2025 (1 yrs ago)",
+          "home built 1912 (114 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "ev": {
+        "score": 0.4,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1265-1",
+    "address": "1201 Willard St",
+    "lat": 37.765916299,
+    "lng": -122.454711078,
+    "year_built": 1906,
+    "owner_occupied": true,
+    "assessed_value": 1456560,
+    "last_sale_date": "2023-06-23",
+    "cluster_id": 2,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1906 (120 yrs old)",
+          "owner-occupied",
+          "no permit + home age 120y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 0.42,
+        "urgency_flag": false,
+        "last_relevant_permit_date": "2025-08-26",
+        "reasons": [
+          "last panel permit 2025 (1 yrs ago)",
+          "home built 1906 (120 yrs old)",
+          "owner-occupied"
+        ]
+      },
+      "ev": {
+        "score": 0.75,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "assessed value $1,456,560",
+          "owner-occupied",
+          "recent mover (purchased 2023)"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "2127-7",
+    "address": "30 Linares Av",
+    "lat": 37.752197323,
+    "lng": -122.463730254,
+    "year_built": 1955,
+    "owner_occupied": true,
+    "assessed_value": 1272171,
+    "last_sale_date": "2000-02-24",
+    "cluster_id": 3,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1955 (71 yrs old)",
+          "owner-occupied",
+          "no permit + home age 71y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1955 (71 yrs old)",
+          "owner-occupied",
+          "no permit + home age 71y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.55,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "assessed value $1,272,171",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1374-11",
+    "address": "143 14Th Av",
+    "lat": 37.785440629,
+    "lng": -122.473540784,
+    "year_built": 1911,
+    "owner_occupied": true,
+    "assessed_value": 1479967,
+    "last_sale_date": null,
+    "cluster_id": 3,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1911 (115 yrs old)",
+          "owner-occupied",
+          "no permit + home age 115y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1911 (115 yrs old)",
+          "owner-occupied",
+          "no permit + home age 115y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.55,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "assessed value $1,479,967",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1265-13",
+    "address": "466 Carl St",
+    "lat": 37.765122727,
+    "lng": -122.457112665,
+    "year_built": 1906,
+    "owner_occupied": true,
+    "assessed_value": 1655023,
+    "last_sale_date": "2008-06-24",
+    "cluster_id": 3,
+    "vertical_scores": {
+      "hvac": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no hvac permit on record",
+          "home built 1906 (120 yrs old)",
+          "owner-occupied",
+          "no permit + home age 120y exceeds 15y threshold"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1906 (120 yrs old)",
+          "owner-occupied",
+          "no permit + home age 120y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.55,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record",
+          "assessed value $1,655,023",
+          "owner-occupied"
+        ]
+      }
+    }
+  },
+  {
+    "household_id": "1702-1",
+    "address": "1201 48Th Av",
+    "lat": 37.763903341,
+    "lng": -122.508540091,
+    "year_built": 1947,
+    "owner_occupied": false,
+    "assessed_value": 422918,
+    "last_sale_date": "1997-06-10",
+    "cluster_id": 4,
+    "vertical_scores": {
+      "hvac": {
+        "score": 0.5,
+        "urgency_flag": false,
+        "last_relevant_permit_date": "2021-11-19",
+        "reasons": [
+          "last hvac permit 2021 (5 yrs ago)",
+          "home built 1947 (79 yrs old)"
+        ]
+      },
+      "panel": {
+        "score": 1.0,
+        "urgency_flag": true,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no panel permit on record",
+          "home built 1947 (79 yrs old)",
+          "no permit + home age 79y exceeds 25y threshold"
+        ]
+      },
+      "ev": {
+        "score": 0.3,
+        "urgency_flag": false,
+        "last_relevant_permit_date": null,
+        "reasons": [
+          "no EV charger permit on record"
+        ]
+      }
+    }
+  }
+]
