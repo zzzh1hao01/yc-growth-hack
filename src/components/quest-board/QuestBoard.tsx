@@ -19,6 +19,10 @@ export function QuestBoard() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [onboarded, setOnboarded] = useState(false);
   const [onboardingKey, setOnboardingKey] = useState(0);
+  const [headerPeek, setHeaderPeek] = useState(false);
+
+  const panelOpen = selectedLead != null;
+  const headerVisible = !panelOpen || headerPeek;
 
   const clearContractor = useMutation(api.contractors.clearContractor);
 
@@ -113,11 +117,13 @@ export function QuestBoard() {
 
   const handleSelectLead = useCallback((lead: Lead) => {
     if (!lead.convexId) return;
+    setHeaderPeek(false);
     setSelectedLead(lead);
   }, []);
 
   const handleClosePanel = useCallback(() => {
     setSelectedLead(null);
+    setHeaderPeek(false);
   }, []);
 
   useEffect(() => {
@@ -130,7 +136,27 @@ export function QuestBoard() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#f5e6c8]">
-      <header className="z-50 flex h-[var(--quest-header-height)] shrink-0 items-center justify-between gap-3 border-b border-amber-300/50 bg-[#f5e6c8] px-4 shadow-sm">
+      {panelOpen && !headerPeek && (
+        <div
+          className="fixed top-0 right-0 left-0 z-[59] h-5 cursor-pointer"
+          onMouseEnter={() => setHeaderPeek(true)}
+          aria-hidden
+        >
+          <div className="mx-auto mt-1 h-1 w-16 rounded-full bg-amber-800/25" />
+        </div>
+      )}
+
+      <div
+        className="fixed top-0 right-0 left-0 z-[60]"
+        onMouseLeave={() => {
+          if (panelOpen) setHeaderPeek(false);
+        }}
+      >
+        <header
+          className={`flex h-[var(--quest-header-height)] items-center justify-between gap-3 border-b border-amber-300/50 bg-[#f5e6c8] px-4 shadow-sm transition-transform duration-200 ease-out ${
+            headerVisible ? "translate-y-0" : "-translate-y-full pointer-events-none"
+          }`}
+        >
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-800 text-base shadow-md">
             🏠
@@ -162,8 +188,13 @@ export function QuestBoard() {
           </button>
         </div>
       </header>
+      </div>
 
-      <main className="relative min-h-0 flex-1">
+      <main
+        className={`relative min-h-0 flex-1 transition-[padding] duration-200 ${
+          headerVisible ? "pt-[var(--quest-header-height)]" : "pt-0"
+        }`}
+      >
         {!onboarded && (
           <OnboardingPanel key={onboardingKey} onComplete={handleOnboardingComplete} />
         )}
@@ -217,6 +248,7 @@ export function QuestBoard() {
         <LeadSidePanel
           lead={selectedLead}
           sessionId={sessionId}
+          navVisible={headerVisible}
           onClose={handleClosePanel}
         />
       )}

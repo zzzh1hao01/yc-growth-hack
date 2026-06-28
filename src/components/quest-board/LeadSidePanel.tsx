@@ -11,6 +11,7 @@ import { asDisplayText, personaColdApproach, personaObjections, personaParagraph
 type LeadSidePanelProps = {
   lead: Lead | null;
   sessionId: string;
+  navVisible: boolean;
   onClose: () => void;
 };
 
@@ -22,7 +23,7 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-export function LeadSidePanel({ lead, sessionId, onClose }: LeadSidePanelProps) {
+export function LeadSidePanel({ lead, sessionId, navVisible, onClose }: LeadSidePanelProps) {
   const [message, setMessage] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [personaLoading, setPersonaLoading] = useState(false);
@@ -170,16 +171,22 @@ export function LeadSidePanel({ lead, sessionId, onClose }: LeadSidePanelProps) 
   const coldApproach = personaColdApproach(persona);
   const objections = personaObjections(persona);
 
+  const panelTopClass = navVisible
+    ? "top-[var(--quest-header-height)] h-[calc(100dvh-var(--quest-header-height))]"
+    : "top-0 h-dvh";
+
   return (
     <>
       <button
         type="button"
-        className="fixed inset-x-0 bottom-0 top-[var(--quest-header-height)] z-30 bg-black/20 backdrop-blur-[1px] md:bg-transparent md:backdrop-blur-none"
+        className={`fixed inset-x-0 bottom-0 z-30 bg-black/20 backdrop-blur-[1px] transition-[top] duration-200 md:bg-transparent md:backdrop-blur-none ${
+          navVisible ? "top-[var(--quest-header-height)]" : "top-0"
+        }`}
         onClick={onClose}
         aria-label="Close panel"
       />
       <aside
-        className="fixed right-0 top-[var(--quest-header-height)] z-40 flex h-[calc(100dvh-var(--quest-header-height))] w-full max-w-md flex-col border-l border-amber-200/60 bg-[#fff9f0] shadow-2xl"
+        className={`fixed right-0 z-40 flex w-full max-w-md flex-col border-l border-amber-200/60 bg-[#fff9f0] shadow-2xl transition-[top,height] duration-200 ${panelTopClass}`}
         role="dialog"
         aria-labelledby="lead-panel-title"
       >
