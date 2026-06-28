@@ -248,37 +248,59 @@ export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadS
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
           <section className="rounded-xl border border-amber-200/80 bg-white p-4 shadow-sm">
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between">
               <span className="text-sm font-semibold text-amber-950">Match Score</span>
               <span className="text-sm font-bold" style={{ color: barColor }}>
                 {lead.matchScore}/100
               </span>
             </div>
-            <div className="h-4 overflow-hidden rounded-full bg-amber-100">
-              <div
-                className="h-full rounded-full"
-                style={{ width: `${lead.matchScore}%`, backgroundColor: barColor }}
-              />
-            </div>
-            {lead.urgent && (
-              <p className="mt-3 text-sm font-semibold text-red-600">! High-priority outreach</p>
-            )}
-            {lead.needScore != null && lead.timingScore != null && (
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-lg bg-amber-50 px-2 py-1.5">
-                  <span className="text-amber-800/70">Need</span>
-                  <p className="font-bold text-amber-950">{Math.round(lead.needScore * 100)}/100</p>
+            {lead.needScore != null || lead.timingScore != null || lead.acsReceptivityScore != null ? (
+              <>
+                <div className="flex h-4 overflow-hidden rounded-full bg-amber-100">
+                  {lead.needScore != null && (
+                    <div className="h-full bg-red-400" style={{ width: `${lead.needScore * 45}%` }} />
+                  )}
+                  {lead.timingScore != null && (
+                    <div className="h-full bg-amber-400" style={{ width: `${lead.timingScore * 30}%` }} />
+                  )}
+                  {lead.acsReceptivityScore != null && (
+                    <div className="h-full bg-emerald-400" style={{ width: `${lead.acsReceptivityScore * 25}%` }} />
+                  )}
                 </div>
-                <div className="rounded-lg bg-amber-50 px-2 py-1.5">
-                  <span className="text-amber-800/70">Timing</span>
-                  <p className="font-bold text-amber-950">{Math.round(lead.timingScore * 100)}/100</p>
+                <div className="mt-2 flex gap-4 text-xs">
+                  {lead.needScore != null && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2 w-2 rounded-sm bg-red-400" />
+                      <span className="text-amber-900/70">Risk</span>
+                      <span className="font-semibold text-amber-950">{Math.round(lead.needScore * 100)}</span>
+                    </span>
+                  )}
+                  {lead.timingScore != null && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2 w-2 rounded-sm bg-amber-400" />
+                      <span className="text-amber-900/70">Timing</span>
+                      <span className="font-semibold text-amber-950">{Math.round(lead.timingScore * 100)}</span>
+                    </span>
+                  )}
+                  {lead.acsReceptivityScore != null && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-2 w-2 rounded-sm bg-emerald-400" />
+                      <span className="text-amber-900/70">Fit</span>
+                      <span className="font-semibold text-amber-950">{Math.round(lead.acsReceptivityScore * 100)}</span>
+                    </span>
+                  )}
                 </div>
+              </>
+            ) : (
+              <div className="h-4 overflow-hidden rounded-full bg-amber-100">
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${lead.matchScore}%`, backgroundColor: barColor }}
+                />
               </div>
             )}
-            {lead.distanceMiles != null && (
-              <p className="mt-2 text-xs text-amber-800/70">
-                {lead.distanceMiles.toFixed(1)} mi from your office (display only)
-              </p>
+            {lead.urgent && (
+              <p className="mt-3 text-sm font-semibold text-red-600">! High-priority outreach</p>
             )}
             {lead.scoreReasons && lead.scoreReasons.length > 0 && (
               <ul className="mt-3 space-y-1 text-xs text-amber-900/80">
