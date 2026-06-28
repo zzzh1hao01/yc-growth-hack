@@ -98,6 +98,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
         <label className="relative z-50 block text-xs font-semibold text-amber-900">
           Business address (San Francisco)
           <AddressAutocomplete
+            value={businessAddress}
             onChange={setBusinessAddress}
             placeholder="Start typing your address…"
           />
