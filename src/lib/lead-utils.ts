@@ -20,51 +20,12 @@ export function getTierColor(tier: MatchTier): string {
 export function getTierLabel(tier: MatchTier): string {
   switch (tier) {
     case "hot":
-      return "Good";
+      return "Hot lead";
     case "warm":
-      return "Moderate";
+      return "Warm lead";
     case "cold":
-      return "Bad";
+      return "Cold lead";
   }
-}
-
-export type QualityTier = MatchTier;
-
-export type TierVisibility = {
-  good: boolean;
-  moderate: boolean;
-  bad: boolean;
-};
-
-export const DEFAULT_TIER_VISIBILITY: TierVisibility = {
-  good: true,
-  moderate: true,
-  bad: true,
-};
-
-export function countLeadsByTier<T extends { matchScore: number }>(leads: T[]) {
-  let good = 0;
-  let moderate = 0;
-  let bad = 0;
-  for (const lead of leads) {
-    const tier = getMatchTier(lead.matchScore);
-    if (tier === "hot") good++;
-    else if (tier === "warm") moderate++;
-    else bad++;
-  }
-  return { good, moderate, bad };
-}
-
-export function filterLeadsByTierVisibility<T extends { matchScore: number }>(
-  leads: T[],
-  visibility: TierVisibility,
-): T[] {
-  return leads.filter((lead) => {
-    const tier = getMatchTier(lead.matchScore);
-    if (tier === "hot") return visibility.good;
-    if (tier === "warm") return visibility.moderate;
-    return visibility.bad;
-  });
 }
 
 export function getScoreBarColor(score: number): string {

@@ -1,16 +1,14 @@
+import {ClerkProvider} from "@clerk/nextjs";
 import type { Metadata } from "next";
-import { VT323, Nunito } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
+import { Fredoka, Nunito } from "next/font/google";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 import "./globals.css";
 import "../styles/sprites.css";
 
-const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim());
-
-const vt323 = VT323({
+const fredoka = Fredoka({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: "400",
+  weight: ["500", "600", "700"],
 });
 
 const nunito = Nunito({
@@ -21,7 +19,7 @@ const nunito = Nunito({
 export const metadata: Metadata = {
   title: "HouseholdIQ — Coverage Board",
   description:
-    "Insurance lead qualification for SF homeowners on a western pixel coverage map.",
+    "Insurance lead qualification for SF homeowners — discover underinsured households ranked by need and timing on a cartoony map.",
 };
 
 export default function RootLayout({
@@ -29,12 +27,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const app = <ConvexClientProvider>{children}</ConvexClientProvider>;
-
   return (
-    <html lang="en" className={`${vt323.variable} ${nunito.variable} h-full`}>
+    <html lang="en" className={`${fredoka.variable} ${nunito.variable} h-full`}>
       <body className="min-h-full font-[family-name:var(--font-body)] antialiased">
-        {clerkEnabled ? <ClerkProvider>{app}</ClerkProvider> : app}
+        <ClerkProvider>
+          <ConvexClientProvider>{children}</ConvexClientProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

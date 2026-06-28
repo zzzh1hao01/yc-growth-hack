@@ -22,11 +22,11 @@ export function LeadFocusFilter({
 
   return (
     <div
-      className="western-hud-control flex min-w-[180px] max-w-xs flex-col gap-1 px-3 py-2"
-      title="Raise the bar to hide lower-quality contacts from the map"
+      className="flex min-w-[200px] max-w-xs flex-col gap-1 rounded-xl border border-amber-300/60 bg-white/80 px-3 py-2 shadow-sm"
+      title="Raise the bar to hide low-value cold leads from the map"
     >
       <div className="flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-amber-900/70">
-        <span className="western-label text-[10px]">Focus leads</span>
+        <span>Focus leads</span>
         <span className="normal-case tracking-normal text-amber-950">
           {visibleCount}
           {totalCount > 0 ? ` / ${totalCount}` : ""} pins
@@ -39,10 +39,10 @@ export function LeadFocusFilter({
         step={1}
         value={minScore}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="western-range"
+        className="h-1.5 w-full cursor-pointer accent-amber-700"
         aria-label="Minimum lead score to show on map"
       />
-      <p className="western-body text-[10px] leading-snug">
+      <p className="text-[10px] leading-snug text-amber-900/75">
         {describeImportanceFilter(minScore)}
         {hidden > 0 ? ` · ${hidden} hidden` : ""}
       </p>
