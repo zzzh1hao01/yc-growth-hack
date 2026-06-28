@@ -204,7 +204,7 @@ export const refreshCompanyContext = action({
       formattedAddress: contractor.businessAddress,
       lat: contractor.lat,
       lng: contractor.lng,
-      businessName: businessName || undefined,
+      businessName: (contractor.businessName ?? businessName) || undefined,
     });
 
     await ctx.runMutation(internal.contractors.patchCompanyContext, {
