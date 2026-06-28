@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f5e6c8;
+  --foreground: #451a03;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), system-ui, sans-serif;
+}
+
+.map-cartoon-wrapper {
+  isolation: isolate;
+}
+
+.map-cartoon-filter {
+  filter: saturate(1.45) contrast(1.06) brightness(1.06) hue-rotate(-8deg);
+}
+
+.map-cartoon-overlay {
+  background:
+    radial-gradient(ellipse at center, transparent 40%, rgba(245, 230, 200, 0.35) 100%),
+    linear-gradient(180deg, rgba(255, 249, 240, 0.18) 0%, rgba(212, 232, 194, 0.22) 100%);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+.map-vignette {
+  box-shadow: inset 0 0 100px rgba(69, 26, 3, 0.15);
+  pointer-events: none;
+}
+
+@keyframes slide-in-from-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-in {
+  animation-fill-mode: both;
+}
+
+.slide-in-from-right {
+  animation-name: slide-in-from-right;
+}
+
+.duration-300 {
+  animation-duration: 300ms;
+}
+
+.mapboxgl-ctrl-attrib {
+  font-size: 10px !important;
+  opacity: 0.7;
+}
+
+.mapboxgl-ctrl-group {
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+}
