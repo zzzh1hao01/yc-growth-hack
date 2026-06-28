@@ -1,134 +1,118 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { internalMutation, mutation, query } from "./_generated/server";
+import {
+  demoSampleLeads,
+  pickVertical,
+  rankLeads,
+  type ServiceProfile,
+} from "./lib/scoring";
+import {
+  findPrimaryRegion,
+  leadInServiceAreas,
+  resolveServiceAreas,
+} from "./lib/sfRegions";
 
-/** Shared validator — keep in sync with src/types/lead.ts */
-const leadFields = {
+const householdFields = {
+  householdId: v.string(),
   address: v.string(),
   lat: v.number(),
   lng: v.number(),
-  neighborhood: v.optional(v.string()),
-  matchScore: v.number(),
-  urgent: v.boolean(),
-  spriteVariant: v.number(),
-  permitAgeYears: v.number(),
-  lastPermitType: v.optional(v.string()),
-  lastPermitDate: v.optional(v.string()),
-  hasOpenPermit: v.optional(v.boolean()),
-  homeAgeYears: v.number(),
-  ownerOccupied: v.optional(v.boolean()),
-  assessedValue: v.optional(v.number()),
+  yearBuilt: v.number(),
+  ownerOccupied: v.boolean(),
+  assessedValue: v.number(),
   lastSaleDate: v.optional(v.string()),
-  clusterId: v.optional(v.string()),
-  cluster: v.string(),
-  distanceMiles: v.optional(v.number()),
-  vertical: v.optional(v.union(v.literal("hvac"), v.literal("electrical"))),
-  dataSource: v.optional(
-    v.union(v.literal("placeholder"), v.literal("etl")),
-  ),
-  externalId: v.string(),
+  clusterId: v.number(),
+  verticalScores: v.any(),
+  spriteVariant: v.number(),
 };
 
-/**
- * List all leads for the bounty board, highest match first.
- * Wire to UI: useQuery(api.leads.listLeads) in QuestBoard.tsx
- */
+const DEMO_MAP_CAP = 30;
+
 export const listLeads = query({
-  args: {},
-  handler: async (ctx) => {
-    const leads = await ctx.db
-      .query("leads")
-      .withIndex("by_match_score")
-      .order("desc")
-      .collect();
+  args: { sessionId: v.optional(v.string()) },
+  handler: async (ctx, { sessionId }) => {
+    const docs = await ctx.db.query("leads").collect();
+    if (docs.length === 0) return [];
 
-    return leads
-      .filter((lead) => lead.hasOpenPermit !== true)
-      .map((doc) => ({
-        id: doc.externalId,
-        address: doc.address,
-        lat: doc.lat,
-        lng: doc.lng,
-        neighborhood: doc.neighborhood,
-        matchScore: doc.matchScore,
-        urgent: doc.urgent,
-        spriteVariant: doc.spriteVariant as 0 | 1 | 2 | 3,
-        permitAgeYears: doc.permitAgeYears,
-        lastPermitType: doc.lastPermitType,
-        lastPermitDate: doc.lastPermitDate,
-        hasOpenPermit: doc.hasOpenPermit,
-        homeAgeYears: doc.homeAgeYears,
-        ownerOccupied: doc.ownerOccupied,
-        assessedValue: doc.assessedValue,
-        lastSaleDate: doc.lastSaleDate,
-        clusterId: doc.clusterId,
-        cluster: doc.cluster,
-        distanceMiles: doc.distanceMiles,
-        vertical: doc.vertical,
-        dataSource: doc.dataSource,
-      }));
-  },
-});
+    let contractorLat: number | undefined;
+    let contractorLng: number | undefined;
+    let serviceProfile: ServiceProfile | null = null;
+    let serviceRegionIds: string[] | undefined;
 
-/**
- * Insert or update a single lead by externalId.
- * Agent entry point for one-off ingest / testing.
- */
-export const upsertLead = mutation({
-  args: leadFields,
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("leads")
-      .withIndex("by_external_id", (q) => q.eq("externalId", args.externalId))
-      .first();
+    if (sessionId) {
+      const contractor = await ctx.db
+        .query("contractors")
+        .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+        .first();
+      if (contractor?.lat != null && contractor.lng != null) {
+        contractorLat = contractor.lat;
+        contractorLng = contractor.lng;
+        serviceProfile = contractor.serviceProfile as ServiceProfile | null;
+        serviceRegionIds = contractor.serviceRegionIds ?? undefined;
 
-    if (existing) {
-      await ctx.db.patch(existing._id, args);
-      return existing._id;
+        if (!serviceRegionIds?.length) {
+          serviceRegionIds = resolveServiceAreas(contractor.lat, contractor.lng).regionIds;
+        }
+      }
     }
 
-    return await ctx.db.insert("leads", args);
+    let scoped = docs;
+    if (serviceRegionIds?.length) {
+      scoped = docs.filter((doc) =>
+        leadInServiceAreas(doc.lat, doc.lng, serviceRegionIds!),
+      );
+    }
+
+    const vertical = pickVertical(serviceProfile);
+    const ranked = rankLeads(
+      scoped,
+      vertical,
+      contractorLat,
+      contractorLng,
+      serviceProfile,
+      (doc) => findPrimaryRegion(doc.lat, doc.lng)?.name,
+    );
+
+    if (sessionId) {
+      return demoSampleLeads(ranked, sessionId, DEMO_MAP_CAP);
+    }
+
+    return ranked.slice(0, DEMO_MAP_CAP);
   },
 });
 
-/**
- * Bulk upsert from ETL JSON array.
- * Agent entry point: read ETL output → call this mutation.
- *
- * Example (from a Convex action or seed script):
- *   bulkUpsertLeads({ leads: etlRows.map(row => ({ ...row, externalId: row.id, dataSource: "etl" })) })
- */
-export const bulkUpsertLeads = mutation({
-  args: {
-    leads: v.array(v.object(leadFields)),
+export const getLead = query({
+  args: { leadId: v.id("leads") },
+  handler: async (ctx, { leadId }) => {
+    return await ctx.db.get(leadId);
   },
-  handler: async (ctx, { leads }) => {
+});
+
+export const bulkUpsertHouseholds = mutation({
+  args: { households: v.array(v.object(householdFields)) },
+  handler: async (ctx, { households }) => {
     let inserted = 0;
     let updated = 0;
 
-    for (const lead of leads) {
+    for (const row of households) {
       const existing = await ctx.db
         .query("leads")
-        .withIndex("by_external_id", (q) =>
-          q.eq("externalId", lead.externalId),
-        )
+        .withIndex("by_household_id", (q) => q.eq("householdId", row.householdId))
         .first();
 
       if (existing) {
-        await ctx.db.patch(existing._id, lead);
+        await ctx.db.patch(existing._id, row);
         updated += 1;
       } else {
-        await ctx.db.insert("leads", lead);
+        await ctx.db.insert("leads", row);
         inserted += 1;
       }
     }
 
-    return { inserted, updated, total: leads.length };
+    return { inserted, updated, total: households.length };
   },
 });
 
-/**
- * Clear all leads — use before a full ETL reload.
- */
 export const clearAllLeads = mutation({
   args: {},
   handler: async (ctx) => {
@@ -137,5 +121,56 @@ export const clearAllLeads = mutation({
       await ctx.db.delete(doc._id);
     }
     return { deleted: all.length };
+  },
+});
+
+export const patchLeadPersona = internalMutation({
+  args: {
+    leadId: v.id("leads"),
+    persona: v.any(),
+  },
+  handler: async (ctx, { leadId, persona }) => {
+    await ctx.db.patch(leadId, { persona });
+  },
+});
+
+export const clearLeadPersona = internalMutation({
+  args: { leadId: v.id("leads") },
+  handler: async (ctx, { leadId }) => {
+    await ctx.db.patch(leadId, { persona: undefined });
+  },
+});
+
+export const patchLeadContactInfo = internalMutation({
+  args: {
+    leadId: v.id("leads"),
+    contactInfo: v.any(),
+  },
+  handler: async (ctx, { leadId, contactInfo }) => {
+    await ctx.db.patch(leadId, { contactInfo });
+  },
+});
+
+export const patchLeadOwner = internalMutation({
+  args: {
+    leadId: v.id("leads"),
+    ownerFirstName: v.string(),
+    ownerLastName: v.string(),
+    ownerFullName: v.string(),
+    ownerLinkedInUrl: v.optional(v.string()),
+    ownerNameSource: v.string(),
+    ownerContactRole: v.optional(
+      v.union(v.literal("owner"), v.literal("resident"), v.literal("unknown")),
+    ),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.leadId, {
+      ownerFirstName: args.ownerFirstName,
+      ownerLastName: args.ownerLastName,
+      ownerFullName: args.ownerFullName,
+      ownerLinkedInUrl: args.ownerLinkedInUrl,
+      ownerNameSource: args.ownerNameSource,
+      ownerContactRole: args.ownerContactRole,
+    });
   },
 });

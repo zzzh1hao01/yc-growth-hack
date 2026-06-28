@@ -75,3 +75,46 @@ h3 {
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
 }
+
+.business-location-pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+  pointer-events: none;
+}
+
+.business-location-pin-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.business-location-pin-label {
+  margin-top: 2px;
+  border-radius: 999px;
+  background: #1e3a8a;
+  color: white;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Google Places autocomplete widget */
+.householdiq-autocomplete-host gmp-place-autocomplete {
+  width: 100%;
+}
+
+gmp-place-autocomplete {
+  z-index: 10000;
+}
+
+/* Legacy Places dropdown above onboarding panel */
+.pac-container {
+  z-index: 10000 !important;
+  border-radius: 12px;
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  box-shadow: 0 8px 24px rgba(69, 26, 3, 0.15);
+  font-family: var(--font-body), system-ui, sans-serif;
+}

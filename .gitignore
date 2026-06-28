@@ -37,6 +37,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# large ETL imports (regenerate via scripts/import-sunset-leads.sh)
+.cache/
+convex/seed/sunset_parkside_leads.jsonl
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

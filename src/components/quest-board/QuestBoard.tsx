@@ -1,44 +1,102 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 
 import { api } from "../../../convex/_generated/api";
-import { PLACEHOLDER_LEADS, type Lead } from "@/data/placeholderLeads";
+import { PLACEHOLDER_LEADS } from "@/data/placeholderLeads";
+import { getSessionId, resetSession } from "@/lib/session";
+import type { CompanyContext, Contractor, Lead } from "@/types/lead";
 import { BoardLegend } from "./BoardLegend";
+import { ContractorContextPanel } from "./ContractorContextPanel";
 import { LeadSidePanel } from "./LeadSidePanel";
+import { OnboardingPanel } from "./OnboardingPanel";
 import { QuestMap } from "./QuestMap";
 
 export function QuestBoard() {
+  const [sessionId, setSessionId] = useState("");
+  const [contractor, setContractor] = useState<Contractor | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [onboarded, setOnboarded] = useState(false);
+  const [onboardingKey, setOnboardingKey] = useState(0);
+
+  const clearContractor = useMutation(api.contractors.clearContractor);
+
+  useEffect(() => {
+    setSessionId(getSessionId());
+  }, []);
+
+  const storedContractor = useQuery(
+    api.contractors.getContractor,
+    sessionId && !onboarded ? { sessionId } : "skip",
+  );
+
+  useEffect(() => {
+    if (storedContractor && storedContractor.lat != null) {
+      setContractor({
+        name: storedContractor.name,
+        businessDescription: storedContractor.businessDescription,
+        businessAddress: storedContractor.businessAddress,
+        lat: storedContractor.lat,
+        lng: storedContractor.lng,
+        serviceProfile: storedContractor.serviceProfile ?? undefined,
+        companyContext: storedContractor.companyContext as CompanyContext | undefined,
+        serviceRegionLabel: storedContractor.serviceRegionLabel ?? undefined,
+        serviceRegionIds: storedContractor.serviceRegionIds ?? undefined,
+      });
+      setOnboarded(true);
+    }
+  }, [storedContractor, onboarded]);
 
   const convexLeads = useQuery(
     api.leads.listLeads,
-    process.env.NEXT_PUBLIC_CONVEX_URL ? {} : "skip",
+    sessionId && onboarded ? { sessionId } : "skip",
   );
 
   const { leads, dataSourceLabel } = useMemo(() => {
+    if (!onboarded) {
+      return { leads: [] as Lead[], dataSourceLabel: "Awaiting setup" };
+    }
+
     if (convexLeads === undefined) {
-      return {
-        leads: PLACEHOLDER_LEADS,
-        dataSourceLabel: "Loading…",
-      };
+      return { leads: PLACEHOLDER_LEADS, dataSourceLabel: "Loading…" };
     }
 
     if (convexLeads.length > 0) {
       return {
         leads: convexLeads as Lead[],
-        dataSourceLabel: "Convex · householdiq",
+        dataSourceLabel: contractor?.serviceRegionLabel
+          ? `Demo · ${contractor.serviceRegionLabel}`
+          : "Convex · demo sample",
       };
     }
 
     return {
-      leads: PLACEHOLDER_LEADS,
-      dataSourceLabel: "Demo placeholders",
+      leads: [] as Lead[],
+      dataSourceLabel: contractor?.serviceRegionLabel
+        ? `No leads in ${contractor.serviceRegionLabel}`
+        : "No leads in your service area",
     };
-  }, [convexLeads]);
+  }, [convexLeads, onboarded, contractor?.serviceRegionLabel]);
+
+  const handleOnboardingComplete = useCallback((c: Contractor) => {
+    setContractor(c);
+    setOnboarded(true);
+  }, []);
+
+  const handleStartOver = useCallback(async () => {
+    if (sessionId) {
+      await clearContractor({ sessionId });
+    }
+    setSelectedLead(null);
+    setContractor(null);
+    setOnboarded(false);
+    setOnboardingKey((k) => k + 1);
+    setSessionId(resetSession());
+  }, [sessionId, clearContractor]);
 
   const handleSelectLead = useCallback((lead: Lead) => {
+    if (!lead.convexId) return;
     setSelectedLead(lead);
   }, []);
 
@@ -48,11 +106,8 @@ export function QuestBoard() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        handleClosePanel();
-      }
+      if (e.key === "Escape") handleClosePanel();
     };
-
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleClosePanel]);
@@ -74,29 +129,93 @@ export function QuestBoard() {
 
         <div className="flex flex-wrap items-center gap-4">
           <span className="rounded-full border border-amber-400/60 bg-white/70 px-3 py-1 text-xs font-semibold text-amber-950">
-            Mission HVAC Co. · {dataSourceLabel}
+            {contractor?.name ?? "Contractor"} · {dataSourceLabel}
           </span>
-          <BoardLegend />
+          {Array.isArray(contractor?.serviceProfile?.service_types) && (
+            <span className="hidden text-xs text-amber-900/70 sm:inline">
+              {contractor.serviceProfile.service_types.join(", ")} ·{" "}
+              {contractor.serviceProfile.price_point} tier
+            </span>
+          )}
+          {onboarded && <BoardLegend />}
+          <button
+            type="button"
+            onClick={() => void handleStartOver()}
+            className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+          >
+            Start over
+          </button>
         </div>
       </header>
 
       <main className="relative min-h-0 flex-1">
-        {convexLeads === undefined && process.env.NEXT_PUBLIC_CONVEX_URL ? (
+        {!onboarded && (
+          <OnboardingPanel key={onboardingKey} onComplete={handleOnboardingComplete} />
+        )}
+
+        {onboarded && convexLeads === undefined && (
           <div className="flex h-full items-center justify-center">
             <p className="animate-pulse font-semibold text-amber-950">
-              Loading leads from Convex…
+              Loading ranked leads…
             </p>
           </div>
-        ) : (
-          <QuestMap
-            leads={leads}
-            selectedLeadId={selectedLead?.id ?? null}
-            onSelectLead={handleSelectLead}
-          />
+        )}
+
+        {onboarded && convexLeads !== undefined && leads.length === 0 && (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="text-lg font-bold text-amber-950">No leads in your service area</p>
+            <p className="max-w-md text-sm text-amber-900/70">
+              Your business maps to{" "}
+              <span className="font-semibold">
+                {contractor?.serviceRegionLabel ?? "nearby SF neighborhoods"}
+              </span>
+              . Household data for this zone has not been imported yet — leads appear as ETL
+              coverage expands across the city.
+            </p>
+          </div>
+        )}
+
+        {onboarded && convexLeads !== undefined && leads.length > 0 && (
+          <>
+            <QuestMap
+              leads={leads}
+              selectedLeadId={selectedLead?.id ?? null}
+              onSelectLead={handleSelectLead}
+              businessLocation={
+                contractor?.lat != null && contractor?.lng != null
+                  ? {
+                      lat: contractor.lat,
+                      lng: contractor.lng,
+                      label: contractor.businessAddress,
+                    }
+                  : null
+              }
+            />
+            {contractor && (
+              <ContractorContextPanel
+                sessionId={sessionId}
+                businessDescription={contractor.businessDescription}
+                businessAddress={contractor.businessAddress}
+                serviceTypes={contractor.serviceProfile?.service_types}
+                companyContext={contractor.companyContext}
+                onContextRefresh={(companyContext) =>
+                  setContractor((current) =>
+                    current ? { ...current, companyContext } : current,
+                  )
+                }
+              />
+            )}
+          </>
         )}
       </main>
 
-      <LeadSidePanel lead={selectedLead} onClose={handleClosePanel} />
+      {onboarded && sessionId && (
+        <LeadSidePanel
+          lead={selectedLead}
+          sessionId={sessionId}
+          onClose={handleClosePanel}
+        />
+      )}
     </div>
   );
 }

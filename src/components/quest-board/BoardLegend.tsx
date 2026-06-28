@@ -19,6 +19,7 @@ export function BoardLegend() {
         </span>
         Urgent
       </span>
+      <span className="text-amber-900/50">· 30 demo pins (hot / warm / cold mix)</span>
     </div>
   );
 }

@@ -13,10 +13,17 @@ import {
   SF_MAP_CENTER,
 } from "@/lib/map-cartoon-style";
 
+type BusinessLocation = {
+  lat: number;
+  lng: number;
+  label?: string;
+};
+
 type QuestMapProps = {
   leads: Lead[];
   selectedLeadId: string | null;
   onSelectLead: (lead: Lead) => void;
+  businessLocation?: BusinessLocation | null;
 };
 
 type SpritePosition = {
@@ -29,9 +36,15 @@ type SpritePosition = {
 const SF_CENTER = SF_MAP_CENTER;
 const DEFAULT_ZOOM = SF_DEFAULT_ZOOM;
 
-export function QuestMap({ leads, selectedLeadId, onSelectLead }: QuestMapProps) {
+export function QuestMap({
+  leads,
+  selectedLeadId,
+  onSelectLead,
+  businessLocation,
+}: QuestMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const businessMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [spritePositions, setSpritePositions] = useState<SpritePosition[]>([]);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -92,6 +105,8 @@ export function QuestMap({ leads, selectedLeadId, onSelectLead }: QuestMapProps)
     mapRef.current = map;
 
     return () => {
+      businessMarkerRef.current?.remove();
+      businessMarkerRef.current = null;
       map.remove();
       mapRef.current = null;
       setMapReady(false);
@@ -99,10 +114,58 @@ export function QuestMap({ leads, selectedLeadId, onSelectLead }: QuestMapProps)
   }, [updateSpritePositions]);
 
   useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    businessMarkerRef.current?.remove();
+    businessMarkerRef.current = null;
+
+    if (!businessLocation) return;
+
+    const el = document.createElement("div");
+    el.className = "business-location-pin";
+    el.title = businessLocation.label ?? "Your business";
+    el.innerHTML = `<span class="business-location-pin-icon">📍</span><span class="business-location-pin-label">You</span>`;
+
+    businessMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: "bottom" })
+      .setLngLat([businessLocation.lng, businessLocation.lat])
+      .addTo(map);
+
+    return () => {
+      businessMarkerRef.current?.remove();
+      businessMarkerRef.current = null;
+    };
+  }, [mapReady, businessLocation]);
+
+  useEffect(() => {
     if (mapReady) {
       updateSpritePositions();
     }
   }, [mapReady, updateSpritePositions, leads]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    const bounds = new mapboxgl.LngLatBounds();
+    let hasPoint = false;
+
+    for (const lead of leads) {
+      if (Number.isFinite(lead.lat) && Number.isFinite(lead.lng)) {
+        bounds.extend([lead.lng, lead.lat]);
+        hasPoint = true;
+      }
+    }
+
+    if (businessLocation) {
+      bounds.extend([businessLocation.lng, businessLocation.lat]);
+      hasPoint = true;
+    }
+
+    if (hasPoint) {
+      map.fitBounds(bounds, { padding: 100, maxZoom: 13, duration: 900 });
+    }
+  }, [mapReady, leads, businessLocation]);
 
   if (mapError) {
     return (
@@ -111,11 +174,6 @@ export function QuestMap({ leads, selectedLeadId, onSelectLead }: QuestMapProps)
           <p className="text-4xl mb-4">🗺️</p>
           <h2 className="text-xl font-bold text-amber-950 mb-2">Mapbox token required</h2>
           <p className="text-sm text-amber-900/70 leading-relaxed">{mapError}</p>
-          <pre className="mt-4 rounded-lg bg-amber-950/5 p-3 text-left text-xs text-amber-950 overflow-x-auto">
-            cp .env.local.example .env.local{"\n"}
-            # add NEXT_PUBLIC_MAPBOX_TOKEN=pk...{"\n"}
-            npm run dev
-          </pre>
         </div>
       </div>
     );

@@ -1,89 +1,122 @@
 /**
- * Canonical lead shape for the bounty board.
- *
- * DEMO: UI reads from `src/data/placeholderLeads.ts` (static mocks).
- * PROD: Replace with `useQuery(api.leads.listLeads)` once ETL data is in Convex.
- *
- * Agent integration guide: docs/DATA_INTEGRATION.md
+ * Canonical lead shape for the bounty board UI.
+ * Mapped from partner household records + proximity ranking in Convex.
  */
 
 export type SpriteVariant = 0 | 1 | 2 | 3;
 
-export type ServiceVertical = "hvac" | "electrical";
+export type ScoreVertical = "hvac" | "panel" | "ev";
+
+export type VerticalScoreEntry = {
+  score: number;
+  urgency_flag: boolean;
+  last_relevant_permit_date?: string | null;
+  reasons: string[];
+};
 
 export type LeadDataSource = "placeholder" | "etl";
 
-/**
- * Full lead record — map pin + side panel + future persona chat context.
- */
 export type Lead = {
-  /** Stable id. ETL: use parcel id or normalized address hash. */
   id: string;
-
-  // ── Geolocation (required for map sprites) ──────────────────────────────
-  /** Normalized street address, e.g. "2847 24th St, San Francisco, CA" */
+  convexId?: string;
   address: string;
-  /** WGS84 latitude from geocoded parcel centroid or rooftop geocode */
   lat: number;
-  /** WGS84 longitude from geocoded parcel centroid or rooftop geocode */
   lng: number;
-  /** SF neighborhood label for filtering / zoom (optional until ETL) */
   neighborhood?: string;
-
-  // ── Scoring (computed by ETL pipeline — see BRIEF.md) ───────────────────
-  /** Composite match score 0–100. Drives sprite color tier. */
   matchScore: number;
-  /** True when permit age exceeds replacement threshold for the vertical. */
+  baseScore?: number;
+  compositeScore?: number;
   urgent: boolean;
-
-  // ── Visual only (not demographic — random/round-robin at ingest) ──────
   spriteVariant: SpriteVariant;
-
-  // ── Permit signals (SF Open Data) ───────────────────────────────────────
-  /** Years since last relevant HVAC/electrical permit. */
   permitAgeYears: number;
-  /** Permit taxonomy label, e.g. "HVAC_REPLACEMENT", "ELECTRICAL_PANEL" */
   lastPermitType?: string;
-  /** ISO date of last relevant permit (YYYY-MM-DD) */
   lastPermitDate?: string;
-  /** Exclude from board when true (active construction) */
   hasOpenPermit?: boolean;
-
-  // ── Assessor / parcel ───────────────────────────────────────────────────
   homeAgeYears: number;
   ownerOccupied?: boolean;
   assessedValue?: number;
   lastSaleDate?: string;
-
-  // ── Behavioral cluster (offline AHS/CEX/GSS/Pew assignment) ───────────
   clusterId?: string;
-  /** Human-readable cluster name shown in side panel */
   cluster: string;
-
-  // ── Proximity (from contractor business address at session time) ────────
+  clusterNarrative?: string;
+  vertical?: ScoreVertical;
+  verticalScores?: Record<string, VerticalScoreEntry>;
+  scoreReasons?: string[];
   distanceMiles?: number;
-
-  // ── Metadata ────────────────────────────────────────────────────────────
-  vertical?: ServiceVertical;
+  yearBuilt?: number;
   dataSource?: LeadDataSource;
+  ownerFullName?: string;
+  ownerFirstName?: string;
+  ownerLastName?: string;
+  ownerContactRole?: "owner" | "resident" | "unknown";
 };
 
-/** Fields agents must populate when ingesting real addresses. */
-export type LeadIngestRequired = Pick<
-  Lead,
-  | "id"
-  | "address"
-  | "lat"
-  | "lng"
-  | "matchScore"
-  | "urgent"
-  | "spriteVariant"
-  | "permitAgeYears"
-  | "homeAgeYears"
-  | "cluster"
->;
+export type Persona = {
+  summary?: string;
+  likely_response_to_cold_approach?: string;
+  common_objections?: string[];
+  preferred_contractor_channel?: string;
+  conversion_hooks?: string;
+};
 
-/** Optional enrichments agents should add when available from ETL. */
-export type LeadIngestOptional = Omit<Lead, keyof LeadIngestRequired>;
+export type ContactInfo = {
+  phone: string;
+  email: string;
+  name: string;
+};
 
-export type LeadIngestInput = LeadIngestRequired & Partial<LeadIngestOptional>;
+export type ServiceProfile = {
+  service_types: string[];
+  price_point: string;
+  customer_preferences: string;
+};
+
+export type CompanyPerson = {
+  name: string;
+  role?: string;
+  email?: string;
+  phone?: string;
+};
+
+export type CompanyContext = {
+  name: string;
+  headline?: string;
+  about?: string;
+  address?: string;
+  website?: string;
+  phone?: string;
+  email?: string;
+  stats?: {
+    rating?: number;
+    reviewCount?: number;
+    employeeCount?: number;
+    founded?: string;
+    industry?: string;
+    primaryType?: string;
+  };
+  contacts?: {
+    phones: string[];
+    emails: string[];
+  };
+  people?: CompanyPerson[];
+  socialLinks?: { platform: string; url: string }[];
+  linkedinUrl?: string;
+  sources?: string[];
+  fiberLookups?: Array<{
+    api: string;
+    credits?: number;
+    summary: string;
+  }>;
+};
+
+export type Contractor = {
+  name: string;
+  businessDescription: string;
+  businessAddress: string;
+  lat?: number;
+  lng?: number;
+  serviceProfile?: ServiceProfile;
+  companyContext?: CompanyContext;
+  serviceRegionLabel?: string;
+  serviceRegionIds?: string[];
+};
