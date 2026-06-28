@@ -44,7 +44,7 @@ That's the pain we built HouseholdIQ to fix.
 
 **[SHOW: open the app — full Coverage Board / pixel map]**
 
-This is **HouseholdIQ**.
+This is **BountyHunters**.
 
 We call it a **bounty board for properties**.
 
@@ -167,7 +167,7 @@ Contact enrichment can flow through our pipeline — so you're not starting from
 
 Most tools give agents lists.
 
-HouseholdIQ gives you a map.
+BountyHunters gives you a map.
 
 **Know which properties to prioritize.**
 
