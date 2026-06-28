@@ -28,6 +28,7 @@ export function AddressAutocomplete({
 }: AddressAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const onChangeRef = useRef(onChange);
+  const attachedRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -50,20 +51,27 @@ export function AddressAutocomplete({
     async function init() {
       try {
         await loadGooglePlaces(mapsKey);
-        if (cancelled || !inputRef.current || !window.google?.maps?.places) return;
+        if (cancelled || !inputRef.current || attachedRef.current) return;
+
+        const Autocomplete = window.google?.maps?.places?.Autocomplete;
+        if (!Autocomplete) {
+          throw new Error("Places Autocomplete did not load");
+        }
 
         const input = inputRef.current;
-        const bounds = new window.google.maps.LatLngBounds(
-          new window.google.maps.LatLng(SF_BOUNDS.south, SF_BOUNDS.west),
-          new window.google.maps.LatLng(SF_BOUNDS.north, SF_BOUNDS.east),
+        const bounds = new window.google!.maps!.LatLngBounds(
+          new window.google!.maps!.LatLng(SF_BOUNDS.south, SF_BOUNDS.west),
+          new window.google!.maps!.LatLng(SF_BOUNDS.north, SF_BOUNDS.east),
         );
 
-        const autocomplete = new window.google.maps.places.Autocomplete(input, {
+        const autocomplete = new Autocomplete(input, {
           componentRestrictions: { country: "us" },
           fields: ["formatted_address", "geometry", "name"],
           bounds,
           strictBounds: false,
         });
+
+        attachedRef.current = true;
 
         const listener = autocomplete.addListener("place_changed", () => {
           const place = autocomplete.getPlace();
@@ -75,7 +83,10 @@ export function AddressAutocomplete({
           }
         });
 
-        cleanup = () => listener.remove();
+        cleanup = () => {
+          listener.remove();
+          attachedRef.current = false;
+        };
         setReady(true);
       } catch (err) {
         if (!cancelled) {
@@ -112,6 +123,11 @@ export function AddressAutocomplete({
       />
       {!ready && !loadError && (
         <p className="mt-1 text-[10px] text-amber-800/60">Loading address search…</p>
+      )}
+      {ready && (
+        <p className="mt-1 text-[10px] text-amber-800/60">
+          Pick a San Francisco address from the dropdown.
+        </p>
       )}
       {required && (
         <input
