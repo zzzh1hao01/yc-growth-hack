@@ -35,10 +35,14 @@ const leadFields = {
 export const listLeads = query({
   args: {},
   handler: async (ctx) => {
-    const leads = await ctx.db.query("leads").collect();
+    const leads = await ctx.db
+      .query("leads")
+      .withIndex("by_match_score")
+      .order("desc")
+      .collect();
+
     return leads
       .filter((lead) => lead.hasOpenPermit !== true)
-      .sort((a, b) => b.matchScore - a.matchScore)
       .map((doc) => ({
         id: doc.externalId,
         address: doc.address,

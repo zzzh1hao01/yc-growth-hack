@@ -10,17 +10,41 @@ Cartoony quest board for home service contractors. Placeholder SF leads appear a
    ```bash
    cp .env.local.example .env.local
    ```
-   Edit `.env.local` and set `NEXT_PUBLIC_MAPBOX_TOKEN` to your public token (`pk...`).
+   Edit `.env.local` and set:
+   - `NEXT_PUBLIC_MAPBOX_TOKEN` (your `pk...` token)
+   - `NEXT_PUBLIC_CONVEX_URL` (from [Convex dashboard](https://dashboard.convex.dev/t/saahith-veeramaneni/householdiq) or `npx convex dev --once`)
 
-3. **Install and run:**
+3. **Install and run (two terminals):**
    ```bash
    npm install
-   npm run dev
+   npm run convex:dev   # terminal 1 — sync backend
+   npm run dev          # terminal 2 — Next.js UI
    ```
 
 4. Open [http://localhost:3000](http://localhost:3000) — pan/zoom the map, click sprites, open the side panel.
 
-No Convex account needed for this demo.
+When Convex has no leads yet, the UI falls back to placeholder sprites automatically.
+
+## Convex (connected)
+
+| Resource | URL |
+|----------|-----|
+| Project | [householdiq](https://dashboard.convex.dev/t/saahith-veeramaneni/householdiq) |
+| Dev deployment | [watchful-condor-23](https://dashboard.convex.dev/d/watchful-condor-23) |
+| Client URL | `https://watchful-condor-23.convex.cloud` |
+
+Backend functions: `listLeads`, `upsertLead`, `bulkUpsertLeads` — see [docs/DATA_INTEGRATION.md](docs/DATA_INTEGRATION.md).
+
+## Public hosting (Vercel)
+
+1. Push branch `feature/quest-board-ui` to GitHub.
+2. [Import to Vercel](https://vercel.com/new) → select the repo.
+3. Set environment variables:
+   - `NEXT_PUBLIC_MAPBOX_TOKEN`
+   - `CONVEX_DEPLOY_KEY` — production/preview deploy key from Convex dashboard
+4. Vercel runs `npx convex deploy --cmd 'npm run build'` via [`vercel.json`](vercel.json).
+
+After deploy, Vercel sets `NEXT_PUBLIC_CONVEX_URL` automatically during the Convex deploy step.
 
 ## Production preview
 
