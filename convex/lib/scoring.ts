@@ -207,62 +207,89 @@ function seededShuffle<T>(items: T[], seed: number): T[] {
   return arr;
 }
 
-/** Map board: balanced hot / warm / cold sample across composite tiers. */
+/** Map board: ~400 pins, stratified by neighborhood + score tier (proportional, no forced thirds). */
 export function demoSampleLeads<
   T extends {
     matchScore: number;
     id: string;
-    worthOutreach?: boolean;
-    recordedOwnerFullName?: string;
-    ownerFullName?: string;
-    ownerOccupied?: boolean;
+    neighborhood?: string;
   },
->(ranked: T[], sessionId: string, cap = 100): T[] {
-  const ownerScore = (lead: T) =>
-    (lead.recordedOwnerFullName ? 4 : 0) +
-    (lead.ownerFullName ? 2 : 0) +
-    (lead.ownerOccupied ? 1 : 0) +
-    (lead.worthOutreach ? 2 : 0);
+>(ranked: T[], sessionId: string, cap = 400): T[] {
+  if (ranked.length <= cap) return ranked;
 
-  const sorted = [...ranked].sort((a, b) => {
-    const ownerDelta = ownerScore(b) - ownerScore(a);
-    if (ownerDelta !== 0) return ownerDelta;
-    return b.matchScore - a.matchScore;
-  });
-
-  const hot = sorted.filter((l) => l.matchScore >= 70);
-  const warm = sorted.filter((l) => l.matchScore >= 40 && l.matchScore < 70);
-  const cold = sorted.filter((l) => l.matchScore < 40);
-
-  const perTier = Math.floor(cap / 3);
   const seed = hashString(sessionId || "demo");
+  const byNeighborhood = new Map<string, T[]>();
 
-  const pick = (pool: T[], n: number, offset: number) =>
-    seededShuffle(pool, seed + offset).slice(0, n);
+  for (const lead of ranked) {
+    const nb = lead.neighborhood ?? "Unknown";
+    const bucket = byNeighborhood.get(nb);
+    if (bucket) bucket.push(lead);
+    else byNeighborhood.set(nb, [lead]);
+  }
+
+  const neighborhoods = [...byNeighborhood.keys()].sort();
+  const baseQuota = Math.floor(cap / neighborhoods.length);
+  let remainder = cap - baseQuota * neighborhoods.length;
 
   const used = new Set<string>();
-  const take = (pool: T[], n: number, offset: number) => {
-    const chosen = pick(
-      pool.filter((l) => !used.has(l.id)),
-      n,
-      offset,
-    );
-    for (const lead of chosen) used.add(lead.id);
-    return chosen;
+  const sample: T[] = [];
+
+  const takeFromPool = (pool: T[], n: number, salt: number) => {
+    if (n <= 0) return;
+    const available = pool.filter((l) => !used.has(l.id));
+    const chosen = seededShuffle(available, seed + salt).slice(0, n);
+    for (const lead of chosen) {
+      used.add(lead.id);
+      sample.push(lead);
+    }
   };
 
-  let sample = [
-    ...take(hot, perTier, 0),
-    ...take(warm, perTier, 1),
-    ...take(cold, perTier, 2),
-  ];
+  for (let i = 0; i < neighborhoods.length; i += 1) {
+    const quota = baseQuota + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
+
+    const pool = byNeighborhood.get(neighborhoods[i])!;
+    const before = sample.length;
+    const hot = pool.filter((l) => l.matchScore >= 70);
+    const warm = pool.filter((l) => l.matchScore >= 40 && l.matchScore < 70);
+    const cold = pool.filter((l) => l.matchScore < 40);
+    const total = pool.length;
+
+    if (total === 0) continue;
+
+    let nHot = Math.round((quota * hot.length) / total);
+    let nWarm = Math.round((quota * warm.length) / total);
+    let nCold = quota - nHot - nWarm;
+
+    if (nCold < 0) {
+      nWarm = Math.max(0, nWarm + nCold);
+      nCold = 0;
+    }
+    if (nWarm < 0) {
+      nHot = Math.max(0, nHot + nWarm);
+      nWarm = 0;
+    }
+
+    takeFromPool(hot, nHot, i * 10 + 1);
+    takeFromPool(warm, nWarm, i * 10 + 2);
+    takeFromPool(cold, nCold, i * 10 + 3);
+
+    const shortfall = quota - (sample.length - before);
+    if (shortfall > 0) {
+      takeFromPool(pool, shortfall, i * 10 + 9);
+    }
+  }
 
   if (sample.length < cap) {
     const rest = seededShuffle(
-      sorted.filter((l) => !used.has(l.id)),
-      seed + 4,
+      ranked.filter((l) => !used.has(l.id)),
+      seed + 999,
     );
-    sample = [...sample, ...rest.slice(0, cap - sample.length)];
+    for (const lead of rest) {
+      if (sample.length >= cap) break;
+      used.add(lead.id);
+      sample.push(lead);
+    }
   }
 
   return sample.slice(0, cap);

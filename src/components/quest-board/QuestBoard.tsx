@@ -175,7 +175,7 @@ export function QuestBoard() {
           <>
             {convexLeads === undefined && (
               <div className="absolute right-4 top-4 z-30 rounded-full border border-amber-300/70 bg-white/90 px-3 py-1 text-xs font-semibold text-amber-950 shadow-sm">
-                Ranking leads by need + timing…
+                Loading ~400 leads…
               </div>
             )}
             <QuestMap

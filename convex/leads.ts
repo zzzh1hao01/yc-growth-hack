@@ -38,7 +38,7 @@ const insuranceHouseholdFields = {
   parcelNumber: v.optional(v.string()),
 };
 
-const MAP_CAP = 100;
+const MAP_CAP = 400;
 
 export const listLeads = query({
   args: { sessionId: v.optional(v.string()) },
