@@ -1,6 +1,6 @@
 # HouseholdIQ — 60-Second Demo Flow
 
-Shoot this against the live app: **[yc-growth-hack.vercel.app](https://yc-growth-hack.vercel.app)**  
+Shoot this against the live app: **[yc-growth-hack.vercel.app](https://householdiq-insurance.vercel.app/)**  
 (Code lives on branch `feature/quest-board-ui`.)
 
 For the full spoken script with timestamps, see **[DEMO_SCRIPT.md](./DEMO_SCRIPT.md)**.
