@@ -3,6 +3,7 @@
 :root {
   --background: #f5e6c8;
   --foreground: #451a03;
+  --quest-header-height: 3rem;
 }
 
 @theme inline {

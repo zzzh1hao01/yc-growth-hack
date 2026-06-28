@@ -130,34 +130,33 @@ export function QuestBoard() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#f5e6c8]">
-      <header className="z-50 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-amber-300/50 bg-[#f5e6c8] px-5 py-3 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-800 text-lg shadow-md">
+      <header className="z-50 flex h-[var(--quest-header-height)] shrink-0 items-center justify-between gap-3 border-b border-amber-300/50 bg-[#f5e6c8] px-4 shadow-sm">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-800 text-base shadow-md">
             🏠
           </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-amber-950">
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-bold leading-tight tracking-tight text-amber-950">
               Bounty Board
             </h1>
-            <p className="text-xs text-amber-900/60">HouseholdIQ · San Francisco</p>
+            <p className="truncate text-[10px] leading-tight text-amber-900/60">
+              HouseholdIQ · San Francisco
+            </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
-          <span className="rounded-full border border-amber-400/60 bg-white/70 px-3 py-1 text-xs font-semibold text-amber-950">
+        <div className="flex min-w-0 shrink items-center gap-2 sm:gap-3">
+          <span
+            className="hidden max-w-[11rem] truncate rounded-full border border-amber-400/60 bg-white/70 px-2.5 py-0.5 text-[10px] font-semibold text-amber-950 sm:inline-block md:max-w-[14rem]"
+            title={`${contractor?.name ?? "Contractor"} · ${dataSourceLabel}`}
+          >
             {contractor?.name ?? "Contractor"} · {dataSourceLabel}
           </span>
-          {Array.isArray(contractor?.serviceProfile?.service_types) && (
-            <span className="hidden text-xs text-amber-900/70 sm:inline">
-              {contractor.serviceProfile.service_types.join(", ")} ·{" "}
-              {contractor.serviceProfile.price_point} tier
-            </span>
-          )}
           {onboarded && <BoardLegend />}
           <button
             type="button"
             onClick={() => void handleStartOver()}
-            className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+            className="shrink-0 rounded-full border border-amber-400/80 bg-white/80 px-2.5 py-0.5 text-[10px] font-semibold text-amber-900 transition hover:bg-amber-100 sm:px-3 sm:py-1 sm:text-xs"
           >
             Start over
           </button>

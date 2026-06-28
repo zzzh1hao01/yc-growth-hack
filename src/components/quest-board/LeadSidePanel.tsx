@@ -174,16 +174,16 @@ export function LeadSidePanel({ lead, sessionId, onClose }: LeadSidePanelProps) 
     <>
       <button
         type="button"
-        className="fixed inset-0 z-30 bg-black/20 backdrop-blur-[1px] md:bg-transparent md:backdrop-blur-none"
+        className="fixed inset-x-0 bottom-0 top-[var(--quest-header-height)] z-30 bg-black/20 backdrop-blur-[1px] md:bg-transparent md:backdrop-blur-none"
         onClick={onClose}
         aria-label="Close panel"
       />
       <aside
-        className="fixed right-0 top-0 z-40 flex h-full w-full max-w-md flex-col border-l border-amber-200/60 bg-[#fff9f0] shadow-2xl"
+        className="fixed right-0 top-[var(--quest-header-height)] z-40 flex h-[calc(100dvh-var(--quest-header-height))] w-full max-w-md flex-col border-l border-amber-200/60 bg-[#fff9f0] shadow-2xl"
         role="dialog"
         aria-labelledby="lead-panel-title"
       >
-        <div className="flex items-center justify-between border-b border-amber-200/60 bg-[#f5e6c8] px-5 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-amber-200/60 bg-[#f5e6c8] px-4 py-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-amber-800/70">
               Bounty Details

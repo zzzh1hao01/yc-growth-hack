@@ -1,25 +1,24 @@
 export function BoardLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-amber-950/80">
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block h-3 w-3 rounded-full bg-green-500" />
-        Hot lead (70+)
+    <div className="hidden shrink-0 items-center gap-2.5 text-[10px] font-semibold text-amber-950/80 md:flex">
+      <span className="flex items-center gap-1" title="Hot lead (70+)">
+        <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" />
+        70+
       </span>
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block h-3 w-3 rounded-full bg-yellow-500" />
-        Warm (40–69)
+      <span className="flex items-center gap-1" title="Warm (40–69)">
+        <span className="inline-block h-2.5 w-2.5 rounded-full bg-yellow-500" />
+        40–69
       </span>
-      <span className="flex items-center gap-1.5">
-        <span className="inline-block h-3 w-3 rounded-full bg-red-500" />
-        Cold (&lt;40)
+      <span className="flex items-center gap-1" title="Cold (&lt;40)">
+        <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
+        &lt;40
       </span>
-      <span className="flex items-center gap-1.5">
-        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+      <span className="flex items-center gap-1" title="Urgent opportunity">
+        <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
           !
         </span>
         Urgent
       </span>
-      <span className="text-amber-900/50">· 30 demo pins (hot / warm / cold mix)</span>
     </div>
   );
 }
