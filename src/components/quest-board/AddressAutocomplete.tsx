@@ -11,7 +11,7 @@ export function AddressAutocomplete({
   value,
   onChange,
   placeholder = "Start typing your address…",
-  className = "mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-amber-950 outline-none focus:border-amber-500",
+  className = "western-input mt-1",
 }: AddressAutocompleteProps) {
   return (
     <div className="address-autocomplete-host relative z-50">

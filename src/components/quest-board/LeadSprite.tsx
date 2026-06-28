@@ -75,7 +75,7 @@ export function LeadSprite({ lead, x, y, selected, onSelect }: LeadSpriteProps) 
   return (
     <button
       type="button"
-      className={`absolute z-10 cursor-pointer transition-transform duration-150 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 ${
+      className={`absolute z-10 cursor-pointer transition-transform duration-150 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#c2410c] ${
         selected ? "sprite-selected-ring z-20" : ""
       }`}
       style={{

@@ -207,6 +207,7 @@ export function QuestMap({
       </div>
 
       <div className="pointer-events-none absolute inset-0 pixel-map-vignette" />
+      <div className="pixel-map-frame" aria-hidden />
     </div>
   );
 }

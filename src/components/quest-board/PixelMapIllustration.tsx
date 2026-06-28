@@ -213,22 +213,26 @@ export function PixelMapIllustration() {
         </clipPath>
       </defs>
 
-      {/* Water */}
-      <rect width={MAP_WIDTH} height={MAP_HEIGHT} fill="#4a9eb8" />
-      <rect width={MAP_WIDTH} height={MAP_HEIGHT} fill="#5eb4cc" opacity="0.4" />
+      {/* Water — bay teal matching UI */}
+      <rect width={MAP_WIDTH} height={MAP_HEIGHT} fill="#4a8a9a" />
+      <rect width={MAP_WIDTH} height={MAP_HEIGHT} fill="#5a9eb0" opacity="0.55" />
 
-      {/* Land mass */}
+      {/* Warm sunset wash over water */}
+      <rect width={MAP_WIDTH} height={280} fill="#d97706" opacity="0.06" />
+
+      {/* Land mass — sand/cream matching app palette */}
       <path
         d={LAND_SILHOUETTE_PATH}
         fillRule="evenodd"
-        fill="#e8d4b0"
-        stroke="#c4a574"
+        fill="#dcc9a0"
+        stroke="#a67c52"
         strokeWidth="2"
       />
 
       {/* Subtle land texture inside clip */}
       <g clipPath="url(#sf-land-clip)">
-        <rect width={MAP_WIDTH} height={MAP_HEIGHT} fill="#f0e0c4" opacity="0.5" />
+        <rect width={MAP_WIDTH} height={MAP_HEIGHT} fill="#e8d4b0" opacity="0.65" />
+        <rect width={MAP_WIDTH} height={MAP_HEIGHT} fill="#c4a574" opacity="0.08" />
         {CACTUS_POSITIONS.map((pos, i) => (
           <Cactus key={i} x={pos.x} y={pos.y} />
         ))}

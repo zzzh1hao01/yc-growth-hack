@@ -26,7 +26,7 @@ export function LeadFocusFilter({
       title="Raise the bar to hide lower-quality contacts from the map"
     >
       <div className="flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-amber-900/70">
-        <span>Focus leads</span>
+        <span className="western-label text-[10px]">Focus leads</span>
         <span className="normal-case tracking-normal text-amber-950">
           {visibleCount}
           {totalCount > 0 ? ` / ${totalCount}` : ""} pins
@@ -39,10 +39,10 @@ export function LeadFocusFilter({
         step={1}
         value={minScore}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="h-1.5 w-full cursor-pointer accent-amber-700"
+        className="western-range"
         aria-label="Minimum lead score to show on map"
       />
-      <p className="text-[10px] leading-snug text-amber-900/75">
+      <p className="western-body text-[10px] leading-snug">
         {describeImportanceFilter(minScore)}
         {hidden > 0 ? ` · ${hidden} hidden` : ""}
       </p>

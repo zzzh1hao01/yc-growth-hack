@@ -206,16 +206,10 @@ export function QuestBoard({
           )}
           {clerkEnabled && orgId && (
             <>
-              <Link
-                href="/pipeline"
-                className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
-              >
+              <Link href="/pipeline" className="western-btn western-btn-ghost western-btn-sm">
                 Pipeline
               </Link>
-              <Link
-                href="/settings"
-                className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
-              >
+              <Link href="/settings" className="western-btn western-btn-ghost western-btn-sm">
                 Settings
               </Link>
             </>
@@ -224,18 +218,12 @@ export function QuestBoard({
             <>
               <Show when="signed-out">
                 <SignInButton mode="modal">
-                  <button
-                    type="button"
-                    className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
-                  >
+                  <button type="button" className="western-btn western-btn-ghost western-btn-sm">
                     Sign in
                   </button>
                 </SignInButton>
                 <SignUpButton mode="modal">
-                  <button
-                    type="button"
-                    className="rounded-full bg-amber-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-amber-800"
-                  >
+                  <button type="button" className="western-btn western-btn-primary western-btn-sm">
                     Sign up
                   </button>
                 </SignUpButton>
@@ -248,7 +236,7 @@ export function QuestBoard({
           <button
             type="button"
             onClick={() => void handleStartOver()}
-            className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+            className="western-btn western-btn-ghost western-btn-sm shrink-0"
           >
             Start over
           </button>
@@ -257,18 +245,28 @@ export function QuestBoard({
 
       <main className="relative min-h-0 flex-1">
         {!onboarded && (
-          <OnboardingPanel
-            key={onboardingKey}
-            userId={userId}
-            orgId={orgId}
-            onComplete={handleOnboardingComplete}
-          />
+          <>
+            <div className="pointer-events-none absolute inset-0 opacity-50" aria-hidden>
+              <QuestMap
+                leads={PLACEHOLDER_LEADS.slice(0, 24)}
+                selectedLeadId={null}
+                onSelectLead={() => {}}
+                businessLocation={null}
+              />
+            </div>
+            <OnboardingPanel
+              key={onboardingKey}
+              userId={userId}
+              orgId={orgId}
+              onComplete={handleOnboardingComplete}
+            />
+          </>
         )}
 
         {onboarded && leads.length > 0 && (
           <>
             {convexLeads === undefined && (
-              <div className="game-toast absolute right-4 top-4 z-30">
+              <div className="western-toast absolute right-4 top-4 z-30">
                 Loading ~400 leads…
               </div>
             )}
@@ -290,14 +288,11 @@ export function QuestBoard({
         )}
 
         {onboarded && convexLeads !== undefined && leads.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <p className="text-lg font-bold text-amber-950">No household data loaded</p>
-            <p className="max-w-md text-sm text-amber-900/70">
-              The insurance bounty board needs household records in Convex. Run{" "}
-              <code className="rounded bg-white/80 px-1 py-0.5 text-xs">
-                scripts/import-insurance-leads.sh
-              </code>{" "}
-              then refresh.
+          <div className="western-empty mx-auto flex h-full max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="western-title text-lg">No household data loaded</p>
+            <p className="western-body">
+              The coverage board needs household records in Convex. Run{" "}
+              <code className="western-code">scripts/import-insurance-leads.sh</code> then refresh.
             </p>
           </div>
         )}
