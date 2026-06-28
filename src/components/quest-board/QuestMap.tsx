@@ -1,17 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
 
 import type { Lead } from "@/types/lead";
-import { LeadSprite } from "./LeadSprite";
 import {
-  applyCartoonMapStyle,
-  getCartoonMapStyle,
-  SF_DEFAULT_ZOOM,
-  SF_MAP_CENTER,
-} from "@/lib/map-cartoon-style";
+  fitViewportToPoints,
+  lngLatToPixel,
+  MAP_HEIGHT,
+  MAP_WIDTH,
+  projectToScreen,
+  type MapViewport,
+} from "@/lib/pixel-map-projection";
+import { LeadSprite } from "./LeadSprite";
+import { PixelMapIllustration } from "./PixelMapIllustration";
 
 type BusinessLocation = {
   lat: number;
@@ -33,8 +34,7 @@ type SpritePosition = {
   visible: boolean;
 };
 
-const SF_CENTER = SF_MAP_CENTER;
-const DEFAULT_ZOOM = SF_DEFAULT_ZOOM;
+const DEFAULT_VIEWPORT: MapViewport = { panX: 0, panY: 0, scale: 1 };
 
 export function QuestMap({
   leads,
@@ -42,185 +42,171 @@ export function QuestMap({
   onSelectLead,
   businessLocation,
 }: QuestMapProps) {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-  const businessMarkerRef = useRef<mapboxgl.Marker | null>(null);
-  const moveFrameRef = useRef<number | null>(null);
-  const [mapReady, setMapReady] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(
+    null,
+  );
+  const [viewport, setViewport] = useState<MapViewport>(DEFAULT_VIEWPORT);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [spritePositions, setSpritePositions] = useState<SpritePosition[]>([]);
-  const [mapError, setMapError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [hasFitted, setHasFitted] = useState(false);
 
   const updateSpritePositions = useCallback(() => {
-    const map = mapRef.current;
-    if (!map) return;
+    const { width, height } = containerSize;
+    if (width <= 0 || height <= 0) return;
 
     setSpritePositions(
       leads.map((lead) => {
-        const point = map.project([lead.lng, lead.lat]);
-        const bounds = map.getBounds();
-        const inBounds = bounds ? bounds.contains([lead.lng, lead.lat]) : true;
+        const screen = projectToScreen(lead.lng, lead.lat, viewport, width, height);
+        const inBounds =
+          screen.x >= -20 &&
+          screen.x <= width + 20 &&
+          screen.y >= -40 &&
+          screen.y <= height + 20;
 
-        return {
-          lead,
-          x: point.x,
-          y: point.y,
-          visible: inBounds,
-        };
+        return { lead, x: screen.x, y: screen.y, visible: inBounds };
       }),
     );
-  }, [leads]);
+  }, [leads, viewport, containerSize]);
 
-  const scheduleSpriteUpdate = useCallback(() => {
-    if (moveFrameRef.current != null) return;
-    moveFrameRef.current = requestAnimationFrame(() => {
-      moveFrameRef.current = null;
-      updateSpritePositions();
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        setContainerSize({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
+      }
     });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    updateSpritePositions();
   }, [updateSpritePositions]);
 
   useEffect(() => {
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    if (hasFitted || containerSize.width <= 0 || leads.length === 0) return;
 
-    if (!token) {
-      setMapError(
-        "Missing NEXT_PUBLIC_MAPBOX_TOKEN. Copy .env.local.example to .env.local and add your Mapbox token.",
-      );
-      return;
-    }
-
-    if (!mapContainerRef.current || mapRef.current) return;
-
-    mapboxgl.accessToken = token;
-
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: getCartoonMapStyle(),
-      center: SF_CENTER,
-      zoom: DEFAULT_ZOOM,
-      attributionControl: true,
-    });
-
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
-
-    map.on("load", () => {
-      applyCartoonMapStyle(map);
-      setMapReady(true);
-      updateSpritePositions();
-    });
-
-    map.on("move", scheduleSpriteUpdate);
-    map.on("resize", scheduleSpriteUpdate);
-
-    mapRef.current = map;
-
-    return () => {
-      if (moveFrameRef.current != null) {
-        cancelAnimationFrame(moveFrameRef.current);
-        moveFrameRef.current = null;
-      }
-      businessMarkerRef.current?.remove();
-      businessMarkerRef.current = null;
-      map.remove();
-      mapRef.current = null;
-      setMapReady(false);
-    };
-  }, [scheduleSpriteUpdate, updateSpritePositions]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady) return;
-
-    businessMarkerRef.current?.remove();
-    businessMarkerRef.current = null;
-
-    if (!businessLocation) return;
-
-    const el = document.createElement("div");
-    el.className = "business-location-pin";
-    el.title = businessLocation.label ?? "Your business";
-    el.innerHTML = `<span class="business-location-pin-icon">📍</span><span class="business-location-pin-label">You</span>`;
-
-    businessMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: "bottom" })
-      .setLngLat([businessLocation.lng, businessLocation.lat])
-      .addTo(map);
-
-    return () => {
-      businessMarkerRef.current?.remove();
-      businessMarkerRef.current = null;
-    };
-  }, [mapReady, businessLocation]);
-
-  useEffect(() => {
-    if (mapReady) {
-      updateSpritePositions();
-    }
-  }, [mapReady, updateSpritePositions, leads]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady) return;
-
-    const bounds = new mapboxgl.LngLatBounds();
-    let hasPoint = false;
-
-    for (const lead of leads) {
-      if (Number.isFinite(lead.lat) && Number.isFinite(lead.lng)) {
-        bounds.extend([lead.lng, lead.lat]);
-        hasPoint = true;
-      }
-    }
-
+    const points = leads.map((l) => lngLatToPixel(l.lng, l.lat));
     if (businessLocation) {
-      bounds.extend([businessLocation.lng, businessLocation.lat]);
-      hasPoint = true;
+      points.push(lngLatToPixel(businessLocation.lng, businessLocation.lat));
     }
 
-    if (hasPoint) {
-      map.fitBounds(bounds, { padding: 100, maxZoom: 13, duration: 900 });
-    }
-  }, [mapReady, leads, businessLocation]);
-
-  if (mapError) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 bg-[#e8f4f8] p-8 text-center">
-        <div className="rounded-2xl border-2 border-dashed border-amber-400 bg-[#fff9f0] p-8 max-w-lg">
-          <p className="text-4xl mb-4">🗺️</p>
-          <h2 className="text-xl font-bold text-amber-950 mb-2">Mapbox token required</h2>
-          <p className="text-sm text-amber-900/70 leading-relaxed">{mapError}</p>
-        </div>
-      </div>
+    const fitted = fitViewportToPoints(
+      points,
+      containerSize.width,
+      containerSize.height,
+      100,
     );
-  }
+    setViewport(fitted);
+    setHasFitted(true);
+  }, [leads, businessLocation, containerSize, hasFitted]);
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if ((e.target as HTMLElement).closest("button")) return;
+      dragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        panX: viewport.panX,
+        panY: viewport.panY,
+      };
+      setIsDragging(true);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    },
+    [viewport.panX, viewport.panY],
+  );
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    setViewport((v) => ({
+      ...v,
+      panX: dragRef.current!.panX + dx,
+      panY: dragRef.current!.panY + dy,
+    }));
+  }, []);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    dragRef.current = null;
+    setIsDragging(false);
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+  }, []);
+
+  const mapTransform = `translate(${(containerSize.width - MAP_WIDTH * viewport.scale) / 2 + viewport.panX}px, ${(containerSize.height - MAP_HEIGHT * viewport.scale) / 2 + viewport.panY}px) scale(${viewport.scale})`;
+
+  const businessPixel =
+    businessLocation && containerSize.width > 0
+      ? projectToScreen(
+          businessLocation.lng,
+          businessLocation.lat,
+          viewport,
+          containerSize.width,
+          containerSize.height,
+        )
+      : null;
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#d4e8c2]">
-      <div className="map-cartoon-wrapper relative h-full w-full">
-        <div
-          ref={mapContainerRef}
-          className="h-full w-full map-cartoon-filter"
-          aria-label="San Francisco lead map"
-        />
-        <div className="pointer-events-none absolute inset-0 map-cartoon-overlay" />
+    <div
+      ref={containerRef}
+      className={`pixel-map-container relative h-full w-full overflow-hidden ${isDragging ? "pixel-map-dragging" : ""}`}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      aria-label="San Francisco coverage map"
+    >
+      <div
+        className="pixel-map-layer absolute origin-top-left"
+        style={{
+          width: MAP_WIDTH,
+          height: MAP_HEIGHT,
+          transform: mapTransform,
+        }}
+      >
+        <PixelMapIllustration />
       </div>
-      <div className="pointer-events-none absolute inset-0 map-vignette" />
-      {mapReady && (
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          {spritePositions.map(
-            ({ lead, x, y, visible }) =>
-              visible && (
-                <div key={lead.id} className="pointer-events-auto">
-                  <LeadSprite
-                    lead={lead}
-                    x={x}
-                    y={y}
-                    selected={selectedLeadId === lead.id}
-                    onSelect={onSelectLead}
-                  />
-                </div>
-              ),
-          )}
+
+      {businessPixel && (
+        <div
+          className="business-pin pointer-events-none absolute z-10"
+          style={{
+            left: businessPixel.x,
+            top: businessPixel.y,
+            transform: "translate(-50%, -100%)",
+          }}
+        >
+          <div className="business-pin-marker" />
+          <span className="business-pin-label">You</span>
         </div>
       )}
+
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {spritePositions.map(
+          ({ lead, x, y, visible }) =>
+            visible && (
+              <div key={lead.id} className="pointer-events-auto">
+                <LeadSprite
+                  lead={lead}
+                  x={x}
+                  y={y}
+                  selected={selectedLeadId === lead.id}
+                  onSelect={onSelectLead}
+                />
+              </div>
+            ),
+        )}
+      </div>
+
+      <div className="pointer-events-none absolute inset-0 pixel-map-vignette" />
     </div>
   );
 }

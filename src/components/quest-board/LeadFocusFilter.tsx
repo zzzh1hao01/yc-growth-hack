@@ -22,8 +22,8 @@ export function LeadFocusFilter({
 
   return (
     <div
-      className="flex min-w-[200px] max-w-xs flex-col gap-1 rounded-xl border border-amber-300/60 bg-white/80 px-3 py-2 shadow-sm"
-      title="Raise the bar to hide low-value cold leads from the map"
+      className="western-hud-control flex min-w-[180px] max-w-xs flex-col gap-1 px-3 py-2"
+      title="Raise the bar to hide lower-quality contacts from the map"
     >
       <div className="flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wide text-amber-900/70">
         <span>Focus leads</span>
