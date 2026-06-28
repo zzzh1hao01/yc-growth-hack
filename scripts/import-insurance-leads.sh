@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Pull insurance household records from origin/insurance and import into Convex.
 #
-# INSURANCE_DATA_SCOPE (default: merged):
+# INSURANCE_DATA_SCOPE (default: acs):
+#   acs       — citywide demo + ACS-enriched records (~4k unique, 40 neighborhoods)
 #   merged    — all insurance household JSON files, deduped (~5.5k unique)
 #   citywide  — household_demo_citywide.json (~2k, spread across SF)
 #   full      — household_records.json (~2k top composite leads)
@@ -12,7 +13,7 @@
 # Uses --replace so Convex leads table has no stale or duplicate households.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SCOPE="${INSURANCE_DATA_SCOPE:-merged}"
+SCOPE="${INSURANCE_DATA_SCOPE:-acs}"
 OUT_JSONL="${ROOT}/convex/seed/insurance_leads.jsonl"
 CACHE_DIR="${ROOT}/.cache/insurance-import"
 
@@ -31,6 +32,7 @@ SCOPE = "${SCOPE}"
 OUT = Path("${OUT_JSONL}")
 
 INSURANCE_HOUSEHOLD_FILES = [
+    "household_records_acs.json",
     "household_demo_citywide.json",
     "household_records.json",
     "household_demo_records.json",
@@ -41,8 +43,7 @@ def git_show(path: str) -> bytes:
 
 def load_json(path: str) -> list:
     cache_path = CACHE / path.replace("/", "__")
-    if not cache_path.exists():
-        cache_path.write_bytes(git_show(path))
+    cache_path.write_bytes(git_show(path))
     with cache_path.open() as f:
         data = json.load(f)
     if not isinstance(data, list):
@@ -50,6 +51,7 @@ def load_json(path: str) -> list:
     return data
 
 SCOPE_FILES = {
+    "acs": ["household_demo_citywide.json", "household_records_acs.json"],
     "merged": INSURANCE_HOUSEHOLD_FILES,
     "citywide": ["household_demo_citywide.json"],
     "full": ["household_records.json"],
@@ -103,6 +105,16 @@ def row_to_doc(row: dict, sprite_variant: int) -> dict:
         doc["purchaseYear"] = row["purchase_year"]
     if row.get("years_owned") is not None:
         doc["yearsOwned"] = row["years_owned"]
+    if row.get("archetype") is not None:
+        doc["archetype"] = row["archetype"]
+    if row.get("acs_receptivity_score") is not None:
+        doc["acsReceptivityScore"] = row["acs_receptivity_score"]
+    if row.get("financial_sophistication") is not None:
+        doc["financialSophistication"] = row["financial_sophistication"]
+    if row.get("inertia_score") is not None:
+        doc["inertiaScore"] = row["inertia_score"]
+    if row.get("coverage_stakes") is not None:
+        doc["coverageStakes"] = row["coverage_stakes"]
     return doc
 
 merged: dict[str, tuple[dict, str]] = {}
@@ -123,7 +135,14 @@ for source in sources:
         prev = merged.get(hid)
         if prev is not None:
             source_dupes += 1
-            if score <= float(prev[0].get("composite_score") or 0):
+            # ACS file wins on overlap; otherwise keep higher composite score.
+            prev_is_acs = prev[1] == "household_records_acs.json"
+            row_is_acs = source == "household_records_acs.json"
+            if row_is_acs and not prev_is_acs:
+                pass
+            elif prev_is_acs and not row_is_acs:
+                continue
+            elif score <= float(prev[0].get("composite_score") or 0):
                 continue
         merged[hid] = (row, source)
 
@@ -151,6 +170,7 @@ PY
 
 echo "Importing into Convex (replace leads table, deduped by householdId)..."
 cd "$ROOT"
+npx convex deploy 2>&1 | tail -5
 npx convex import --table leads --replace -y "$OUT_JSONL"
 
 echo "Done."

@@ -12,6 +12,8 @@ import { asDisplayText, personaColdApproach, personaObjections, personaParagraph
 type LeadSidePanelProps = {
   lead: Lead | null;
   sessionId: string;
+  orgId?: Id<"organizations">;
+  userId?: string;
   onClose: () => void;
 };
 
@@ -44,7 +46,7 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-export function LeadSidePanel({ lead, sessionId, onClose }: LeadSidePanelProps) {
+export function LeadSidePanel({ lead, sessionId, orgId, userId, onClose }: LeadSidePanelProps) {
   const [message, setMessage] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [personaLoading, setPersonaLoading] = useState(false);
@@ -75,12 +77,15 @@ export function LeadSidePanel({ lead, sessionId, onClose }: LeadSidePanelProps) 
 
   const outreachRecord = useQuery(
     api.outreach.getOutreachForLead,
-    leadConvexId && sessionId
-      ? { sessionId, leadId: leadConvexId }
+    leadConvexId && (sessionId || userId)
+      ? { sessionId, userId, leadId: leadConvexId }
       : "skip",
   );
 
-  const outreachConfig = useQuery(api.outreach.getOutreachConfig, {});
+  const outreachConfig = useQuery(
+    api.outreach.getOutreachConfig,
+    userId && orgId ? { orgId, userId } : {},
+  );
 
   const chatHistory = useQuery(
     api.chat.getChatHistory,
@@ -113,7 +118,7 @@ export function LeadSidePanel({ lead, sessionId, onClose }: LeadSidePanelProps) 
     const generation = ++personaGenerationRef.current;
     let cancelled = false;
     setPersonaLoading(true);
-    generatePersona({ sessionId, leadId: leadConvexId })
+    generatePersona({ sessionId, leadId: leadConvexId, userId })
       .then((result) => {
         if (!cancelled && generation === personaGenerationRef.current) {
           setPersona(result as Persona);
@@ -133,7 +138,7 @@ export function LeadSidePanel({ lead, sessionId, onClose }: LeadSidePanelProps) 
     return () => {
       cancelled = true;
     };
-  }, [leadConvexId, sessionId, lead?.ownerFullName, generatePersona]);
+  }, [leadConvexId, sessionId, userId, lead?.ownerFullName, generatePersona]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -148,6 +153,7 @@ export function LeadSidePanel({ lead, sessionId, onClose }: LeadSidePanelProps) 
         sessionId,
         leadId: leadConvexId,
         message: message.trim(),
+        userId,
       });
       setMessage("");
     } catch (err) {
@@ -155,7 +161,7 @@ export function LeadSidePanel({ lead, sessionId, onClose }: LeadSidePanelProps) 
     } finally {
       setChatLoading(false);
     }
-  }, [leadConvexId, message, sendChatMessage, sessionId]);
+  }, [leadConvexId, message, sendChatMessage, sessionId, userId]);
 
   const handlePursue = useCallback(async () => {
     if (!leadConvexId || !sessionId) return;
@@ -165,6 +171,8 @@ export function LeadSidePanel({ lead, sessionId, onClose }: LeadSidePanelProps) 
       const result = (await startOutreach({
         sessionId,
         leadId: leadConvexId,
+        orgId,
+        userId,
         forceEnrichment: Boolean(outreachRecord || outreachResult),
       })) as StartOutreachResult;
       setOutreachResult(result);
@@ -178,7 +186,7 @@ export function LeadSidePanel({ lead, sessionId, onClose }: LeadSidePanelProps) 
     } finally {
       setPursueLoading(false);
     }
-  }, [leadConvexId, sessionId, startOutreach, outreachRecord, outreachResult, lead?.ownerOccupied]);
+  }, [leadConvexId, sessionId, orgId, userId, startOutreach, outreachRecord, outreachResult, lead?.ownerOccupied]);
 
   const handleLogTouch = useCallback(
     async (touch: "touch1" | "touch2", channel?: OutreachChannel) => {

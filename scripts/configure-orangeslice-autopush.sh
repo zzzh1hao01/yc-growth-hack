@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WEBHOOK_URL="${1:-}"
-SITE_URL="${NEXT_PUBLIC_CONVEX_SITE_URL:-https://watchful-condor-23.convex.site}"
+SITE_URL="${NEXT_PUBLIC_CONVEX_SITE_URL:-https://compassionate-ptarmigan-622.convex.site}"
 
 if [[ -z "$WEBHOOK_URL" ]]; then
   echo "Usage: $0 <orange-slice-import-webhook-url>"

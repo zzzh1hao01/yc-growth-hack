@@ -48,6 +48,11 @@ export type Lead = {
   parcelNumber?: string;
   assessorBlock?: string;
   assessorLot?: string;
+  archetype?: string;
+  acsReceptivityScore?: number;
+  financialSophistication?: number;
+  inertiaScore?: number;
+  coverageStakes?: number;
 };
 
 export type Persona = {
@@ -203,5 +208,18 @@ export const INSURANCE_NEIGHBORHOODS = [
   "Inner Sunset",
 ] as const;
 
-/** Outreach UI hidden until Orange Slice re-enabled for insurance. */
-export const OUTREACH_ENABLED = false;
+/** Pursue lead → Orange Slice outbound pipeline. */
+export const OUTREACH_ENABLED = true;
+
+export const OUTREACH_STATUS_LABELS: Record<string, string> = {
+  queued: "Queued",
+  sheet_synced: "In Orange Slice",
+  touch1_ready: "Ready (no email)",
+  touch1_sent: "Touch 1 sent",
+  touch2_sent: "Touch 2 sent",
+  replied: "Replied",
+  meeting: "Meeting booked",
+  won: "Won",
+  lost: "Lost",
+  d2d_planned: "Door knock planned",
+};

@@ -1,3 +1,4 @@
+import {ClerkProvider} from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Fredoka, Nunito } from "next/font/google";
 import { ConvexClientProvider } from "./ConvexClientProvider";
@@ -29,7 +30,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${fredoka.variable} ${nunito.variable} h-full`}>
       <body className="min-h-full font-[family-name:var(--font-body)] antialiased">
-        <ConvexClientProvider>{children}</ConvexClientProvider>
+        <ClerkProvider>
+          <ConvexClientProvider>{children}</ConvexClientProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

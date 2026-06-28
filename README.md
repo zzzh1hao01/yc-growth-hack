@@ -56,8 +56,8 @@ This repo supports **two products** on separate branches and infrastructure:
 | `npm run dev` | Local dev server |
 | `npm run build` | Production build |
 | `npm run convex:dev` | Convex dev sync |
-| `./scripts/import-insurance-leads.sh` | Import deduped insurance leads from `origin/insurance` (default: merged household files, ~5.5k unique) |
-| `INSURANCE_DATA_SCOPE=citywide ./scripts/import-insurance-leads.sh` | Lighter 2k citywide demo spread only |
+| `./scripts/import-insurance-leads.sh` | Import ACS-enriched insurance leads from `origin/insurance` (default: `household_records_acs.json`, 2k) |
+| `INSURANCE_DATA_SCOPE=merged ./scripts/import-insurance-leads.sh` | Merge all household JSON files, deduped (~5.5k) |
 
 ## Product brief
 

@@ -92,6 +92,7 @@ async function generatePersonaForLead(
   sessionId: string,
   leadId: Id<"leads">,
   force = false,
+  userId?: string,
 ): Promise<Record<string, unknown>> {
   const lead = (await ctx.runQuery(api.leads.getLead, { leadId })) as LeadDoc | null;
   if (!lead) throw new Error("Lead not found");
@@ -101,7 +102,7 @@ async function generatePersonaForLead(
     return existing;
   }
 
-  const agent = await ctx.runQuery(api.contractors.getContractor, { sessionId });
+  const agent = await ctx.runQuery(api.agents.getAgent, { userId, sessionId });
   const agentProfile = (agent?.serviceProfile ?? null) as AgentProfile | null;
   const traits = buildPersonaTraits(traitsInput(lead));
   const ownerName = leadOwnerFullName(lead);
@@ -169,9 +170,10 @@ export const generatePersona = action({
     sessionId: v.string(),
     leadId: v.id("leads"),
     force: v.optional(v.boolean()),
+    userId: v.optional(v.string()),
   },
-  handler: async (ctx, { sessionId, leadId, force }): Promise<Record<string, unknown>> => {
-    return await generatePersonaForLead(ctx, sessionId, leadId, force ?? false);
+  handler: async (ctx, { sessionId, leadId, force, userId }): Promise<Record<string, unknown>> => {
+    return await generatePersonaForLead(ctx, sessionId, leadId, force ?? false, userId);
   },
 });
 
@@ -180,15 +182,16 @@ export const sendChatMessage = action({
     sessionId: v.string(),
     leadId: v.id("leads"),
     message: v.string(),
+    userId: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    { sessionId, leadId, message },
+    { sessionId, leadId, message, userId },
   ): Promise<{ reply: string }> => {
     const lead = (await ctx.runQuery(api.leads.getLead, { leadId })) as LeadDoc | null;
     if (!lead) throw new Error("Lead not found");
 
-    const persona = await generatePersonaForLead(ctx, sessionId, leadId);
+    const persona = await generatePersonaForLead(ctx, sessionId, leadId, false, userId);
     const traits = buildPersonaTraits(traitsInput(lead));
     const ownerName = leadOwnerFullName(lead);
     const contactRole = lead.ownerContactRole ?? (lead.ownerOccupied ? "owner" : "resident");
@@ -203,7 +206,7 @@ export const sendChatMessage = action({
       ? `You are ${ownerName}, the ${contactLabel} ${lead.address} in San Francisco.`
       : `You are the ${contactLabel} ${lead.address} in San Francisco.`;
 
-    const agent = await ctx.runQuery(api.contractors.getContractor, { sessionId });
+    const agent = await ctx.runQuery(api.agents.getAgent, { userId, sessionId });
     const agentProfile = agent?.serviceProfile as AgentProfile | null;
 
     const history = await ctx.runQuery(api.chat.getChatHistory, {

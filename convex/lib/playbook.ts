@@ -19,13 +19,13 @@ function fallbackPlaybook(ctx: PlaybookContext): string {
     lines.push(`Email ${ctx.contact.emails[0]} with a property-specific hook for ${ctx.address}.`);
   }
   if (ctx.contact.channels.includes("phone")) {
-    lines.push(`Call ${ctx.contact.phones[0]} and offer a free in-home consultation.`);
+    lines.push(`Call ${ctx.contact.phones[0]} and offer a complimentary coverage review.`);
   }
   if (ctx.contact.channels.includes("d2d")) {
     lines.push(`Door knock at ${ctx.address}${ctx.owner.fullName ? ` — ask for ${ctx.owner.fullName}` : ""}.`);
   }
   if (ctx.contact.channels.includes("mail")) {
-    lines.push(`Mail a postcard to ${ctx.address} with a free quote offer.`);
+    lines.push(`Mail a postcard to ${ctx.address} with a coverage review offer.`);
   }
 
   return lines.length > 0
@@ -42,7 +42,7 @@ export async function generateOutreachPlaybook(ctx: PlaybookContext): Promise<st
         {
           role: "system",
           content:
-            "Write a 2-4 sentence outreach playbook for an SF home service contractor. Be specific about channel order.",
+            "Write a 2-4 sentence outreach playbook for an SF insurance agent reaching a homeowner about coverage review. Be specific about channel order.",
         },
         {
           role: "user",

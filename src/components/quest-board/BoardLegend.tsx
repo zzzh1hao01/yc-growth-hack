@@ -19,7 +19,7 @@ export function BoardLegend() {
         </span>
         High priority
       </span>
-      <span className="text-amber-900/50">· ~400 pins · proportional sample</span>
+      <span className="text-amber-900/50">· up to 400 pins · citywide grid</span>
     </div>
   );
 }

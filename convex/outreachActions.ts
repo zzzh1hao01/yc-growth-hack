@@ -9,6 +9,11 @@ import {
   pickCampaign,
   renderTemplate,
 } from "./lib/campaigns";
+import {
+  coverageEmailHook,
+  formatGapDollars,
+  insuranceMatchScore,
+} from "./lib/coverageHooks";
 import type { EnrichmentResult } from "./lib/enrichmentTypes";
 import {
   buildChannels,
@@ -19,8 +24,6 @@ import {
   orangeSliceSheetUrl,
   pushLeadToOrangeSliceSheet,
 } from "./lib/orangesliceSheet";
-import { verticalEmailHook } from "./lib/playbook";
-import { pickVertical, type ServiceProfile } from "./lib/scoring";
 
 type LeadDoc = {
   householdId: string;
@@ -36,16 +39,17 @@ type LeadDoc = {
   assessorLot?: string;
   contactInfo?: unknown;
   persona?: unknown;
-  verticalScores?: Record<string, unknown>;
   replacementCostGapDollars?: number;
+  replacementCostGapPct?: number;
   needScore?: number;
+  timingScore?: number;
+  compositeScore?: number;
 };
 
-type ContractorDoc = {
+type AgentDoc = {
   name: string;
   businessName?: string;
   businessDescription: string;
-  serviceProfile?: { service_types?: string[] };
 };
 
 function primaryChannel(enrichment: EnrichmentResult) {
@@ -55,10 +59,7 @@ function primaryChannel(enrichment: EnrichmentResult) {
   return "d2d" as const;
 }
 
-function buildFallbackEnrichment(
-  lead: LeadDoc,
-  vertical: string,
-): EnrichmentResult {
+function buildFallbackEnrichment(lead: LeadDoc): EnrichmentResult {
   const fullName =
     lead.recordedOwnerFullName ??
     lead.ownerFullName ??
@@ -68,18 +69,7 @@ function buildFallbackEnrichment(
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
   const firstName = lead.ownerFirstName ?? parts[0] ?? "there";
   const lastName = lead.ownerLastName ?? parts.slice(1).join(" ") ?? "";
-  const hook =
-    (lead.verticalScores
-      ? verticalEmailHook(
-          lead.verticalScores as Record<
-            string,
-            { urgency_flag?: boolean; reasons?: string[] }
-          >,
-        )
-      : null) ??
-    (lead.replacementCostGapDollars
-      ? `Estimated $${Math.round(lead.replacementCostGapDollars / 1000)}k+ coverage gap vs rebuild cost.`
-      : "We offer complimentary home coverage reviews for SF homeowners.");
+  const hook = coverageEmailHook(lead);
 
   const contact = {
     emails: [] as string[],
@@ -103,7 +93,8 @@ function buildFallbackEnrichment(
           ? {
               block: lead.assessorBlock,
               lot: lead.assessorLot,
-              parcelNumber: lead.parcelNumber ?? `${lead.assessorBlock}-${lead.assessorLot}`,
+              parcelNumber:
+                lead.parcelNumber ?? `${lead.assessorBlock}-${lead.assessorLot}`,
             }
           : undefined,
     },
@@ -114,9 +105,8 @@ function buildFallbackEnrichment(
 
 function templateVars(
   lead: LeadDoc,
-  contractor: ContractorDoc,
+  agent: AgentDoc,
   enrichment: EnrichmentResult,
-  vertical: string,
 ): Record<string, string> {
   const ownerFirst =
     enrichment.owner.firstName ||
@@ -135,26 +125,31 @@ function templateVars(
       ? persona.likely_response_to_cold_approach
       : undefined) ?? enrichment.playbook.slice(0, 160);
 
+  const agencyName = agent.businessName ?? agent.name;
+  const coverageHook = coverageEmailHook(lead);
+  const gapDollars =
+    lead.replacementCostGapDollars != null
+      ? formatGapDollars(lead.replacementCostGapDollars)
+      : "";
+  const gapPct =
+    lead.replacementCostGapPct != null
+      ? String(Math.round(lead.replacementCostGapPct * 100))
+      : "";
+
   return {
     owner_first_name: ownerFirst,
     owner_last_name: ownerLast,
     owner_full_name: enrichment.owner.fullName,
     address: lead.address,
-    contractor_name: contractor.name,
-    contractor_business: contractor.businessName ?? contractor.name,
-    vertical,
-    vertical_hook:
-      (lead.verticalScores
-        ? verticalEmailHook(
-            lead.verticalScores as Record<
-              string,
-              { urgency_flag?: boolean; reasons?: string[] }
-            >,
-          )
-        : null) ??
-      (lead.replacementCostGapDollars
-        ? `Coverage may lag rebuild cost by ~$${Math.round(lead.replacementCostGapDollars / 1000)}k.`
-        : "Complimentary coverage review for SF homeowners."),
+    agent_name: agent.name,
+    agency_name: agencyName,
+    contractor_name: agent.name,
+    contractor_business: agencyName,
+    coverage_hook: coverageHook,
+    vertical_hook: coverageHook,
+    vertical: "home",
+    gap_dollars: gapDollars,
+    gap_pct: gapPct,
     persona_hook: personaHook,
     meeting_window: "this week or next",
   };
@@ -171,10 +166,12 @@ export const startOutreach = action({
     leadId: v.id("leads"),
     campaignSlug: v.optional(v.string()),
     forceEnrichment: v.optional(v.boolean()),
+    userId: v.optional(v.string()),
+    orgId: v.optional(v.id("organizations")),
   },
   handler: async (
     ctx,
-    { sessionId, leadId, campaignSlug, forceEnrichment },
+    { sessionId, leadId, campaignSlug, forceEnrichment, orgId, userId },
   ): Promise<{
     status:
       | "queued"
@@ -200,9 +197,10 @@ export const startOutreach = action({
     const lead = (await ctx.runQuery(api.leads.getLead, { leadId })) as LeadDoc | null;
     if (!lead) throw new Error("Lead not found");
 
-    const contractor = (await ctx.runQuery(api.contractors.getContractor, {
+    const contractor = (await ctx.runQuery(api.agents.getAgent, {
+      userId,
       sessionId,
-    })) as ContractorDoc | null;
+    })) as AgentDoc | null;
     if (!contractor) throw new Error("Complete onboarding first");
 
     let enrichment: EnrichmentResult | null = null;
@@ -213,33 +211,31 @@ export const startOutreach = action({
     }
 
     if (!enrichment || forceEnrichment) {
-      enrichment = await ctx.runAction(api.enrichment.resolveContactAndOutreach, {
-        sessionId,
-        leadId,
-        force: Boolean(forceEnrichment),
-      });
-    }
-
-    const vertical = pickVertical(
-      (contractor.serviceProfile as ServiceProfile | null | undefined) ?? null,
-    );
-
-    if (!enrichment) {
-      enrichment = buildFallbackEnrichment(lead, vertical);
+      try {
+        enrichment = await ctx.runAction(api.enrichment.resolveContactAndOutreach, {
+          sessionId,
+          leadId,
+          force: Boolean(forceEnrichment),
+        });
+      } catch {
+        enrichment = buildFallbackEnrichment(lead);
+      }
     }
 
     if (!enrichment) {
-      throw new Error("Could not resolve contact for outreach");
+      enrichment = buildFallbackEnrichment(lead);
     }
 
-    const vs = lead.verticalScores?.[vertical] as { score?: number } | undefined;
-    const matchScore = typeof vs?.score === "number" ? Math.round(vs.score) : 0;
+    const matchScore = insuranceMatchScore(lead);
     const campaign = pickCampaign(DEFAULT_CAMPAIGNS, campaignSlug);
-    const vars = templateVars(lead, contractor, enrichment, vertical);
+    const vars = templateVars(lead, contractor, enrichment);
     const touch1Subject = renderTemplate(campaign.touch1Subject, vars);
     const touch1Body = renderTemplate(campaign.touch1Body, vars);
     const touch2Subject = renderTemplate(campaign.touch2Subject, vars);
     const touch2Body = renderTemplate(campaign.touch2Body, vars);
+
+    const agencyName = contractor.businessName ?? contractor.name;
+    const coverageHook = vars.coverage_hook;
 
     const sheetPayload = {
       household_id: lead.householdId,
@@ -250,11 +246,18 @@ export const startOutreach = action({
       owner_first_name: vars.owner_first_name,
       owner_last_name: vars.owner_last_name,
       match_score: matchScore,
-      vertical,
-      vertical_hook: vars.vertical_hook,
+      need_score: Math.round((lead.needScore ?? 0) * 100),
+      timing_score: Math.round((lead.timingScore ?? 0) * 100),
+      gap_dollars: lead.replacementCostGapDollars ?? 0,
+      gap_pct: lead.replacementCostGapPct ?? 0,
+      coverage_hook: coverageHook,
       persona_hook: vars.persona_hook,
+      agent_name: contractor.name,
+      agency_name: agencyName,
       contractor_name: contractor.name,
-      contractor_business: vars.contractor_business,
+      contractor_business: agencyName,
+      vertical: "home",
+      vertical_hook: coverageHook,
       emails: enrichment.contact.emails,
       phones: enrichment.contact.phones,
       linkedin_url: enrichment.contact.linkedinUrl,
@@ -272,15 +275,26 @@ export const startOutreach = action({
       state: "CA",
     };
 
-    const sheetPush = await pushLeadToOrangeSliceSheet(
-      sheetPayload,
-      await ctx.runQuery(internal.pipelineConfig.getSheetWebhookUrl, {}),
-    );
+    let webhookOverride: string | null = null;
+    let sheetUrlOverride: string | null = null;
+    if (orgId) {
+      const orgConfig = await ctx.runQuery(internal.organizations.getOrgPipelineConfig, {
+        orgId,
+      });
+      webhookOverride = orgConfig?.sheetWebhookUrl ?? null;
+      sheetUrlOverride = orgConfig?.sheetUrl ?? null;
+    } else {
+      webhookOverride = await ctx.runQuery(internal.pipelineConfig.getSheetWebhookUrl, {});
+    }
+
+    const sheetPush = await pushLeadToOrangeSliceSheet(sheetPayload, webhookOverride);
     const channel = primaryChannel(enrichment);
     const pipelineStatus = sheetPush.synced ? ("sheet_synced" as const) : ("queued" as const);
 
     await ctx.runMutation(internal.outreach.createOutreachRecord, {
       sessionId,
+      userId,
+      orgId,
       leadId,
       householdId: lead.householdId,
       status: pipelineStatus,
@@ -308,7 +322,7 @@ export const startOutreach = action({
       sheetSynced: sheetPush.synced,
       sheetRowId: sheetPush.rowId,
       sheetError: sheetPush.error,
-      sheetUrl: orangeSliceSheetUrl() ?? null,
+      sheetUrl: orangeSliceSheetUrl(sheetUrlOverride) ?? null,
       touch1: { subject: touch1Subject, body: touch1Body, mailto },
       touch2: { subject: touch2Subject, body: touch2Body },
       enrichment,

@@ -10,54 +10,56 @@ export type CampaignTemplate = {
 
 export const DEFAULT_CAMPAIGNS: CampaignTemplate[] = [
   {
-    slug: "consultation",
-    name: "Free in-home consultation",
+    slug: "coverage_review",
+    name: "Coverage review offer",
     isDefault: true,
-    touch1Subject: "Free {{vertical}} check for {{address}}",
+    touch1Subject: "Quick coverage check for {{address}}",
     touch1Body: `Hi {{owner_first_name}},
 
-I'm {{contractor_name}} — we help SF homeowners with {{vertical}} work.
+I'm {{agent_name}} with {{agency_name}}. We help SF homeowners make sure Coverage A keeps up with today's rebuild costs.
 
-Based on your property's permit history, a quick inspection could catch issues before they become expensive. I'd love to offer a free, no-pressure consultation at {{address}}.
+{{coverage_hook}}
 
-Would {{meeting_window}} work for a 20-minute visit?
+I'd be glad to offer a complimentary, no-pressure coverage review for your home at {{address}}. Would {{meeting_window}} work for a brief call or visit?
 
 Best,
-{{contractor_name}}
-{{contractor_business}}`,
-    touch2Subject: "Re: free consultation at {{address}}",
+{{agent_name}}
+{{agency_name}}`,
+    touch2Subject: "Following up — coverage at {{address}}",
     touch2Body: `Hi {{owner_first_name}},
 
-Following up on my note about a free {{vertical}} assessment at {{address}}.
+Quick follow-up on my note about a complimentary coverage review at {{address}}.
 
-{{vertical_hook}}
+{{coverage_hook}}
 
-Happy to answer questions by reply, phone, or a quick visit.
+Happy to answer questions by reply or phone.
 
-{{contractor_name}}`,
+{{agent_name}}
+{{agency_name}}`,
   },
   {
-    slug: "quote",
-    name: "Free quote offer",
-    touch1Subject: "Quick quote for {{address}}",
+    slug: "renewal_window",
+    name: "Renewal timing outreach",
+    touch1Subject: "Before your renewal — {{address}}",
     touch1Body: `Hi {{owner_first_name}},
 
-This is {{contractor_name}} with {{contractor_business}}. We specialize in {{vertical}} for SF homes like yours.
+This is {{agent_name}} from {{agency_name}}. Many SF homeowners review their home policy before renewal — especially when rebuild costs have moved faster than Coverage A.
 
-I can put together a free quote after a brief walkthrough at {{address}}. No obligation.
+{{coverage_hook}}
 
-Are you free {{meeting_window}}?
+If you'd like a second look before your next renewal, I can walk through options for {{address}}. Are you free {{meeting_window}}?
 
 Thanks,
-{{contractor_name}}`,
-    touch2Subject: "Still happy to quote {{address}}",
+{{agent_name}}
+{{agency_name}}`,
+    touch2Subject: "Re: renewal timing at {{address}}",
     touch2Body: `Hi {{owner_first_name}},
 
-Wanted to bump this — still available for a free {{vertical}} quote at {{address}}.
+Wanted to bump this — still happy to do a quick coverage review for {{address}} before renewal season.
 
-{{vertical_hook}}
+{{coverage_hook}}
 
-{{contractor_name}}`,
+{{agent_name}}`,
   },
 ];
 

@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SHEET_URL="${1:-}"
-SITE_URL="${NEXT_PUBLIC_CONVEX_SITE_URL:-https://watchful-condor-23.convex.site}"
+SITE_URL="${NEXT_PUBLIC_CONVEX_SITE_URL:-https://compassionate-ptarmigan-622.convex.site}"
 
 if [[ -z "$SHEET_URL" ]]; then
   echo "Usage: $0 <orange-slice-sheet-url>"
@@ -32,5 +32,5 @@ echo ""
 echo "Header: Authorization: Bearer $SECRET"
 echo ""
 echo "Sheet template + chat prompt:"
-echo "  docs/ORANGE_SLICE_SHEET_TEMPLATE.md"
-echo "  docs/ORANGE_SLICE_CHAT_PROMPT.txt"
+echo "  docs/ORANGE_SLICE_INSURANCE.md"
+echo "  docs/ORANGE_SLICE_INSURANCE_CHAT_PROMPT.txt"

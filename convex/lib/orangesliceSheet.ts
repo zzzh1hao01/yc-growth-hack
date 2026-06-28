@@ -7,11 +7,22 @@ export type SheetLeadPayload = {
   owner_first_name: string;
   owner_last_name: string;
   match_score: number;
-  vertical: string;
-  vertical_hook: string;
+  need_score: number;
+  timing_score: number;
+  gap_dollars: number;
+  gap_pct: number;
+  coverage_hook: string;
   persona_hook: string;
+  agent_name: string;
+  agency_name: string;
+  /** @deprecated Kept for sheet compatibility */
   contractor_name: string;
+  /** @deprecated Kept for sheet compatibility */
   contractor_business: string;
+  /** @deprecated Kept for sheet compatibility */
+  vertical: string;
+  /** @deprecated Kept for sheet compatibility */
+  vertical_hook: string;
   emails: string[];
   phones: string[];
   linkedin_url?: string;
@@ -45,11 +56,18 @@ export type SheetImportRow = {
   owner_first_name: string;
   owner_last_name: string;
   match_score: number;
-  vertical: string;
-  vertical_hook: string;
+  need_score: number;
+  timing_score: number;
+  gap_dollars: number;
+  gap_pct: number;
+  coverage_hook: string;
   persona_hook: string;
+  agent_name: string;
+  agency_name: string;
   contractor_name: string;
   contractor_business: string;
+  vertical: string;
+  vertical_hook: string;
   email: string;
   phone: string;
   linkedin_url: string;
@@ -77,11 +95,18 @@ export function flattenSheetPayload(payload: SheetLeadPayload): SheetImportRow {
     owner_first_name: payload.owner_first_name,
     owner_last_name: payload.owner_last_name,
     match_score: payload.match_score,
-    vertical: payload.vertical,
-    vertical_hook: payload.vertical_hook,
+    need_score: payload.need_score,
+    timing_score: payload.timing_score,
+    gap_dollars: payload.gap_dollars,
+    gap_pct: payload.gap_pct,
+    coverage_hook: payload.coverage_hook,
     persona_hook: payload.persona_hook,
+    agent_name: payload.agent_name,
+    agency_name: payload.agency_name,
     contractor_name: payload.contractor_name,
     contractor_business: payload.contractor_business,
+    vertical: payload.vertical,
+    vertical_hook: payload.vertical_hook,
     email: payload.emails[0] ?? "",
     phone: payload.phones[0] ?? "",
     linkedin_url: payload.linkedin_url ?? "",
@@ -165,6 +190,12 @@ export async function pushLeadToOrangeSliceSheet(
   };
 }
 
-export function orangeSliceSheetUrl(): string | undefined {
-  return process.env.ORANGE_SLICE_SHEET_URL?.trim() || undefined;
+export function orangeSliceSheetUrl(
+  sheetUrlOverride?: string | null,
+): string | undefined {
+  return (
+    sheetUrlOverride?.trim() ||
+    process.env.ORANGE_SLICE_SHEET_URL?.trim() ||
+    undefined
+  );
 }

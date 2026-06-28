@@ -46,6 +46,11 @@ export type InsuranceLeadDoc = {
   assessorBlock?: string;
   assessorLot?: string;
   parcelNumber?: string;
+  archetype?: string;
+  acsReceptivityScore?: number;
+  financialSophistication?: number;
+  inertiaScore?: number;
+  coverageStakes?: number;
 };
 
 export function homeAgeYears(yearBuilt?: number): number {
@@ -165,6 +170,11 @@ export function toLeadView(
     assessorBlock: doc.assessorBlock,
     assessorLot: doc.assessorLot,
     parcelNumber: doc.parcelNumber,
+    archetype: doc.archetype,
+    acsReceptivityScore: doc.acsReceptivityScore,
+    financialSophistication: doc.financialSophistication,
+    inertiaScore: doc.inertiaScore,
+    coverageStakes: doc.coverageStakes,
   };
 }
 
@@ -207,7 +217,92 @@ function seededShuffle<T>(items: T[], seed: number): T[] {
   return arr;
 }
 
-/** Map board: ~400 pins, stratified by neighborhood + score tier (proportional, no forced thirds). */
+/** Map board: up to `cap` pins spread evenly across SF grid cells (citywide, not neighborhood clusters). */
+export function citywideMapSample<
+  T extends {
+    id: string;
+    lat: number;
+    lng: number;
+    matchScore: number;
+  },
+>(ranked: T[], sessionId: string, cap = 400): T[] {
+  if (ranked.length <= cap) return ranked;
+
+  const SF_BOUNDS = {
+    south: 37.708,
+    north: 37.832,
+    west: -122.515,
+    east: -122.355,
+  };
+
+  const gridSize = Math.max(8, Math.round(Math.sqrt(cap)));
+  const seed = hashString(sessionId || "demo");
+
+  const cellKey = (lat: number, lng: number) => {
+    const latSpan = SF_BOUNDS.north - SF_BOUNDS.south;
+    const lngSpan = SF_BOUNDS.east - SF_BOUNDS.west;
+    const row = Math.min(
+      gridSize - 1,
+      Math.max(0, Math.floor(((lat - SF_BOUNDS.south) / latSpan) * gridSize)),
+    );
+    const col = Math.min(
+      gridSize - 1,
+      Math.max(0, Math.floor(((lng - SF_BOUNDS.west) / lngSpan) * gridSize)),
+    );
+    return `${row}:${col}`;
+  };
+
+  const byCell = new Map<string, T[]>();
+  for (const lead of ranked) {
+    const key = cellKey(lead.lat, lead.lng);
+    const bucket = byCell.get(key);
+    if (bucket) bucket.push(lead);
+    else byCell.set(key, [lead]);
+  }
+
+  const cells = [...byCell.keys()].sort();
+  const used = new Set<string>();
+  const sample: T[] = [];
+
+  const takeFromPool = (pool: T[], n: number, salt: number) => {
+    if (n <= 0) return;
+    const available = pool.filter((l) => !used.has(l.id));
+    const chosen = seededShuffle(available, seed + salt).slice(0, n);
+    for (const lead of chosen) {
+      used.add(lead.id);
+      sample.push(lead);
+    }
+  };
+
+  let baseQuota = Math.floor(cap / cells.length);
+  let remainder = cap - baseQuota * cells.length;
+
+  for (let i = 0; i < cells.length; i += 1) {
+    const quota = baseQuota + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
+
+    const pool = [...byCell.get(cells[i])!].sort(
+      (a, b) => b.matchScore - a.matchScore,
+    );
+    takeFromPool(pool, quota, i * 17 + 3);
+  }
+
+  if (sample.length < cap) {
+    const rest = seededShuffle(
+      ranked.filter((l) => !used.has(l.id)),
+      seed + 9999,
+    );
+    for (const lead of rest) {
+      if (sample.length >= cap) break;
+      used.add(lead.id);
+      sample.push(lead);
+    }
+  }
+
+  return sample.slice(0, cap);
+}
+
+/** @deprecated Use citywideMapSample — neighborhood stratification clusters pins on the west side. */
 export function demoSampleLeads<
   T extends {
     matchScore: number;

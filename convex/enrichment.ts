@@ -16,7 +16,8 @@ import {
   type EnrichmentContact,
   type EnrichmentResult,
 } from "./lib/enrichmentTypes";
-import { generateOutreachPlaybook, verticalEmailHook } from "./lib/playbook";
+import { coverageEmailHook } from "./lib/coverageHooks";
+import { generateOutreachPlaybook } from "./lib/playbook";
 
 type LeadDoc = {
   householdId: string;
@@ -32,8 +33,10 @@ type LeadDoc = {
   recordedOwnerSource?: string;
   contactInfo?: unknown;
   persona?: unknown;
-  verticalScores?: Record<string, unknown>;
   replacementCostGapDollars?: number;
+  replacementCostGapPct?: number;
+  needScore?: number;
+  timingScore?: number;
 };
 
 function cachedOwner(lead: LeadDoc): Partial<OwnerIdentity> | undefined {
@@ -162,17 +165,12 @@ async function runContactResolution(
     owner: enrichedOwner,
     contact,
     verticalHook:
-      (lead.verticalScores
-        ? verticalEmailHook(
-            lead.verticalScores as Record<
-              string,
-              { urgency_flag?: boolean; reasons?: string[] }
-            >,
-          )
-        : null) ??
-      (lead.replacementCostGapDollars
-        ? `Estimated $${Math.round(lead.replacementCostGapDollars / 1000)}k coverage gap vs rebuild cost.`
-        : "Home coverage review — check if Coverage A keeps up with SF rebuild costs."),
+      coverageEmailHook({
+        replacementCostGapDollars: lead.replacementCostGapDollars,
+        replacementCostGapPct: lead.replacementCostGapPct,
+        needScore: lead.needScore,
+        timingScore: lead.timingScore,
+      }),
     preferredChannel:
       typeof persona?.preferred_contractor_channel === "string"
         ? persona.preferred_contractor_channel

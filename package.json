@@ -10,6 +10,7 @@
     "convex:dev": "convex dev"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.5.9",
     "@googlemaps/js-api-loader": "^2.1.1",
     "convex": "^1.42.0",
     "mapbox-gl": "^3.25.0",

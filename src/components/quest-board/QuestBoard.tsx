@@ -1,11 +1,14 @@
 "use client";
 
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 
 import { api } from "../../../convex/_generated/api";
 import { PLACEHOLDER_LEADS } from "@/data/placeholderLeads";
 import { getSessionId, resetSession } from "@/lib/session";
+import type { Id } from "../../../convex/_generated/dataModel";
 import type { Agent, CompanyContext, Lead } from "@/types/lead";
 import { filterLeadsByImportance } from "@/lib/lead-utils";
 import { BoardLegend } from "./BoardLegend";
@@ -15,7 +18,13 @@ import { LeadSidePanel } from "./LeadSidePanel";
 import { OnboardingPanel } from "./OnboardingPanel";
 import { QuestMap } from "./QuestMap";
 
-export function QuestBoard() {
+export function QuestBoard({
+  userId,
+  orgId,
+}: {
+  userId?: string;
+  orgId?: Id<"organizations">;
+} = {}) {
   const [sessionId, setSessionId] = useState("");
   const [agent, setAgent] = useState<Agent | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -23,15 +32,23 @@ export function QuestBoard() {
   const [onboardingKey, setOnboardingKey] = useState(0);
   const [minLeadScore, setMinLeadScore] = useState(0);
 
+  const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
+  const membership = useQuery(
+    api.organizations.getMyMembership,
+    userId ? { userId } : "skip",
+  );
+
   const clearContractor = useMutation(api.contractors.clearContractor);
+  const clearAgent = useMutation(api.agents.clearAgent);
 
   useEffect(() => {
     setSessionId(getSessionId());
   }, []);
 
   const storedAgent = useQuery(
-    api.contractors.getContractor,
-    sessionId ? { sessionId } : "skip",
+    api.agents.getAgent,
+    sessionId || userId ? { sessionId: sessionId || undefined, userId } : "skip",
   );
 
   useEffect(() => {
@@ -42,7 +59,7 @@ export function QuestBoard() {
         businessAddress: storedAgent.businessAddress,
         lat: storedAgent.lat,
         lng: storedAgent.lng,
-        serviceProfile: storedAgent.serviceProfile ?? undefined,
+        serviceProfile: (storedAgent.serviceProfile ?? undefined) as Agent["serviceProfile"],
         companyContext: storedAgent.companyContext as CompanyContext | undefined,
         companyEnrichmentStatus: storedAgent.companyEnrichmentStatus ?? undefined,
         businessName: storedAgent.businessName ?? undefined,
@@ -74,7 +91,7 @@ export function QuestBoard() {
 
   const convexLeads = useQuery(
     api.leads.listLeads,
-    sessionId && onboarded ? { sessionId } : "skip",
+    sessionId && onboarded ? { sessionId, userId } : "skip",
   );
 
   const { leads, dataSourceLabel } = useMemo(() => {
@@ -89,7 +106,7 @@ export function QuestBoard() {
     if (convexLeads.length > 0) {
       return {
         leads: convexLeads as Lead[],
-        dataSourceLabel: "Insurance leads · ranked by need + timing",
+        dataSourceLabel: "Insurance leads · citywide sample (max 400)",
       };
     }
 
@@ -122,13 +139,16 @@ export function QuestBoard() {
     if (sessionId) {
       await clearContractor({ sessionId });
     }
+    if (userId) {
+      await clearAgent({ userId });
+    }
     setSelectedLead(null);
     setAgent(null);
     setOnboarded(false);
     setMinLeadScore(0);
     setOnboardingKey((k) => k + 1);
     setSessionId(resetSession());
-  }, [sessionId, clearContractor]);
+  }, [sessionId, userId, clearContractor, clearAgent]);
 
   const handleSelectLead = useCallback((lead: Lead) => {
     if (!lead.convexId) return;
@@ -182,6 +202,47 @@ export function QuestBoard() {
             />
           )}
           {onboarded && <BoardLegend />}
+          {clerkEnabled && orgId && (
+            <>
+              <Link
+                href="/pipeline"
+                className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+              >
+                Pipeline
+              </Link>
+              <Link
+                href="/settings"
+                className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+              >
+                Settings
+              </Link>
+            </>
+          )}
+          {clerkEnabled && (
+            <>
+              <Show when="signed-out">
+                <SignInButton mode="modal">
+                  <button
+                    type="button"
+                    className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+                  >
+                    Sign in
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button
+                    type="button"
+                    className="rounded-full bg-amber-900 px-3 py-1 text-xs font-semibold text-white transition hover:bg-amber-800"
+                  >
+                    Sign up
+                  </button>
+                </SignUpButton>
+              </Show>
+              <Show when="signed-in">
+                <UserButton />
+              </Show>
+            </>
+          )}
           <button
             type="button"
             onClick={() => void handleStartOver()}
@@ -194,7 +255,12 @@ export function QuestBoard() {
 
       <main className="relative min-h-0 flex-1">
         {!onboarded && (
-          <OnboardingPanel key={onboardingKey} onComplete={handleOnboardingComplete} />
+          <OnboardingPanel
+            key={onboardingKey}
+            userId={userId}
+            orgId={orgId}
+            onComplete={handleOnboardingComplete}
+          />
         )}
 
         {onboarded && leads.length > 0 && (
@@ -248,6 +314,8 @@ export function QuestBoard() {
         <LeadSidePanel
           lead={selectedLead}
           sessionId={sessionId}
+          orgId={orgId}
+          userId={userId}
           onClose={handleClosePanel}
         />
       )}

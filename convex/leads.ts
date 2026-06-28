@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
-import { demoSampleLeads, rankInsuranceLeads } from "./lib/scoring";
+import { citywideMapSample, rankInsuranceLeads } from "./lib/scoring";
+import { resolveAgentProfile } from "./lib/resolveAgent";
 
 const insuranceHouseholdFields = {
   householdId: v.string(),
@@ -36,43 +37,39 @@ const insuranceHouseholdFields = {
   assessorBlock: v.optional(v.string()),
   assessorLot: v.optional(v.string()),
   parcelNumber: v.optional(v.string()),
+  archetype: v.optional(v.string()),
+  acsReceptivityScore: v.optional(v.number()),
+  financialSophistication: v.optional(v.number()),
+  inertiaScore: v.optional(v.number()),
+  coverageStakes: v.optional(v.number()),
 };
 
 const MAP_CAP = 400;
 
 export const listLeads = query({
-  args: { sessionId: v.optional(v.string()) },
-  handler: async (ctx, { sessionId }) => {
+  args: {
+    sessionId: v.optional(v.string()),
+    userId: v.optional(v.string()),
+  },
+  handler: async (ctx, { sessionId, userId }) => {
     const docs = await ctx.db.query("leads").collect();
     if (docs.length === 0) return [];
 
+    const profile = await resolveAgentProfile(ctx, { userId, sessionId });
+
     let agentLat: number | undefined;
     let agentLng: number | undefined;
-    let targetNeighborhoods: string[] | undefined;
 
-    if (sessionId) {
-      const agent = await ctx.db
-        .query("contractors")
-        .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
-        .first();
-      if (agent?.lat != null && agent.lng != null) {
-        agentLat = agent.lat;
-        agentLng = agent.lng;
-      }
-      targetNeighborhoods = agent?.targetNeighborhoods ?? undefined;
+    if (profile?.lat != null && profile.lng != null) {
+      agentLat = profile.lat;
+      agentLng = profile.lng;
     }
 
-    let scoped = docs;
-    if (targetNeighborhoods?.length) {
-      const allowed = new Set(targetNeighborhoods);
-      scoped = docs.filter((doc) => allowed.has(doc.neighborhood));
-      if (scoped.length === 0) scoped = docs;
-    }
+    const ranked = rankInsuranceLeads(docs, agentLat, agentLng);
 
-    const ranked = rankInsuranceLeads(scoped, agentLat, agentLng);
-
-    if (sessionId) {
-      return demoSampleLeads(ranked, sessionId, MAP_CAP);
+    const sampleKey = sessionId ?? userId;
+    if (sampleKey) {
+      return citywideMapSample(ranked, sampleKey, MAP_CAP);
     }
 
     return ranked.slice(0, MAP_CAP);

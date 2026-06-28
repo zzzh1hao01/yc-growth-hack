@@ -1,5 +1,7 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { requireMembership } from "./lib/auth";
 
 const outreachStatus = v.union(
   v.literal("queued"),
@@ -16,37 +18,70 @@ const outreachStatus = v.union(
 
 export const getOutreachForLead = query({
   args: {
-    sessionId: v.string(),
+    sessionId: v.optional(v.string()),
+    userId: v.optional(v.string()),
     leadId: v.id("leads"),
   },
-  handler: async (ctx, { sessionId, leadId }) => {
-    return await ctx.db
-      .query("outreach_records")
-      .withIndex("by_session_lead", (q) =>
-        q.eq("sessionId", sessionId).eq("leadId", leadId),
-      )
-      .first();
+  handler: async (ctx, { sessionId, userId, leadId }) => {
+    if (userId) {
+      const byUser = await ctx.db
+        .query("outreach_records")
+        .withIndex("by_user_lead", (q) => q.eq("userId", userId).eq("leadId", leadId))
+        .first();
+      if (byUser) return byUser;
+    }
+
+    if (sessionId) {
+      return await ctx.db
+        .query("outreach_records")
+        .withIndex("by_session_lead", (q) =>
+          q.eq("sessionId", sessionId).eq("leadId", leadId),
+        )
+        .first();
+    }
+
+    return null;
   },
 });
 
 export const getOutreachConfig = query({
-  args: {},
-  handler: async (ctx) => {
-    const siteUrl = process.env.CONVEX_SITE_URL?.trim();
-    const envWebhook = process.env.ORANGE_SLICE_SHEET_WEBHOOK_URL?.trim();
+  args: {
+    orgId: v.optional(v.id("organizations")),
+    userId: v.optional(v.string()),
+  },
+  handler: async (ctx, { orgId, userId }) => {
+    const siteUrl =
+      process.env.CONVEX_SITE_URL?.trim() ||
+      "https://compassionate-ptarmigan-622.convex.site";
+
+    let sheetUrl = process.env.ORANGE_SLICE_SHEET_URL?.trim() || null;
+    let envWebhook = process.env.ORANGE_SLICE_SHEET_WEBHOOK_URL?.trim() || null;
+
+    if (orgId && userId) {
+      try {
+        await requireMembership(ctx, userId, orgId);
+        const org = await ctx.db.get(orgId);
+        if (org?.sheetUrl) sheetUrl = org.sheetUrl;
+        if (org?.sheetWebhookUrl) envWebhook = org.sheetWebhookUrl;
+      } catch {
+        // Fall back to global env.
+      }
+    }
+
     const configDoc = await ctx.db.query("pipeline_config").first();
     const dbWebhook = configDoc?.sheetWebhookUrl?.trim() || null;
     const webhookConfigured = Boolean(envWebhook || dbWebhook);
 
     return {
-      sheetUrl: process.env.ORANGE_SLICE_SHEET_URL?.trim() || null,
+      sheetUrl,
       sheetWebhookConfigured: webhookConfigured,
       sheetWebhookUrl: envWebhook || dbWebhook,
-      pullLeadsUrl: siteUrl ? `${siteUrl}/orangeslice/import` : null,
-      importApiUrl: siteUrl ? `${siteUrl}/orangeslice/import?limit=25` : null,
-      configureWebhookUrl: siteUrl ? `${siteUrl}/orangeslice/configure-webhook` : null,
-      statusWebhookUrl: siteUrl ? `${siteUrl}/orangeslice/status` : null,
+      pullLeadsUrl: `${siteUrl}/orangeslice/import`,
+      importApiUrl: `${siteUrl}/orangeslice/import?limit=25`,
+      configureWebhookUrl: `${siteUrl}/orangeslice/configure-webhook`,
+      statusWebhookUrl: `${siteUrl}/orangeslice/status`,
       webhookAuthConfigured: Boolean(process.env.OUTREACH_WEBHOOK_SECRET?.trim()),
+      convexSiteUrl: siteUrl,
     };
   },
 });
@@ -54,6 +89,8 @@ export const getOutreachConfig = query({
 export const createOutreachRecord = internalMutation({
   args: {
     sessionId: v.string(),
+    userId: v.optional(v.string()),
+    orgId: v.optional(v.id("organizations")),
     leadId: v.id("leads"),
     householdId: v.string(),
     status: outreachStatus,
@@ -76,12 +113,25 @@ export const createOutreachRecord = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    const existing = await ctx.db
-      .query("outreach_records")
-      .withIndex("by_session_lead", (q) =>
-        q.eq("sessionId", args.sessionId).eq("leadId", args.leadId),
-      )
-      .first();
+    let existing = null;
+
+    if (args.userId) {
+      existing = await ctx.db
+        .query("outreach_records")
+        .withIndex("by_user_lead", (q) =>
+          q.eq("userId", args.userId!).eq("leadId", args.leadId),
+        )
+        .first();
+    }
+
+    if (!existing) {
+      existing = await ctx.db
+        .query("outreach_records")
+        .withIndex("by_session_lead", (q) =>
+          q.eq("sessionId", args.sessionId).eq("leadId", args.leadId),
+        )
+        .first();
+    }
 
     const activityEntry = {
       at: now,
@@ -92,6 +142,8 @@ export const createOutreachRecord = internalMutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         status: args.status,
+        userId: args.userId ?? existing.userId,
+        orgId: args.orgId ?? existing.orgId,
         primaryChannel: args.primaryChannel ?? existing.primaryChannel,
         campaignSlug: args.campaignSlug ?? existing.campaignSlug,
         enrichmentSnapshot: args.enrichmentSnapshot ?? existing.enrichmentSnapshot,
@@ -101,11 +153,26 @@ export const createOutreachRecord = internalMutation({
         lastActivityAt: now,
         activityLog: [...existing.activityLog, activityEntry],
       });
+
+      const notifyOrgId = args.orgId ?? existing.orgId;
+      if (notifyOrgId) {
+        const lead = await ctx.db.get(args.leadId);
+        await ctx.scheduler.runAfter(0, internal.slackActions.notifyOrg, {
+          orgId: notifyOrgId,
+          event: args.event === "sheet_synced" ? "Lead pursued (sheet synced)" : "Lead pursued",
+          address: lead?.address ?? args.householdId,
+          status: args.status,
+          gapDollars: lead?.replacementCostGapDollars,
+        });
+      }
+
       return existing._id;
     }
 
-    return await ctx.db.insert("outreach_records", {
+    const outreachId = await ctx.db.insert("outreach_records", {
       sessionId: args.sessionId,
+      userId: args.userId,
+      orgId: args.orgId,
       leadId: args.leadId,
       householdId: args.householdId,
       status: args.status,
@@ -118,6 +185,19 @@ export const createOutreachRecord = internalMutation({
       lastActivityAt: now,
       activityLog: [activityEntry],
     });
+
+    if (args.orgId) {
+      const lead = await ctx.db.get(args.leadId);
+      await ctx.scheduler.runAfter(0, internal.slackActions.notifyOrg, {
+        orgId: args.orgId,
+        event: args.event === "sheet_synced" ? "Lead pursued (sheet synced)" : "Lead pursued",
+        address: lead?.address ?? args.householdId,
+        status: args.status,
+        gapDollars: lead?.replacementCostGapDollars,
+      });
+    }
+
+    return outreachId;
   },
 });
 
@@ -159,6 +239,17 @@ export const applySheetStatus = internalMutation({
         },
       ],
     });
+
+    if (target.orgId && args.status) {
+      const lead = await ctx.db.get(target.leadId);
+      await ctx.scheduler.runAfter(0, internal.slackActions.notifyOrg, {
+        orgId: target.orgId,
+        event: `Outreach ${args.status}`,
+        address: lead?.address ?? target.householdId,
+        status: args.status,
+        gapDollars: lead?.replacementCostGapDollars,
+      });
+    }
 
     return { updated: true, outreachId: target._id };
   },
@@ -278,5 +369,100 @@ export const ackSheetLeads = internalMutation({
     }
 
     return { updated };
+  },
+});
+
+export const listOrgOutreach = query({
+  args: {
+    userId: v.string(),
+    orgId: v.id("organizations"),
+    status: v.optional(outreachStatus),
+  },
+  handler: async (ctx, { userId, orgId, status }) => {
+    await requireMembership(ctx, userId, orgId);
+
+    let records = await ctx.db
+      .query("outreach_records")
+      .withIndex("by_org", (q) => q.eq("orgId", orgId))
+      .collect();
+
+    if (status) {
+      records = records.filter((r) => r.status === status);
+    }
+
+    records.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+
+    const rows = await Promise.all(
+      records.map(async (record) => {
+        const lead = await ctx.db.get(record.leadId);
+        const agent =
+          record.userId != null
+            ? await ctx.db
+                .query("agents")
+                .withIndex("by_user", (q) => q.eq("userId", record.userId!))
+                .first()
+            : record.sessionId
+              ? await ctx.db
+                  .query("agents")
+                  .withIndex("by_session", (q) => q.eq("sessionId", record.sessionId))
+                  .first()
+              : null;
+
+        const fallbackContractor =
+          !agent && record.sessionId
+            ? await ctx.db
+                .query("contractors")
+                .withIndex("by_session", (q) => q.eq("sessionId", record.sessionId))
+                .first()
+            : null;
+
+        return {
+          id: record._id,
+          householdId: record.householdId,
+          leadId: record.leadId,
+          address: lead?.address ?? record.householdId,
+          neighborhood: lead?.neighborhood,
+          gapDollars: lead?.replacementCostGapDollars,
+          matchScore: lead ? Math.round(lead.compositeScore * 100) : null,
+          status: record.status,
+          primaryChannel: record.primaryChannel,
+          campaignSlug: record.campaignSlug,
+          agentName: agent?.name ?? fallbackContractor?.name ?? "Agent",
+          lastActivityAt: record.lastActivityAt,
+          activityLog: record.activityLog,
+        };
+      }),
+    );
+
+    return rows;
+  },
+});
+
+export const updateOutreachStatus = mutation({
+  args: {
+    userId: v.string(),
+    orgId: v.id("organizations"),
+    outreachId: v.id("outreach_records"),
+    status: outreachStatus,
+  },
+  handler: async (ctx, { userId, orgId, outreachId, status }) => {
+    await requireMembership(ctx, userId, orgId);
+
+    const record = await ctx.db.get(outreachId);
+    if (!record || record.orgId !== orgId) {
+      throw new Error("Outreach record not found.");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(outreachId, {
+      status,
+      lastActivityAt: now,
+      activityLog: [
+        ...record.activityLog,
+        { at: now, event: "manual_update", detail: status },
+      ],
+    });
+
+    return { ok: true };
   },
 });

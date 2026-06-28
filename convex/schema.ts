@@ -1,6 +1,21 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+const outreachStatus = v.union(
+  v.literal("queued"),
+  v.literal("sheet_synced"),
+  v.literal("touch1_ready"),
+  v.literal("touch1_sent"),
+  v.literal("touch2_sent"),
+  v.literal("replied"),
+  v.literal("meeting"),
+  v.literal("won"),
+  v.literal("lost"),
+  v.literal("d2d_planned"),
+);
+
+const membershipRole = v.union(v.literal("admin"), v.literal("member"));
+
 export default defineSchema({
   leads: defineTable({
     householdId: v.string(),
@@ -42,11 +57,63 @@ export default defineSchema({
     ),
     persona: v.optional(v.any()),
     contactInfo: v.optional(v.any()),
+    archetype: v.optional(v.string()),
+    acsReceptivityScore: v.optional(v.number()),
+    financialSophistication: v.optional(v.number()),
+    inertiaScore: v.optional(v.number()),
+    coverageStakes: v.optional(v.number()),
   })
     .index("by_household_id", ["householdId"])
     .index("by_composite_score", ["compositeScore"]),
 
-  // Session-scoped insurance agent profile (table name kept for migration compatibility).
+  organizations: defineTable({
+    name: v.string(),
+    slug: v.string(),
+    inviteCode: v.string(),
+    sheetUrl: v.optional(v.string()),
+    sheetWebhookUrl: v.optional(v.string()),
+    slackTeamId: v.optional(v.string()),
+    slackChannelId: v.optional(v.string()),
+    slackAccessToken: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_invite_code", ["inviteCode"]),
+
+  memberships: defineTable({
+    orgId: v.id("organizations"),
+    userId: v.string(),
+    role: membershipRole,
+    joinedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_org", ["orgId"])
+    .index("by_org_user", ["orgId", "userId"]),
+
+  agents: defineTable({
+    userId: v.string(),
+    orgId: v.id("organizations"),
+    name: v.string(),
+    businessDescription: v.string(),
+    businessAddress: v.string(),
+    businessName: v.optional(v.string()),
+    lat: v.optional(v.number()),
+    lng: v.optional(v.number()),
+    serviceProfile: v.optional(v.any()),
+    companyContext: v.optional(v.any()),
+    companyEnrichmentStatus: v.optional(
+      v.union(v.literal("pending"), v.literal("done"), v.literal("failed")),
+    ),
+    serviceRegionIds: v.optional(v.array(v.string())),
+    serviceRegionLabel: v.optional(v.string()),
+    targetNeighborhoods: v.optional(v.array(v.string())),
+    sessionId: v.optional(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_org_user", ["orgId", "userId"])
+    .index("by_session", ["sessionId"]),
+
+  // Session-scoped insurance agent profile (legacy + anonymous fallback).
   contractors: defineTable({
     sessionId: v.string(),
     name: v.string(),
@@ -67,6 +134,7 @@ export default defineSchema({
 
   chatHistory: defineTable({
     sessionId: v.string(),
+    orgId: v.optional(v.id("organizations")),
     leadId: v.id("leads"),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
@@ -74,20 +142,11 @@ export default defineSchema({
 
   outreach_records: defineTable({
     sessionId: v.string(),
+    userId: v.optional(v.string()),
+    orgId: v.optional(v.id("organizations")),
     leadId: v.id("leads"),
     householdId: v.string(),
-    status: v.union(
-      v.literal("queued"),
-      v.literal("sheet_synced"),
-      v.literal("touch1_ready"),
-      v.literal("touch1_sent"),
-      v.literal("touch2_sent"),
-      v.literal("replied"),
-      v.literal("meeting"),
-      v.literal("won"),
-      v.literal("lost"),
-      v.literal("d2d_planned"),
-    ),
+    status: outreachStatus,
     primaryChannel: v.optional(
       v.union(
         v.literal("email"),
@@ -112,6 +171,9 @@ export default defineSchema({
     ),
   })
     .index("by_session_lead", ["sessionId", "leadId"])
+    .index("by_user_lead", ["userId", "leadId"])
+    .index("by_org", ["orgId"])
+    .index("by_org_status", ["orgId", "status"])
     .index("by_household", ["householdId"])
     .index("by_status", ["status"]),
 

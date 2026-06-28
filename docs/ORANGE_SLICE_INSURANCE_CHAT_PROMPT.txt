@@ -1,0 +1,129 @@
+Build the HouseholdIQ **insurance** outbound pipeline in THIS spreadsheet. HouseholdIQ is a San Francisco insurance lead app. Agents click "Pursue lead" on the coverage board; rows queue in our backend and auto-push via webhook.
+
+IMPORTANT — Orange Slice built-ins only:
+- Use **Import from webhook** for auto-push on Pursue (primary).
+- Import from API is fallback only if webhook is unavailable.
+- Use enrichment columns for contact waterfall + LinkedIn.
+- Use Gmail integration column for touch 1 / touch 2.
+- Use HTTP POST column (or webhook action) to sync status back to HouseholdIQ.
+
+Replace YOUR_OUTREACH_WEBHOOK_SECRET with the value from Convex dashboard → Settings → Environment Variables → OUTREACH_WEBHOOK_SECRET.
+
+HouseholdIQ API (insurance deployment):
+- Base: https://compassionate-ptarmigan-622.convex.site
+- Header: Authorization: Bearer YOUR_OUTREACH_WEBHOOK_SECRET
+- Content-Type: application/json (POST only)
+
+Endpoints:
+- GET  /orangeslice/import?limit=25  → { ok, count, data: [ flat rows ] }
+- POST /orangeslice/status            → body { household_id, status, event?, detail? }
+
+Valid status values: sheet_synced, touch1_ready, touch1_sent, touch2_sent, replied, meeting, won, lost, d2d_planned
+
+---
+
+STEP 1 — Create columns (exact snake_case names)
+
+Import / identity:
+household_id, convex_lead_id, session_id, address, city, state, parcel_number, recorded_owner_source
+
+Owner:
+owner_name, owner_first_name, owner_last_name
+
+Insurance lead + agent context:
+match_score, need_score, timing_score, gap_dollars, gap_pct, coverage_hook, persona_hook, agent_name, agency_name, playbook, channels, campaign_slug
+
+Legacy aliases (still populated — map if helpful):
+contractor_name, contractor_business, vertical, vertical_hook
+
+Contact (filled by app or enrichment):
+email, phone, linkedin_url
+
+Outbound copy (pre-written by HouseholdIQ — send as-is):
+touch1_subject, touch1_body, touch2_subject, touch2_body
+
+Pipeline:
+status, last_touch, activity_log
+
+---
+
+STEP 2 — Import from webhook (auto-push on Pursue)
+
+Create an **Import from webhook** column named "HouseholdIQ ingest".
+
+After Orange Slice shows the webhook URL, register it in HouseholdIQ Settings (or Convex env ORANGE_SLICE_SHEET_WEBHOOK_URL).
+
+Map incoming JSON fields 1:1 to columns. Dedupe on household_id.
+Set status = "sheet_synced" on new rows.
+
+---
+
+STEP 3 — (Fallback) Import from API
+
+URL: https://compassionate-ptarmigan-622.convex.site/orangeslice/import?limit=25
+Method: GET
+Header: Authorization: Bearer fbc473440eaf654f0579c22d5dc0fd54ee32ad8ea2c528f8
+Rows JSON path: data
+
+---
+
+STEP 4 — Enrichment column: "Find contact"
+
+For rows where email AND phone are both empty AND owner_first_name is not empty AND owner_last_name is not empty:
+
+Run contact enrichment / contact waterfall with:
+- firstName = owner_first_name
+- lastName = owner_last_name
+- location = city + ", " + state
+- company = address
+- required = email and phone
+- prefer personal contacts over work
+
+Write first valid personal email to email column.
+Write first valid personal phone to phone column.
+Append "contact_waterfall" to activity_log.
+
+Skip rows where owner_name is "Property Owner" or "Homeowner" with no real first/last.
+
+---
+
+STEP 5 — Enrichment column: "Find LinkedIn"
+
+For rows where linkedin_url is empty and owner_name is a real person name:
+
+Find LinkedIn profile URL using name = owner_name, location = "San Francisco, CA", keyword = address.
+Write URL to linkedin_url if found.
+
+---
+
+STEP 6 — Gmail column: "Send touch 1"
+
+For rows where email is not empty and touch1_subject/body exist and status is sheet_synced or touch1_ready:
+
+Send Gmail to email with subject = touch1_subject, body = touch1_body (do not rewrite).
+Set status = touch1_sent, last_touch = today.
+
+Then HTTP POST to https://compassionate-ptarmigan-622.convex.site/orangeslice/status with:
+{ "household_id": "<household_id>", "status": "touch1_sent", "event": "gmail_touch1" }
+
+---
+
+STEP 7 — Gmail column: "Send touch 2" (optional)
+
+For rows where status = touch1_sent, email exists, touch2_subject/body exist, last_touch >= 3 days ago:
+Send Gmail with touch2_subject / touch2_body.
+POST /orangeslice/status with { "household_id", "status": "touch2_sent", "event": "gmail_touch2" }.
+
+---
+
+STEP 8 — Manual status dropdown
+
+Dropdown on status: sheet_synced, touch1_ready, touch1_sent, touch2_sent, replied, meeting, won, lost, d2d_planned.
+On manual change, POST /orangeslice/status with { household_id, status, event: "manual_update" }.
+
+Context:
+- Residential SF homeowners seeking coverage review outreach.
+- touch1/touch2 bodies are already personalized — send verbatim.
+- household_id is assessor block-lot. Never duplicate rows.
+
+Build all columns now.

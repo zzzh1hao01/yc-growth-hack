@@ -4,15 +4,18 @@ import { useCallback, useState } from "react";
 import { useAction } from "convex/react";
 
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 import { getSessionId } from "@/lib/session";
 import type { Agent, AgentProfile } from "@/types/lead";
 
 type OnboardingPanelProps = {
   onComplete: (agent: Agent) => void;
+  userId?: string;
+  orgId?: string;
 };
 
-export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
+export function OnboardingPanel({ onComplete, userId, orgId }: OnboardingPanelProps) {
   const completeOnboarding = useAction(api.onboarding.completeOnboarding);
   const [name, setName] = useState("");
   const [businessDescription, setBusinessDescription] = useState("");
@@ -40,6 +43,8 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           name: name.trim(),
           businessDescription: businessDescription.trim(),
           businessAddress: trimmedAddress,
+          userId,
+          orgId: orgId as Id<"organizations"> | undefined,
         });
 
         onComplete({
@@ -60,7 +65,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
         setLoading(false);
       }
     },
-    [name, businessDescription, businessAddress, completeOnboarding, onComplete],
+    [name, businessDescription, businessAddress, completeOnboarding, onComplete, userId, orgId],
   );
 
   return (
