@@ -26,6 +26,7 @@ import type * as lib_geo from "../lib/geo.js";
 import type * as lib_google from "../lib/google.js";
 import type * as lib_homeownerEmail from "../lib/homeownerEmail.js";
 import type * as lib_httpAuth from "../lib/httpAuth.js";
+import type * as lib_matchScore from "../lib/matchScore.js";
 import type * as lib_openai from "../lib/openai.js";
 import type * as lib_orangeslice from "../lib/orangeslice.js";
 import type * as lib_orangesliceClient from "../lib/orangesliceClient.js";
@@ -73,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   "lib/google": typeof lib_google;
   "lib/homeownerEmail": typeof lib_homeownerEmail;
   "lib/httpAuth": typeof lib_httpAuth;
+  "lib/matchScore": typeof lib_matchScore;
   "lib/openai": typeof lib_openai;
   "lib/orangeslice": typeof lib_orangeslice;
   "lib/orangesliceClient": typeof lib_orangesliceClient;

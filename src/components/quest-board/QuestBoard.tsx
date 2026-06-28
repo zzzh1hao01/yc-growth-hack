@@ -184,8 +184,12 @@ export function QuestBoard({
     <div className="game-board-shell flex h-screen flex-col overflow-hidden">
       <header className="western-hud relative z-50 flex h-[var(--quest-header-height)] shrink-0 items-center justify-between gap-2 overflow-visible px-3 sm:px-4">
         <div className="min-w-0 leading-none">
-          <h1 className="western-title truncate text-sm sm:text-base">Coverage Board</h1>
-          <p className="western-label mt-0.5 hidden truncate sm:block">HouseholdIQ · SF</p>
+          <h1 className="western-title truncate text-xs sm:text-sm md:text-base">
+            Bounty Hunter
+          </h1>
+          <p className="western-label mt-0.5 hidden truncate sm:block">
+            Customer acquisition on the frontier
+          </p>
         </div>
 
         <div className="flex min-w-0 items-center justify-end gap-2">

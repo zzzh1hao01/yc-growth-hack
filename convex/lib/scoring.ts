@@ -1,4 +1,5 @@
 import { haversineMiles } from "./geo";
+import { computeMatchScore } from "./matchScore";
 
 export type TimingConfidence = "high" | "low" | "none";
 
@@ -70,7 +71,7 @@ export function buildScoreReasons(doc: InsuranceLeadDoc): string[] {
     reasons.push("Tenure estimated — no sale date on assessor record");
   }
   reasons.push(
-    `Need ${Math.round(doc.needScore * 100)}/100 · Timing ${Math.round(doc.timingScore * 100)}/100`,
+    `Need ${Math.round(doc.needScore * 45)}/45 · Timing ${Math.round(doc.timingScore * 30)}/30 · Fit ${Math.round((doc.acsReceptivityScore ?? 0) * 25)}/25`,
   );
   if (doc.worthOutreach) {
     reasons.push("High-priority outreach candidate");
@@ -125,7 +126,11 @@ export function toLeadView(
   agentLat?: number,
   agentLng?: number,
 ) {
-  const matchScore = Math.round(doc.compositeScore * 100);
+  const fitScore = doc.acsReceptivityScore ?? 0;
+  const matchScore =
+    doc.needScore != null && doc.timingScore != null
+      ? computeMatchScore(doc.needScore, doc.timingScore, fitScore)
+      : Math.round(doc.compositeScore * 100);
   let distanceMiles: number | undefined;
 
   if (agentLat != null && agentLng != null) {
@@ -172,6 +177,7 @@ export function toLeadView(
     parcelNumber: doc.parcelNumber,
     archetype: doc.archetype,
     acsReceptivityScore: doc.acsReceptivityScore,
+    fitScore: doc.acsReceptivityScore,
     financialSophistication: doc.financialSophistication,
     inertiaScore: doc.inertiaScore,
     coverageStakes: doc.coverageStakes,
@@ -184,8 +190,8 @@ export function rankInsuranceLeads<
   return docs
     .map((doc) => toLeadView(doc, agentLat, agentLng))
     .sort((a, b) => {
-      if (b.compositeScore! - a.compositeScore! !== 0) {
-        return b.compositeScore! - a.compositeScore!;
+      if (b.matchScore! - a.matchScore! !== 0) {
+        return b.matchScore! - a.matchScore!;
       }
       if (b.needScore! - a.needScore! !== 0) {
         return b.needScore! - a.needScore!;

@@ -8,7 +8,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import type { EnrichmentResult, Lead, OutreachChannel, Persona, StartOutreachResult } from "@/types/lead";
 import { OUTREACH_ENABLED } from "@/types/lead";
 import { asDisplayText, personaColdApproach, personaObjections, personaParagraphs } from "@/lib/safe-text";
-import { getMatchTier, getTierColor } from "@/lib/lead-utils";
+import { getLeadScoreBreakdown, getMatchTier, getTierColor } from "@/lib/lead-utils";
 
 type LeadSidePanelProps = {
   lead: Lead | null;
@@ -312,7 +312,9 @@ export function LeadSidePanel({
 
   if (!lead) return null;
 
-  const tier = getMatchTier(lead.matchScore);
+  const scoreBreakdown = getLeadScoreBreakdown(lead);
+  const displayScore = scoreBreakdown.total;
+  const tier = getMatchTier(displayScore);
   const barColor = getTierColor(tier);
 
   const personaParagraphList = personaParagraphs(persona);
@@ -361,90 +363,82 @@ export function LeadSidePanel({
             <div className="mb-3 flex items-center justify-between">
               <span className="western-label">Match score</span>
               <span className="text-sm font-bold" style={{ color: barColor }}>
-                {lead.matchScore}/100
+                {displayScore}/100
               </span>
             </div>
-            {(() => {
-              const fitScore = lead.fitScore ?? lead.acsReceptivityScore;
-              const hasComponents = lead.needScore != null || lead.timingScore != null || fitScore != null;
-              if (!hasComponents) {
-                return (
-                  <div className="western-score-track h-4 overflow-hidden">
-                    <div
-                      className="western-score-fill h-full"
-                      style={{ width: `${lead.matchScore}%`, backgroundColor: barColor }}
-                    />
+            {scoreBreakdown.hasComponents ? (
+              <>
+                <div className="western-score-track flex h-4 overflow-hidden">
+                  <div
+                    className="h-full bg-red-400"
+                    style={{ width: `${scoreBreakdown.riskPoints}%` }}
+                  />
+                  <div
+                    className="h-full bg-amber-400"
+                    style={{ width: `${scoreBreakdown.timingPoints}%` }}
+                  />
+                  <div
+                    className="h-full bg-emerald-400"
+                    style={{ width: `${scoreBreakdown.fitPoints}%` }}
+                  />
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-sm bg-red-400" />
+                    <span className="text-amber-900/70">Risk</span>
+                    <span className="font-semibold text-amber-950">
+                      {scoreBreakdown.riskPoints}
+                      <span className="font-normal text-amber-900/50">/45</span>
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-sm bg-amber-400" />
+                    <span className="text-amber-900/70">Timing</span>
+                    <span className="font-semibold text-amber-950">
+                      {scoreBreakdown.timingPoints}
+                      <span className="font-normal text-amber-900/50">/30</span>
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-2 w-2 rounded-sm bg-emerald-400" />
+                    <span className="text-amber-900/70">Fit</span>
+                    <span className="font-semibold text-amber-950">
+                      {scoreBreakdown.fitPoints}
+                      <span className="font-normal text-amber-900/50">/25</span>
+                    </span>
+                  </span>
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-amber-900/55">
+                  Risk = coverage gap · Timing = outreach window · Fit = census household
+                  receptivity (will they engage?)
+                </p>
+                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div className="rounded-lg border border-red-100 bg-red-50/60 p-2.5">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-red-700">Risk</p>
+                    <p className="text-[11px] leading-relaxed text-red-900/80">{riskRationale(lead)}</p>
                   </div>
-                );
-              }
-              return (
-                <>
-                  <div className="western-score-track flex h-4 overflow-hidden">
-                    {lead.needScore != null && (
-                      <div className="h-full bg-red-400" style={{ width: `${lead.needScore * 45}%` }} />
-                    )}
-                    {lead.timingScore != null && (
-                      <div className="h-full bg-amber-400" style={{ width: `${lead.timingScore * 30}%` }} />
-                    )}
-                    {fitScore != null && (
-                      <div className="h-full bg-emerald-400" style={{ width: `${fitScore * 25}%` }} />
-                    )}
+                  <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-2.5">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-amber-700">Timing</p>
+                    <p className="text-[11px] leading-relaxed text-amber-900/80">{timingRationale(lead)}</p>
                   </div>
-                  <div className="mt-2 flex gap-4 text-xs">
-                    {lead.needScore != null && (
-                      <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-2 w-2 rounded-sm bg-red-400" />
-                        <span className="text-amber-900/70">Risk</span>
-                        <span className="font-semibold text-amber-950">
-                          {Math.round(lead.needScore * 45)}
-                          <span className="font-normal text-amber-900/50">/45</span>
-                        </span>
-                      </span>
-                    )}
-                    {lead.timingScore != null && (
-                      <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-2 w-2 rounded-sm bg-amber-400" />
-                        <span className="text-amber-900/70">Timing</span>
-                        <span className="font-semibold text-amber-950">
-                          {Math.round(lead.timingScore * 30)}
-                          <span className="font-normal text-amber-900/50">/30</span>
-                        </span>
-                      </span>
-                    )}
-                    {fitScore != null && (
-                      <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-2 w-2 rounded-sm bg-emerald-400" />
-                        <span className="text-amber-900/70">Fit</span>
-                        <span className="font-semibold text-amber-950">
-                          {Math.round(fitScore * 25)}
-                          <span className="font-normal text-amber-900/50">/25</span>
-                        </span>
-                      </span>
-                    )}
+                  <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-2.5">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Fit</p>
+                    <p className="text-[11px] leading-relaxed text-emerald-900/80">
+                      {scoreBreakdown.hasFitData
+                        ? fitRationale(lead)
+                        : "No neighborhood census profile on this record — fit contributes 0 of 25."}
+                    </p>
                   </div>
-                  <div className="mt-4 grid grid-cols-3 gap-2">
-                    {lead.needScore != null && (
-                      <div className="rounded-lg border border-red-100 bg-red-50/60 p-2.5">
-                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-red-700">Risk</p>
-                        <p className="text-[11px] leading-relaxed text-red-900/80">{riskRationale(lead)}</p>
-                      </div>
-                    )}
-                    {lead.timingScore != null && (
-                      <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-2.5">
-                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-amber-700">Timing</p>
-                        <p className="text-[11px] leading-relaxed text-amber-900/80">{timingRationale(lead)}</p>
-                      </div>
-                    )}
-                    {fitScore != null && (
-                      <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-2.5">
-                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Fit</p>
-                        <p className="text-[11px] leading-relaxed text-emerald-900/80">{fitRationale(lead)}</p>
-                      </div>
-                    )}
-                  </div>
-                </>
-              );
-            })()}
+                </div>
+              </>
+            ) : (
+              <div className="western-score-track h-4 overflow-hidden">
+                <div
+                  className="western-score-fill h-full"
+                  style={{ width: `${displayScore}%`, backgroundColor: barColor }}
+                />
+              </div>
+            )}
             {lead.urgent && (
               <p className="mt-3 text-sm font-semibold text-purple-600">! High-priority outreach</p>
             )}
@@ -521,7 +515,7 @@ export function LeadSidePanel({
               Household profile
             </h3>
             {(() => {
-              const priority = priorityLabel(lead.matchScore);
+              const priority = priorityLabel(displayScore);
               const factors = priorityFactors(lead);
               return (
                 <div className={`mb-3 rounded-lg border ${priority.border} ${priority.bg} px-3 py-2.5`}>

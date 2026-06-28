@@ -17,9 +17,9 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "HouseholdIQ — Coverage Board",
+  title: "Bounty Hunter",
   description:
-    "Insurance lead qualification for SF homeowners — discover underinsured households on a wild-west coverage map.",
+    "Customer acquisition on the frontier.",
 };
 
 const clerkAppearance = {

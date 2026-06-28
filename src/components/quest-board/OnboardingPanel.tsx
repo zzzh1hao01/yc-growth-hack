@@ -71,10 +71,10 @@ export function OnboardingPanel({ onComplete, userId, orgId }: OnboardingPanelPr
   return (
     <aside className="western-panel absolute left-4 top-4 z-30 w-full max-w-sm overflow-visible p-5">
       <div className="western-panel-header">
-        <h2 className="western-title text-lg">Saddle up, agent</h2>
-        <p className="western-body mt-1">
-          Your office address centers the map. Leads are ranked by need and timing — not distance
-          from your office.
+        <h2 className="western-title text-lg">Bounty Hunter</h2>
+        <p className="western-body mt-1">Customer acquisition on the frontier.</p>
+        <p className="western-label mt-2 text-[11px] normal-case tracking-normal opacity-80">
+          Saddle up with your office address to center the map and start the hunt.
         </p>
       </div>
 
