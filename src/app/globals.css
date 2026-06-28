@@ -101,20 +101,20 @@ h3 {
   white-space: nowrap;
 }
 
-/* Google Places autocomplete widget */
-.householdiq-autocomplete-host gmp-place-autocomplete {
-  width: 100%;
-}
-
-gmp-place-autocomplete {
-  z-index: 10000;
-}
-
-/* Legacy Places dropdown above onboarding panel */
+/* Legacy Places dropdown — appended to document body by Google Maps */
 .pac-container {
-  z-index: 10000 !important;
+  z-index: 20000 !important;
   border-radius: 12px;
   border: 1px solid rgba(217, 119, 6, 0.35);
   box-shadow: 0 8px 24px rgba(69, 26, 3, 0.15);
   font-family: var(--font-body), system-ui, sans-serif;
+}
+
+.pac-item {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.pac-item:hover {
+  background: rgba(255, 249, 240, 0.95);
 }

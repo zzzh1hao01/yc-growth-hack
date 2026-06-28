@@ -185,6 +185,9 @@ export function resolveServiceAreas(lat: number, lng: number): {
   };
 }
 
+/** Household ETL is currently loaded for western SF only. */
+export const ETL_HOUSEHOLD_COVERAGE_LABEL = "Sunset / Parkside";
+
 export function leadRegionId(lat: number, lng: number): string | null {
   return findPrimaryRegion(lat, lng)?.id ?? null;
 }

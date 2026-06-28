@@ -85,19 +85,15 @@ export function QuestBoard() {
     if (convexLeads.length > 0) {
       return {
         leads: convexLeads as Lead[],
-        dataSourceLabel: contractor?.serviceRegionLabel
-          ? `Demo · ${contractor.serviceRegionLabel}`
-          : "Convex · demo sample",
+        dataSourceLabel: "Demo · Sunset / Parkside · ranked near you",
       };
     }
 
     return {
       leads: [] as Lead[],
-      dataSourceLabel: contractor?.serviceRegionLabel
-        ? `No leads in ${contractor.serviceRegionLabel}`
-        : "No leads in your service area",
+      dataSourceLabel: "No household data loaded",
     };
-  }, [convexLeads, onboarded, contractor?.serviceRegionLabel]);
+  }, [convexLeads, onboarded]);
 
   const handleOnboardingComplete = useCallback((c: Contractor) => {
     setContractor(c);
@@ -208,14 +204,11 @@ export function QuestBoard() {
 
         {onboarded && convexLeads !== undefined && leads.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <p className="text-lg font-bold text-amber-950">No leads in your service area</p>
+            <p className="text-lg font-bold text-amber-950">No household data loaded</p>
             <p className="max-w-md text-sm text-amber-900/70">
-              Your business maps to{" "}
-              <span className="font-semibold">
-                {contractor?.serviceRegionLabel ?? "nearby SF neighborhoods"}
-              </span>
-              . Household data for this zone has not been imported yet — leads appear as ETL
-              coverage expands across the city.
+              The demo bounty board needs Sunset / Parkside household records in Convex. Run{" "}
+              <code className="rounded bg-white/80 px-1 py-0.5 text-xs">scripts/import-sunset-leads.sh</code>{" "}
+              or seed the database, then refresh.
             </p>
           </div>
         )}

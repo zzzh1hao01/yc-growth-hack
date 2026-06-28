@@ -19,25 +19,14 @@ const SF_BOUNDS = {
   east: -122.355,
 };
 
-const SF_BIAS = { center: { lat: 37.7749, lng: -122.4194 }, radius: 12000 };
-
-function styleAutocompleteHost(el: HTMLElement) {
-  el.style.width = "100%";
-  el.style.display = "block";
-  el.style.backgroundColor = "#ffffff";
-  el.style.border = "1px solid rgb(253 230 138)";
-  el.style.borderRadius = "0.5rem";
-  el.style.colorScheme = "light";
-}
-
 export function AddressAutocomplete({
   value,
   onChange,
   placeholder = "Start typing your address…",
   required,
-  className,
+  className = "mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-amber-950 outline-none focus:border-amber-500",
 }: AddressAutocompleteProps) {
-  const hostRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const onChangeRef = useRef(onChange);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -52,6 +41,7 @@ export function AddressAutocomplete({
       setLoadError("Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.");
       return;
     }
+
     const mapsKey = apiKey;
 
     let cancelled = false;
@@ -60,73 +50,18 @@ export function AddressAutocomplete({
     async function init() {
       try {
         await loadGooglePlaces(mapsKey);
-        if (cancelled || !hostRef.current) return;
+        if (cancelled || !inputRef.current || !window.google?.maps?.places) return;
 
-        const placesLib = await window.google.maps.importLibrary("places");
-
-        if (placesLib.PlaceAutocompleteElement) {
-          const el = new placesLib.PlaceAutocompleteElement({
-            includedRegionCodes: ["us"],
-          });
-          el.placeholder = placeholder;
-          el.locationBias = SF_BIAS;
-          styleAutocompleteHost(el);
-          if (className) el.className = className;
-
-          const onSelect = async (event: Event) => {
-            const selectEvent = event as {
-              placePrediction?: { toPlace: () => { fetchFields: (opts: { fields: string[] }) => Promise<void>; formattedAddress?: string } };
-            };
-            if (!selectEvent.placePrediction) return;
-
-            try {
-              const place = selectEvent.placePrediction.toPlace();
-              await place.fetchFields({ fields: ["formattedAddress"] });
-              const address = place.formattedAddress;
-              if (address) onChangeRef.current(address);
-            } catch {
-              // ignore fetch errors
-            }
-          };
-
-          const onInput = () => {
-            const text = (el as HTMLElement & { value?: string }).value?.trim();
-            if (text) onChangeRef.current(text);
-          };
-
-          el.addEventListener("gmp-select", onSelect);
-          el.addEventListener("input", onInput);
-
-          hostRef.current.replaceChildren(el);
-          cleanup = () => {
-            el.removeEventListener("gmp-select", onSelect);
-            el.removeEventListener("input", onInput);
-          };
-          setReady(true);
-          return;
-        }
-
-        // Legacy Autocomplete fallback (requires classic Places API).
-        const input = document.createElement("input");
-        input.type = "text";
-        input.placeholder = placeholder;
-        input.autocomplete = "off";
-        if (className) input.className = className;
-        input.addEventListener("input", () => onChangeRef.current(input.value));
-        input.addEventListener("blur", () =>
-          onChangeRef.current(input.value.trim()),
+        const input = inputRef.current;
+        const bounds = new window.google.maps.LatLngBounds(
+          new window.google.maps.LatLng(SF_BOUNDS.south, SF_BOUNDS.west),
+          new window.google.maps.LatLng(SF_BOUNDS.north, SF_BOUNDS.east),
         );
 
-        hostRef.current.replaceChildren(input);
-
-        const autocomplete = new placesLib.Autocomplete(input, {
+        const autocomplete = new window.google.maps.places.Autocomplete(input, {
           componentRestrictions: { country: "us" },
           fields: ["formatted_address", "geometry", "name"],
-          types: ["address"],
-          bounds: new window.google.maps.LatLngBounds(
-            new window.google.maps.LatLng(SF_BOUNDS.south, SF_BOUNDS.west),
-            new window.google.maps.LatLng(SF_BOUNDS.north, SF_BOUNDS.east),
-          ),
+          bounds,
           strictBounds: false,
         });
 
@@ -134,7 +69,10 @@ export function AddressAutocomplete({
           const place = autocomplete.getPlace();
           const address =
             place.formatted_address ?? place.name ?? input.value ?? "";
-          if (address) onChangeRef.current(address);
+          if (address) {
+            input.value = address;
+            onChangeRef.current(address);
+          }
         });
 
         cleanup = () => listener.remove();
@@ -152,23 +90,25 @@ export function AddressAutocomplete({
       cancelled = true;
       cleanup?.();
     };
-  }, [className, placeholder]);
+  }, []);
 
   useEffect(() => {
-    if (value !== "" || !hostRef.current) return;
-    const input = hostRef.current.querySelector("input");
-    if (input instanceof HTMLInputElement) input.value = "";
-    const widget = hostRef.current.querySelector("gmp-place-autocomplete") as
-      | (HTMLElement & { value?: string })
-      | null;
-    if (widget && "value" in widget) widget.value = "";
+    if (inputRef.current && inputRef.current.value !== value) {
+      inputRef.current.value = value;
+    }
   }, [value]);
 
   return (
-    <div>
-      <div
-        ref={hostRef}
-        className={`householdiq-autocomplete-host min-h-[42px] ${ready ? "" : "opacity-80"}`}
+    <div className="relative z-50">
+      <input
+        ref={inputRef}
+        type="text"
+        defaultValue={value}
+        placeholder={placeholder}
+        autoComplete="off"
+        className={className}
+        onChange={(event) => onChangeRef.current(event.target.value)}
+        onBlur={(event) => onChangeRef.current(event.target.value.trim())}
       />
       {!ready && !loadError && (
         <p className="mt-1 text-[10px] text-amber-800/60">Loading address search…</p>

@@ -61,6 +61,10 @@ export const listLeads = query({
       scoped = docs.filter((doc) =>
         leadInServiceAreas(doc.lat, doc.lng, serviceRegionIds!),
       );
+      // Demo ETL only covers Sunset/Parkside — still rank those leads by contractor proximity.
+      if (scoped.length === 0) {
+        scoped = docs;
+      }
     }
 
     const vertical = pickVertical(serviceProfile);

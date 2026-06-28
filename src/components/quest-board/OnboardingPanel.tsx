@@ -57,7 +57,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
   );
 
   return (
-    <aside className="absolute left-4 top-4 z-20 w-full max-w-sm rounded-2xl border border-amber-300/70 bg-[#fff9f0]/95 p-5 shadow-xl backdrop-blur-sm">
+    <aside className="absolute left-4 top-4 z-30 w-full max-w-sm overflow-visible rounded-2xl border border-amber-300/70 bg-[#fff9f0]/95 p-5 shadow-xl backdrop-blur-sm">
       <h2 className="text-lg font-bold text-amber-950">Contractor setup</h2>
       <p className="mt-1 text-xs leading-relaxed text-amber-900/70">
         Your address ranks nearby households on the bounty board. Company lookup runs in
@@ -88,13 +88,12 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           />
         </label>
 
-        <label className="block text-xs font-semibold text-amber-900">
+        <label className="relative z-50 block text-xs font-semibold text-amber-900">
           Business address (San Francisco)
           <AddressAutocomplete
             required
             value={businessAddress}
             onChange={setBusinessAddress}
-            className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-amber-950 outline-none focus:border-amber-500"
             placeholder="Start typing your address…"
           />
         </label>
