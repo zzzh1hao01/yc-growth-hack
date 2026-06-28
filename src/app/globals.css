@@ -101,20 +101,29 @@ h3 {
   white-space: nowrap;
 }
 
-/* Legacy Places dropdown — appended to document body by Google Maps */
-.pac-container {
-  z-index: 20000 !important;
-  border-radius: 12px;
-  border: 1px solid rgba(217, 119, 6, 0.35);
-  box-shadow: 0 8px 24px rgba(69, 26, 3, 0.15);
-  font-family: var(--font-body), system-ui, sans-serif;
+/* Google Places (New) autocomplete widget — contractor onboarding */
+.address-autocomplete-host {
+  width: 100%;
 }
 
-.pac-item {
-  padding: 8px 12px;
-  cursor: pointer;
+.address-autocomplete-mount {
+  width: 100%;
 }
 
-.pac-item:hover {
-  background: rgba(255, 249, 240, 0.95);
+gmp-place-autocomplete.address-autocomplete-input {
+  display: block;
+  width: 100%;
+  color-scheme: light;
+  --gmp-place-autocomplete-input-border-radius: 0.5rem;
+  --gmp-place-autocomplete-input-border-color: rgb(253 230 138);
+  --gmp-place-autocomplete-input-focus-border-color: rgb(245 158 11);
+  --gmp-place-autocomplete-input-background-color: #fff;
+  --gmp-place-autocomplete-input-text-color: rgb(69 26 3);
+  --gmp-place-autocomplete-input-placeholder-color: rgb(146 64 14 / 0.45);
+  --gmp-place-autocomplete-input-font-size: 0.875rem;
+  --gmp-place-autocomplete-input-padding: 0.5rem 0.75rem;
+}
+
+gmp-place-autocomplete.address-autocomplete-input:focus-within {
+  outline: none;
 }

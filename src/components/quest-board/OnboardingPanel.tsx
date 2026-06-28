@@ -24,6 +24,13 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
     async (e: React.FormEvent) => {
       e.preventDefault();
       setError(null);
+
+      const trimmedAddress = businessAddress.trim();
+      if (!trimmedAddress) {
+        setError("Enter your business address in San Francisco.");
+        return;
+      }
+
       setLoading(true);
 
       try {
@@ -32,7 +39,7 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
           sessionId,
           name: name.trim(),
           businessDescription: businessDescription.trim(),
-          businessAddress: businessAddress.trim(),
+          businessAddress: trimmedAddress,
         });
 
         onComplete({
@@ -91,8 +98,6 @@ export function OnboardingPanel({ onComplete }: OnboardingPanelProps) {
         <label className="relative z-50 block text-xs font-semibold text-amber-900">
           Business address (San Francisco)
           <AddressAutocomplete
-            required
-            value={businessAddress}
             onChange={setBusinessAddress}
             placeholder="Start typing your address…"
           />

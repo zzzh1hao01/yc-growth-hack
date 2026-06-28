@@ -1,29 +1,53 @@
+export interface PlaceAutocompleteElementOptions {
+  includedRegionCodes?: string[];
+  locationBias?: {
+    radius: number;
+    center: { lat: number; lng: number };
+  };
+  includedPrimaryTypes?: string[];
+}
+
+export interface PlaceAutocompleteElement extends HTMLElement {
+  placeholder: string;
+  includedRegionCodes: string[];
+  locationBias: PlaceAutocompleteElementOptions["locationBias"] | null;
+  includedPrimaryTypes: string[];
+  addEventListener(
+    type: "gmp-select",
+    listener: (event: PlacePredictionSelectEvent) => void,
+  ): void;
+  addEventListener(type: "input", listener: (event: Event) => void): void;
+}
+
+export interface PlacePredictionSelectEvent extends Event {
+  placePrediction: {
+    toPlace: () => PlaceResult;
+  };
+}
+
+export interface PlaceResult {
+  fetchFields: (options: { fields: string[] }) => Promise<void>;
+  formattedAddress?: string;
+  location?: { lat: number; lng: number };
+}
+
+export interface PlacesLibrary {
+  PlaceAutocompleteElement: new (
+    options?: PlaceAutocompleteElementOptions,
+  ) => PlaceAutocompleteElement;
+}
+
 declare global {
   interface Window {
     google?: {
       maps?: {
-        places?: {
-          Autocomplete: new (
-            input: HTMLInputElement,
-            opts?: Record<string, unknown>,
-          ) => {
-            getPlace: () => {
-              formatted_address?: string;
-              name?: string;
-            };
-            addListener: (event: string, handler: () => void) => { remove: () => void };
-          };
-        };
-        LatLng: new (lat: number, lng: number) => unknown;
-        LatLngBounds: new (sw: unknown, ne: unknown) => unknown;
+        importLibrary: (library: "places" | string) => Promise<PlacesLibrary>;
       };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      [key: string]: any;
     };
   }
 }
 
-let loadPromise: Promise<void> | null = null;
+let loadPromise: Promise<PlacesLibrary> | null = null;
 
 export function formatGoogleMapsError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
@@ -31,7 +55,7 @@ export function formatGoogleMapsError(err: unknown): string {
     return "Google API key blocked this site — add https://yc-growth-hack.vercel.app/* and http://localhost:3000/* under HTTP referrers in Google Cloud Console.";
   }
   if (/ApiNotActivatedMapError|AccessNotConfigured|ApiTargetBlockedMapError/i.test(msg)) {
-    return "Enable Maps JavaScript API and Places API on your Google Cloud project (billing required).";
+    return "Enable Maps JavaScript API and Places API (New) on your Google Cloud project (billing required).";
   }
   if (/could not load|did not load/i.test(msg)) {
     return "Google Maps script failed to load — check API key, billing, and network.";
@@ -39,46 +63,62 @@ export function formatGoogleMapsError(err: unknown): string {
   return msg || "Google Places failed to load.";
 }
 
-export function loadGooglePlaces(apiKey: string): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
-
-  if (window.google?.maps?.places?.Autocomplete) {
+function loadMapsScript(apiKey: string): Promise<void> {
+  if (window.google?.maps?.importLibrary) {
     return Promise.resolve();
+  }
+
+  const existing = document.getElementById("google-maps-script");
+  if (existing) {
+    return new Promise((resolve, reject) => {
+      if (window.google?.maps?.importLibrary) {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Google Maps script could not load")),
+        { once: true },
+      );
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.id = "google-maps-script";
+    script.async = true;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async`;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Google Maps script could not load"));
+    document.head.appendChild(script);
+  });
+}
+
+export function loadGooglePlaces(apiKey: string): Promise<PlacesLibrary> {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Google Places is only available in the browser"));
   }
 
   if (loadPromise) return loadPromise;
 
-  loadPromise = new Promise<void>((resolve, reject) => {
-    const callbackName = "__householdiqMapsInit";
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const win = window as any;
-    win[callbackName] = () => {
-      delete win[callbackName];
-      if (window.google?.maps?.places?.Autocomplete) {
-        resolve();
-        return;
+  loadPromise = loadMapsScript(apiKey)
+    .then(async () => {
+      const importLibrary = window.google?.maps?.importLibrary;
+      if (!importLibrary) {
+        throw new Error("Google Maps importLibrary did not load");
       }
-      reject(new Error("Places Autocomplete did not load"));
-    };
-
-    const existing = document.getElementById("google-maps-places-script");
-    if (existing) {
-      existing.addEventListener("load", () => win[callbackName]?.());
-      existing.addEventListener("error", () => reject(new Error("Google Maps script could not load")));
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.id = "google-maps-places-script";
-    script.async = true;
-    script.defer = true;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&callback=${callbackName}&loading=async`;
-    script.onerror = () => reject(new Error("Google Maps script could not load"));
-    document.head.appendChild(script);
-  }).catch((err) => {
-    loadPromise = null;
-    throw new Error(formatGoogleMapsError(err));
-  });
+      return importLibrary("places");
+    })
+    .catch((err) => {
+      loadPromise = null;
+      throw new Error(formatGoogleMapsError(err));
+    });
 
   return loadPromise;
+}
+
+export function readPlaceAutocompleteValue(element: PlaceAutocompleteElement): string {
+  const input = element.shadowRoot?.querySelector("input");
+  return input?.value ?? "";
 }

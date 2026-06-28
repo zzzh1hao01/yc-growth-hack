@@ -2,113 +2,125 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { formatGoogleMapsError, loadGooglePlaces } from "@/lib/google-places";
+import {
+  formatGoogleMapsError,
+  loadGooglePlaces,
+  readPlaceAutocompleteValue,
+  type PlacePredictionSelectEvent,
+} from "@/lib/google-places";
 
 type AddressAutocompleteProps = {
-  value: string;
   onChange: (address: string) => void;
   placeholder?: string;
-  required?: boolean;
   className?: string;
 };
 
-const SF_BOUNDS = {
-  south: 37.708,
-  west: -122.515,
-  north: 37.832,
-  east: -122.355,
-};
+const SF_CENTER = { lat: 37.77, lng: -122.42 };
+const SF_BIAS_RADIUS_METERS = 8000;
+const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 export function AddressAutocomplete({
   onChange,
   placeholder = "Start typing your address…",
-  required,
   className = "mt-1 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-amber-950 outline-none focus:border-amber-500",
 }: AddressAutocompleteProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
-  const [ready, setReady] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [ready, setReady] = useState(!mapsApiKey);
+  const [loadError, setLoadError] = useState<string | null>(
+    mapsApiKey ? null : "Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.",
+  );
+  const [useFallbackInput, setUseFallbackInput] = useState(!mapsApiKey);
 
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
 
   useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      setLoadError("Missing NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.");
-      return;
-    }
+    const apiKey = mapsApiKey;
+    if (!apiKey) return;
 
-    const mapsKey = apiKey;
     let cancelled = false;
     let cleanup: (() => void) | undefined;
 
-    async function init() {
+    async function init(resolvedApiKey: string) {
       try {
-        await loadGooglePlaces(mapsKey);
-        if (cancelled || !inputRef.current) return;
+        const { PlaceAutocompleteElement } = await loadGooglePlaces(resolvedApiKey);
+        if (cancelled || !containerRef.current) return;
 
-        const Autocomplete = window.google?.maps?.places?.Autocomplete;
-        if (!Autocomplete) {
-          throw new Error("Places Autocomplete did not load");
-        }
-
-        const input = inputRef.current;
-        const bounds = new window.google!.maps!.LatLngBounds(
-          new window.google!.maps!.LatLng(SF_BOUNDS.south, SF_BOUNDS.west),
-          new window.google!.maps!.LatLng(SF_BOUNDS.north, SF_BOUNDS.east),
-        );
-
-        const autocomplete = new Autocomplete(input, {
-          componentRestrictions: { country: "us" },
-          fields: ["formatted_address", "geometry", "name"],
-          bounds,
-          strictBounds: false,
+        const autocomplete = new PlaceAutocompleteElement({
+          includedRegionCodes: ["us"],
+          locationBias: {
+            radius: SF_BIAS_RADIUS_METERS,
+            center: SF_CENTER,
+          },
+          includedPrimaryTypes: ["street_address", "premise", "subpremise"],
         });
 
-        const listener = autocomplete.addListener("place_changed", () => {
-          const place = autocomplete.getPlace();
-          const address =
-            place.formatted_address ?? place.name ?? input.value ?? "";
-          if (address) {
-            input.value = address;
-            onChangeRef.current(address);
-          }
-        });
+        autocomplete.placeholder = placeholder;
+        autocomplete.className = `address-autocomplete-input ${className}`;
 
-        cleanup = () => listener.remove();
+        const handleInput = () => {
+          onChangeRef.current(readPlaceAutocompleteValue(autocomplete).trim());
+        };
+
+        const handleSelect = (event: Event) => {
+          void (async () => {
+            const selectEvent = event as PlacePredictionSelectEvent;
+            const place = selectEvent.placePrediction.toPlace();
+            await place.fetchFields({ fields: ["formattedAddress", "location"] });
+            const address =
+              place.formattedAddress ?? readPlaceAutocompleteValue(autocomplete);
+            if (address) {
+              onChangeRef.current(address);
+            }
+          })();
+        };
+
+        autocomplete.addEventListener("input", handleInput);
+        autocomplete.addEventListener("gmp-select", handleSelect);
+
+        containerRef.current.replaceChildren(autocomplete);
+
+        cleanup = () => {
+          autocomplete.removeEventListener("input", handleInput);
+          autocomplete.removeEventListener("gmp-select", handleSelect);
+          autocomplete.remove();
+        };
+
         setReady(true);
       } catch (err) {
         if (!cancelled) {
           setLoadError(formatGoogleMapsError(err));
+          setUseFallbackInput(true);
           setReady(true);
         }
       }
     }
 
-    void init();
+    void init(apiKey);
 
     return () => {
       cancelled = true;
       cleanup?.();
     };
-  }, []);
+  }, [className, placeholder]);
 
   return (
-    <div className="relative z-50">
-      <input
-        ref={inputRef}
-        type="text"
-        name="businessAddress"
-        placeholder={placeholder}
-        autoComplete="off"
-        required={required}
-        className={className}
-        onInput={(event) => onChangeRef.current(event.currentTarget.value)}
-        onBlur={(event) => onChangeRef.current(event.currentTarget.value.trim())}
-      />
+    <div className="address-autocomplete-host relative z-50">
+      {useFallbackInput ? (
+        <input
+          type="text"
+          name="businessAddress"
+          placeholder={placeholder}
+          autoComplete="off"
+          className={className}
+          onInput={(event) => onChangeRef.current(event.currentTarget.value)}
+          onBlur={(event) => onChangeRef.current(event.currentTarget.value.trim())}
+        />
+      ) : (
+        <div ref={containerRef} className="address-autocomplete-mount" />
+      )}
       {!ready && !loadError && (
         <p className="mt-1 text-[10px] text-amber-800/60">Loading address search…</p>
       )}
