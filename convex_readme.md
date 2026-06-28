@@ -1,819 +1,364 @@
-# Convex Integration Guide — HouseholdIQ
+# Convex Build Guide — HouseholdIQ
 
-> **Audience:** Coding agents and engineers joining this repo.  
-> **Status:** Architecture spec — no Convex code exists yet. This document is the source of truth for how Convex should be wired into HouseholdIQ.  
-> **Product context:** See [`BRIEF.md`](./BRIEF.md) for full product requirements.
+> **For:** teammates picking up backend / integration work  
+> **Branch with live UI:** `feature/quest-board-ui`  
+> **Product context:** [`BRIEF.md`](./BRIEF.md)
 
----
-
-## Table of Contents
-
-1. [What Convex Does](#what-convex-does)
-2. [Why Convex Fits This Architecture](#why-convex-fits-this-architecture)
-3. [Recommended Schema](#recommended-schema)
-4. [Recommended `convex/` Folder Structure](#recommended-convex-folder-structure)
-5. [Queries the Frontend Will Need](#queries-the-frontend-will-need)
-6. [Mutations & Actions the Backend Will Need](#mutations--actions-the-backend-will-need)
-7. [Next.js ↔ Convex Integration](#nextjs--convex-integration)
-8. [ETL Pipeline → Convex Data Insertion](#etl-pipeline--convex-data-insertion)
-9. [OpenAI Persona Generation Flow](#openai-persona-generation-flow)
-10. [Environment Variables & Secrets](#environment-variables--secrets)
-11. [Agent Checklist (Implementation Order)](#agent-checklist-implementation-order)
+This doc is a **build list**, not an architecture essay. Each section = exact functions to implement, where they live, and where the frontend calls them.
 
 ---
 
-## What Convex Does
+## What's already done
 
-[Convex](https://docs.convex.dev/) is a **reactive, serverless backend** that combines:
+| Function | File | Status |
+|----------|------|--------|
+| `listLeads` | `convex/leads.ts` | ✅ Shipped |
+| `upsertLead` | `convex/leads.ts` | ✅ Shipped |
+| `bulkUpsertLeads` | `convex/leads.ts` | ✅ Shipped |
+| `clearAllLeads` | `convex/leads.ts` | ✅ Shipped |
+| `leads` table | `convex/schema.ts` | ✅ Shipped |
+| UI reads Convex | `QuestBoard.tsx` → `useQuery(api.leads.listLeads)` | ✅ Shipped (blocks map while loading — see fix below) |
 
-| Capability | What it means for HouseholdIQ |
-|---|---|
-| **Document database** | Stores households (leads), personas, chat history, and contractor sessions |
-| **Queries** | Read-only, reactive functions — the map and chat UI auto-update when data changes |
-| **Mutations** | Transactional writes — contractor onboarding, chat messages, lead status updates |
-| **Actions** | Call external APIs (OpenAI, Orange Slice) — no direct DB access; use `ctx.runMutation` to persist results |
-| **HTTP actions** | REST endpoints at `https://<deployment>.convex.site` — used by the Python ETL pipeline |
-| **Scheduler** | `ctx.scheduler.runAfter(0, …)` — trigger async OpenAI persona generation after a mutation |
-| **Real-time subscriptions** | `useQuery` on the client maintains a live WebSocket — map and chat update without polling |
+**Not built yet:** contractors, personas, chat, enrichment, ETL HTTP, onboarding UI.
 
-For HouseholdIQ specifically, Convex is the **single source of truth** between:
+---
+
+## Build order (do in this sequence)
 
 ```
-Python ETL  ──►  Convex DB  ◄──►  Next.js UI (map + chat)
-                      │
-                      ├── OpenAI (persona narration + contractor profile extraction)
-                      └── Orange Slice (contact enrichment — via Convex action)
+1. Fix map loading gate          ← unblocks Vercel demo
+2. Seed / ETL → bulkUpsertLeads  ← real pins on map
+3. contractors.create + getBySession
+4. leads.getByExternalId + markViewed + updateStatus
+5. personas.ensurePersona + getByLead
+6. chat.listMessages + sendMessage
+7. enrichment.requestContactInfo
+8. http.ts ETL routes            ← Python team calls these
 ```
 
 ---
 
-## Why Convex Fits This Architecture
+## Slice 1 — Unblock live demo (frontend + 0 new Convex functions)
 
-### 1. Real-time map updates
+**Problem:** [yc-growth-hack.vercel.app](https://yc-growth-hack.vercel.app/) stuck on "Loading leads from Convex…"
 
-The bounty board map shows sprites at address coordinates, colored by match score. When a contractor pursues a lead or a persona finishes generating, the UI should reflect that instantly. Convex `useQuery` hooks maintain a live WebSocket subscription — no polling, no manual cache invalidation.
+**Fix in `src/components/quest-board/QuestBoard.tsx`:**
 
-### 2. Chat is inherently reactive
+Show `QuestMap` immediately with `PLACEHOLDER_LEADS` while `convexLeads === undefined`. Only swap to Convex data when the query resolves.
 
-Persona chat is a stream of messages between contractor and AI. Convex stores each message as a document; the chat panel subscribes to `listChatMessages` and appends new messages as they arrive (including assistant responses written by actions).
+```tsx
+// Remove this gate:
+{convexLeads === undefined && process.env.NEXT_PUBLIC_CONVEX_URL ? (
+  <div>Loading leads from Convex…</div>
+) : (
+  <QuestMap ... />
+)}
 
-### 3. Clean separation of write paths
-
-| Writer | Path |
-|---|---|
-| Python ETL (offline batch) | HTTP action → internal mutation (bulk upsert households) |
-| Next.js UI (contractor) | Public mutation (onboarding, send message, pursue lead) |
-| OpenAI / Orange Slice (async) | Action → internal mutation (store persona or contact info) |
-
-Each path has a clear boundary. ETL never touches the frontend; the frontend never calls OpenAI directly (API keys stay in Convex env vars).
-
-### 4. Hackathon-friendly, no infra
-
-No Postgres provisioning, no Redis, no WebSocket server to maintain. `npx convex dev` gives local dev + cloud deployment. TypeScript types are generated from `schema.ts` into `convex/_generated/`.
-
-### 5. MVP has no auth
-
-The brief specifies no account required for MVP. Convex supports anonymous sessions via a client-generated `sessionId` stored in `localStorage` and passed to mutations. Auth (Clerk/Auth0) can be added later without changing the schema shape.
-
----
-
-## Recommended Schema
-
-Define in `convex/schema.ts`. All tables get `_id` and `_creationTime` automatically.
-
-### Supporting table: `demographicClusters`
-
-Pre-loaded by ETL. Referenced by households and personas. Not one of the four core tables but required for clustering.
-
-```typescript
-demographicClusters: defineTable({
-  slug: v.string(),               // e.g. "long-time-high-income-owner"
-  label: v.string(),              // display name
-  description: v.string(),
-  // Behavioral trait distributions from AHS/CEX/GSS/Pew (aggregate, not PII)
-  traits: v.object({
-    hireOutLikelihood: v.number(),       // 0–1
-    diyRate: v.number(),
-    trustInProviders: v.number(),
-    referralPreference: v.number(),
-    channelPreferences: v.object({
-      yelp: v.number(),
-      nextdoor: v.number(),
-      google: v.number(),
-      wordOfMouth: v.number(),
-    }),
-    delayRepairReasons: v.array(v.string()),
-    maintenanceSpendBracket: v.string(), // e.g. "high", "medium", "low"
-  }),
-  personaTemplate: v.string(),    // base system prompt fragment for this cluster
-}).index("by_slug", ["slug"]),
+// Always render QuestMap; leads memo already handles fallback
+<QuestMap leads={leads} ... />
 ```
 
+**Owner:** frontend · **No new Convex functions**
+
 ---
 
-### `households`
+## Slice 2 — Load real leads (ETL → existing functions)
 
-One document per scored address/parcel. This is the core lead entity surfaced on the map.
+**Use what's shipped.** ETL does not need new Convex code until HTTP routes are added.
 
-```typescript
-households: defineTable({
-  // Identity & geo
-  normalizedAddress: v.string(),  // canonical key for upserts from ETL
-  streetAddress: v.string(),
-  city: v.literal("San Francisco"),
-  zipCode: v.string(),
-  neighborhood: v.string(),
-  lat: v.number(),
-  lng: v.number(),
-  parcelId: v.optional(v.string()),
+### Call from Python / seed script
 
-  // Assessor signals
-  ownerOccupied: v.boolean(),
-  assessedValue: v.optional(v.number()),
-  lastSaleDate: v.optional(v.string()),   // ISO date
-  homeAgeYears: v.optional(v.number()),
-
-  // Permit signals (HVAC + electrical verticals)
-  permits: v.array(v.object({
-    permitType: v.string(),         // raw SF taxonomy value
-    vertical: v.union(v.literal("hvac"), v.literal("electrical")),
-    datePulled: v.optional(v.string()),
-    dateFinaled: v.optional(v.string()),
-    isOpen: v.boolean(),            // unfinalized → exclusion flag
-  })),
-  lastHvacPermitAgeYears: v.optional(v.number()),
-  lastElectricalPermitAgeYears: v.optional(v.number()),
-
-  // Census / clustering
-  censusBlockGroup: v.optional(v.string()),
-  clusterId: v.id("demographicClusters"),
-
-  // Lead scoring (computed offline in ETL, stored here)
-  matchScore: v.number(),           // 0–100 composite
-  proximityScore: v.optional(v.number()),
-  urgencyFlag: v.boolean(),         // exclamation mark overlay
-  scoringBreakdown: v.optional(v.object({
-    permitAge: v.number(),
-    ownerOccupied: v.number(),
-    incomeFit: v.number(),
-    behavioralFit: v.number(),
-    homeAge: v.number(),
-    proximity: v.number(),
-  })),
-  excluded: v.boolean(),            // true if open permit / failed filters
-  exclusionReason: v.optional(v.string()),
-
-  // Map sprite rendering
-  spriteColor: v.union(v.literal("green"), v.literal("red")),
-  spriteVariant: v.number(),        // 0–N for visual diversity
-
-  // Contractor interaction state (per-household, updated at runtime)
-  status: v.union(
-    v.literal("available"),
-    v.literal("viewed"),
-    v.literal("pursued"),
-    v.literal("skipped"),
-  ),
-
-  // Orange Slice enrichment (populated on "Get contact info")
-  contactInfo: v.optional(v.object({
-    phone: v.optional(v.string()),
-    email: v.optional(v.string()),
-    enrichedAt: v.number(),
-  })),
-
-  etlBatchId: v.optional(v.string()), // trace which ETL run loaded this row
-})
-  .index("by_normalizedAddress", ["normalizedAddress"])
-  .index("by_neighborhood_score", ["neighborhood", "matchScore"])
-  .index("by_cluster", ["clusterId"])
-  .index("by_status", ["status"]),
+```ts
+// convex/leads.ts — already exists
+api.leads.bulkUpsertLeads({ leads: [...] })
 ```
 
-**Design notes for agents:**
+Each row must match `leadFields` in `convex/leads.ts`. Minimum fields:
 
-- `normalizedAddress` is the upsert key for ETL idempotency.
-- `matchScore` + `neighborhood` index powers the map query ("top leads in Mission District").
-- Proximity to a *specific contractor* is computed at query time (see [Queries](#queries-the-frontend-will-need)) using the contractor's lat/lng — it is not stored per-household because each contractor has a different location.
-- `excluded: true` households are filtered out of map queries but kept for debugging.
+| Field | Type | Notes |
+|-------|------|-------|
+| `externalId` | string | Stable key — parcel id or address hash. Maps to UI `id`. |
+| `address` | string | Side panel title |
+| `lat`, `lng` | number | Map pin — rooftop geocode, not neighborhood centroid |
+| `matchScore` | number | 0–100 |
+| `urgent` | boolean | Drives `!` badge on `LeadSprite` |
+| `spriteVariant` | number | 0–3 |
+| `permitAgeYears` | number | |
+| `homeAgeYears` | number | |
+| `cluster` | string | Side panel "Household Cluster" |
+| `dataSource` | `"etl"` | |
 
----
+Optional but fill when available: `neighborhood`, `lastPermitType`, `ownerOccupied`, `assessedValue`, `distanceMiles`, `vertical`, `clusterId`.
 
-### `personas`
+**Example payload:** `convex/seed.example.json` on `feature/quest-board-ui`
 
-AI-generated household profile. Created lazily when a contractor first opens a household, not during ETL.
+**Test locally:**
 
-```typescript
-personas: defineTable({
-  householdId: v.id("households"),
-  clusterId: v.id("demographicClusters"),  // denormalized for prompt building
-
-  // Generation lifecycle
-  status: v.union(
-    v.literal("pending"),    // mutation scheduled action
-    v.literal("generating"), // action in flight
-    v.literal("ready"),
-    v.literal("error"),
-  ),
-  errorMessage: v.optional(v.string()),
-
-  // GPT output
-  narrative: v.optional(v.string()),       // full persona prose
-  summary: v.optional(v.string()),         // short panel blurb
-  likelyObjections: v.optional(v.array(v.string())),
-  conversionTips: v.optional(v.array(v.string())),
-  preferredChannels: v.optional(v.array(v.string())),
-
-  // Prompt audit trail
-  systemPrompt: v.optional(v.string()),      // assembled prompt sent to GPT
-  model: v.optional(v.string()),             // e.g. "gpt-4o-mini"
-  generatedAt: v.optional(v.number()),
-
-  // Snapshot of inputs at generation time (immutable after ready)
-  inputSnapshot: v.optional(v.object({
-    permitSummary: v.string(),
-    assessorSummary: v.string(),
-    clusterTraits: v.string(),
-    contractorProfileSummary: v.string(),
-  })),
-})
-  .index("by_household", ["householdId"]),
+```bash
+npx convex run leads:bulkUpsertLeads --args "$(cat convex/seed.example.json)"
 ```
 
-**One persona per household** — enforce in `ensurePersona` mutation via index lookup before insert.
+**Owner:** ETL / data · **Functions: none new — use `bulkUpsertLeads`**
 
 ---
 
-### `chatMessages`
+## Slice 3 — Contractor onboarding
 
-Contractor ↔ AI persona conversation. Scoped to a household + contractor session.
+### 3a. Add table to `convex/schema.ts`
 
-```typescript
-chatMessages: defineTable({
-  householdId: v.id("households"),
-  contractorId: v.id("contractors"),
-  role: v.union(v.literal("user"), v.literal("assistant")),
-  content: v.string(),
-
-  // For assistant messages: link to generation metadata
-  personaId: v.optional(v.id("personas")),
-  model: v.optional(v.string()),
-  tokenCount: v.optional(v.number()),
-})
-  .index("by_household_contractor", ["householdId", "contractorId"]),
-```
-
-Messages are append-only. The chat UI queries this index ordered by `_creationTime`.
-
----
-
-### `contractors`
-
-Created during onboarding. MVP uses client-generated session IDs — no login.
-
-```typescript
+```ts
 contractors: defineTable({
-  sessionId: v.string(),          // UUID from localStorage; MVP identity
-
-  // Onboarding inputs
+  sessionId: v.string(),
   businessDescription: v.string(),
   businessAddress: v.string(),
   lat: v.number(),
   lng: v.number(),
   googlePlaceId: v.optional(v.string()),
-
-  // GPT-extracted structured profile (from onboarding)
   extractedProfile: v.optional(v.object({
-    serviceTypes: v.array(v.string()),       // e.g. ["hvac", "electrical"]
-    verticals: v.array(v.union(
-      v.literal("hvac"),
-      v.literal("electrical"),
-    )),
-    pricePoint: v.union(
-      v.literal("budget"),
-      v.literal("mid"),
-      v.literal("premium"),
-    ),
-    targetHomeAge: v.optional(v.string()),
+    verticals: v.array(v.union(v.literal("hvac"), v.literal("electrical"))),
+    pricePoint: v.union(v.literal("budget"), v.literal("mid"), v.literal("premium")),
+    serviceTypes: v.array(v.string()),
     targetNeighborhoods: v.optional(v.array(v.string())),
-    customerPreferences: v.optional(v.string()),
   })),
-
-  profileExtractionStatus: v.union(
-    v.literal("pending"),
-    v.literal("ready"),
-    v.literal("error"),
-  ),
-})
-  .index("by_sessionId", ["sessionId"]),
+  profileStatus: v.union(v.literal("pending"), v.literal("ready"), v.literal("error")),
+}).index("by_sessionId", ["sessionId"]),
 ```
+
+### 3b. Create `convex/contractors.ts`
+
+| Function | Type | Args | Returns | Do this |
+|----------|------|------|---------|---------|
+| `getBySession` | `query` | `{ sessionId: v.string() }` | contractor doc or `null` | Lookup by `by_sessionId` index |
+| `create` | `mutation` | `{ sessionId, businessDescription, businessAddress, lat, lng, googlePlaceId? }` | `Id<"contractors">` | Insert with `profileStatus: "pending"`. Schedule `internal.contractors.extractProfile` via `ctx.scheduler.runAfter(0, ...)` |
+
+### 3c. Create `convex/contractorsActions.ts` (`"use node"`)
+
+| Function | Type | Args | Do this |
+|----------|------|------|---------|
+| `extractProfile` | `internalAction` | `{ contractorId }` | Call OpenAI structured output on `businessDescription`. `ctx.runMutation(internal.contractors.saveProfile, { contractorId, extractedProfile })` |
+| `saveProfile` | `internalMutation` | `{ contractorId, extractedProfile }` | Patch contractor, set `profileStatus: "ready"` |
+
+### 3d. Wire frontend
+
+| UI file | Hook |
+|---------|------|
+| New `src/components/onboarding/OnboardingForm.tsx` | `useMutation(api.contractors.create)` |
+| `QuestBoard.tsx` header | Replace hardcoded "Mission HVAC Co." with `useQuery(api.contractors.getBySession, { sessionId })` |
+| `src/lib/session.ts` | `getOrCreateSessionId()` in localStorage |
+
+**Env:** `OPENAI_API_KEY` in Convex dashboard
 
 ---
 
-## Recommended `convex/` Folder Structure
+## Slice 4 — Lead interaction state
 
-```
-convex/
-├── schema.ts                  # All table definitions (above)
-├── http.ts                    # HTTP router — ETL ingestion endpoints
-│
-├── households/
-│   ├── queries.ts             # listForMap, getById, getPropertySummary
-│   └── mutations.ts           # updateStatus, markViewed
-│
-├── contractors/
-│   ├── queries.ts             # getBySession
-│   └── mutations.ts           # create, updateExtractedProfile
-│
-├── personas/
-│   ├── queries.ts             # getByHousehold
-│   ├── mutations.ts           # ensurePersona (schedules action)
-│   └── actions.ts             # generatePersonaNarrative (OpenAI)
-│
-├── chat/
-│   ├── queries.ts             # listMessages
-│   ├── mutations.ts           # sendMessage (schedules action)
-│   └── actions.ts             # generatePersonaReply (OpenAI chat)
-│
-├── enrichment/
-│   └── actions.ts             # fetchContactInfo (Orange Slice)
-│
-├── etl/
-│   ├── mutations.ts           # internal: bulkUpsertHouseholds, upsertClusters
-│   └── httpActions.ts         # POST /etl/households, POST /etl/clusters
-│
-├── lib/
-│   ├── scoring.ts             # Shared proximity/score helpers (pure TS)
-│   ├── prompts.ts             # Persona + extraction prompt templates
-│   └── validators.ts          # Reusable v.object fragments
-│
-└── _generated/                # Auto-generated — do not edit
-    ├── api.d.ts
-    ├── api.js
-    ├── dataModel.d.ts
-    └── server.d.ts
+Add to `leads` table in `convex/schema.ts`:
+
+```ts
+status: v.optional(v.union(
+  v.literal("available"),
+  v.literal("viewed"),
+  v.literal("pursued"),
+  v.literal("skipped"),
+)),
+contactPhone: v.optional(v.string()),
+contactEmail: v.optional(v.string()),
 ```
 
-**Conventions:**
+### Add to `convex/leads.ts`
 
-- Public functions: `query`, `mutation`, `action` — callable from Next.js via `api.*`.
-- Internal functions: `internalQuery`, `internalMutation`, `internalAction` — prefixed with `internal.*`; used by actions, HTTP handlers, and scheduler. Never exposed to the client.
-- Group by domain, not by function type at the top level (the subfolder holds queries/mutations/actions together).
+| Function | Type | Args | Do this |
+|----------|------|------|---------|
+| `getByExternalId` | `query` | `{ externalId: v.string() }` | Single lead for side panel refresh |
+| `markViewed` | `mutation` | `{ externalId: v.string() }` | Patch `status → "viewed"` if currently `"available"` or unset |
+| `updateStatus` | `mutation` | `{ externalId, status: "pursued" \| "skipped" }` | Patch status |
+
+### Wire frontend
+
+| UI file | When |
+|---------|------|
+| `QuestBoard.tsx` → `handleSelectLead` | Call `markViewed` on sprite click |
+| `LeadSidePanel.tsx` | Add Pursue / Skip buttons → `updateStatus` |
+| `LeadSidePanel.tsx` | Enable "Get contact info" after pursue (Slice 7) |
 
 ---
 
-## Queries the Frontend Will Need
+## Slice 5 — Persona generation
 
-All consumed via `useQuery(api.<module>.<name>, args)` in client components.
+### 5a. Add table to `convex/schema.ts`
 
-### Map / Bounty Board
+```ts
+personas: defineTable({
+  leadExternalId: v.string(),       // matches leads.externalId
+  status: v.union(v.literal("pending"), v.literal("generating"), v.literal("ready"), v.literal("error")),
+  narrative: v.optional(v.string()),
+  summary: v.optional(v.string()),
+  errorMessage: v.optional(v.string()),
+}).index("by_lead", ["leadExternalId"]),
+```
 
-| Query | Args | Returns | Used by |
-|---|---|---|---|
-| `households.listForMap` | `{ contractorId, neighborhood?, minScore?, limit? }` | Array of `{ _id, lat, lng, spriteColor, spriteVariant, urgencyFlag, matchScore, normalizedAddress }` | Map sprite layer |
-| `households.getById` | `{ householdId }` | Full household doc | Side panel property summary |
-| `households.listNeighborhoods` | `{}` | `string[]` of neighborhoods with lead counts | Neighborhood filter dropdown |
+### 5b. Create `convex/personas.ts`
 
-**`listForMap` implementation notes:**
+| Function | Type | Args | Do this |
+|----------|------|------|---------|
+| `getByLead` | `query` | `{ leadExternalId: v.string() }` | Return persona doc for side panel |
+| `ensurePersona` | `mutation` | `{ leadExternalId, contractorId }` | If persona exists → return id. Else insert `{ status: "pending" }`, schedule `internal.personas.generate` |
+| `markGenerating` | `internalMutation` | `{ personaId }` | Patch status |
+| `saveNarrative` | `internalMutation` | `{ personaId, narrative, summary }` | Patch, set `status: "ready"` |
+| `markError` | `internalMutation` | `{ personaId, errorMessage }` | Patch, set `status: "error"` |
 
-1. Load contractor lat/lng from `contractors` table.
-2. Query households by neighborhood index (or all non-excluded).
-3. Re-rank by proximity to contractor using haversine in `lib/scoring.ts` (optional composite re-score).
-4. Return only fields needed for rendering — keep payload small.
+### 5c. Create `convex/personasActions.ts` (`"use node"`)
 
-### Contractor Session
+| Function | Type | Args | Do this |
+|----------|------|------|---------|
+| `generate` | `internalAction` | `{ personaId, contractorId }` | 1) `runQuery` lead + contractor 2) OpenAI chat with permit/cluster/property context 3) `runMutation saveNarrative` |
 
-| Query | Args | Returns | Used by |
-|---|---|---|---|
-| `contractors.getBySession` | `{ sessionId }` | Contractor doc or null | App init — restore session |
-| `contractors.getExtractedProfile` | `{ contractorId }` | Extracted profile object | Confirm onboarding results |
+**Prompt inputs (from existing lead fields):** `address`, `permitAgeYears`, `lastPermitType`, `homeAgeYears`, `cluster`, `ownerOccupied`, contractor `extractedProfile`.
 
-### Persona Panel
+### 5d. Wire frontend
 
-| Query | Args | Returns | Used by |
-|---|---|---|---|
-| `personas.getByHousehold` | `{ householdId }` | Persona doc (includes `status`) | Side panel — show narrative or loading spinner |
-| `demographicClusters.get` | `{ clusterId }` | Cluster traits summary | Property summary "behavioral cluster" line |
-
-### Chat
-
-| Query | Args | Returns | Used by |
-|---|---|---|---|
-| `chat.listMessages` | `{ householdId, contractorId }` | Ordered message array | Chat window |
-
-The chat component should watch `personas.getByHousehold.status` — when `"ready"`, enable the input. When the last message is from `user` and no assistant reply exists yet, show typing indicator (action is in flight).
+| UI file | Hook |
+|---------|------|
+| `QuestBoard.tsx` → `handleSelectLead` | Also call `ensurePersona` |
+| `LeadSidePanel.tsx` | Replace "Persona chat coming soon" stub with `useQuery:Query(api.personas.getByLead, { leadExternalId: lead.id })` — show `narrative` when `status === "ready"`, spinner when pending |
 
 ---
 
-## Mutations & Actions the Backend Will Need
+## Slice 6 — Persona chat
 
-### Public Mutations (called from Next.js)
+### 6a. Add table to `convex/schema.ts`
 
-| Mutation | Args | Effect |
-|---|---|---|
-| `contractors.create` | `{ sessionId, businessDescription, businessAddress, lat, lng, googlePlaceId? }` | Insert contractor, schedule `extractContractorProfile` action |
-| `households.markViewed` | `{ householdId, contractorId }` | Set status → `"viewed"` if currently `"available"` |
-| `households.updateStatus` | `{ householdId, status }` | Set `"pursued"` or `"skipped"` |
-| `personas.ensurePersona` | `{ householdId, contractorId }` | If no persona exists: insert `status: "pending"`, schedule `generatePersonaNarrative` action. If exists: no-op. |
-| `chat.sendMessage` | `{ householdId, contractorId, content }` | Insert user message, schedule `generatePersonaReply` action |
-| `enrichment.requestContactInfo` | `{ householdId, contractorId }` | Schedule Orange Slice enrichment action |
-
-### Internal Mutations (called from actions / HTTP / scheduler)
-
-| Mutation | Called by | Effect |
-|---|---|---|
-| `etl.bulkUpsertHouseholds` | ETL HTTP action | Upsert by `normalizedAddress`; batch of ≤100 per call |
-| `etl.upsertClusters` | ETL HTTP action | Upsert demographic cluster lookup table |
-| `contractors.saveExtractedProfile` | OpenAI action | Patch `extractedProfile`, set `profileExtractionStatus: "ready"` |
-| `personas.markGenerating` | Persona action | Set `status: "generating"` |
-| `personas.saveNarrative` | Persona action | Write GPT output fields, set `status: "ready"` |
-| `personas.markError` | Any action on failure | Set `status: "error"` + message |
-| `chat.saveAssistantMessage` | Chat action | Insert assistant `chatMessages` row |
-| `households.saveContactInfo` | Enrichment action | Patch `contactInfo` on household |
-
-### Actions (external API calls)
-
-| Action | Trigger | External API | Persists via |
-|---|---|---|---|
-| `contractors.extractContractorProfile` | `contractors.create` scheduler | OpenAI structured output | `contractors.saveExtractedProfile` |
-| `personas.generatePersonaNarrative` | `personas.ensurePersona` scheduler | OpenAI chat completion | `personas.saveNarrative` |
-| `chat.generatePersonaReply` | `chat.sendMessage` scheduler | OpenAI chat completion (in-character) | `chat.saveAssistantMessage` |
-| `enrichment.fetchContactInfo` | `enrichment.requestContactInfo` scheduler | Orange Slice API | `households.saveContactInfo` |
-
-**Important pattern:** Mutations schedule actions; actions never get called directly from the client.
-
-```typescript
-// convex/personas/mutations.ts — canonical pattern
-export const ensurePersona = mutation({
-  args: { householdId: v.id("households"), contractorId: v.id("contractors") },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("personas")
-      .withIndex("by_household", (q) => q.eq("householdId", args.householdId))
-      .unique();
-    if (existing) return existing._id;
-
-    const personaId = await ctx.db.insert("personas", {
-      householdId: args.householdId,
-      clusterId: (await ctx.db.get(args.householdId))!.clusterId,
-      status: "pending",
-    });
-
-    await ctx.scheduler.runAfter(0, internal.personas.actions.generatePersonaNarrative, {
-      personaId,
-      contractorId: args.contractorId,
-    });
-
-    return personaId;
-  },
-});
+```ts
+chatMessages: defineTable({
+  leadExternalId: v.string(),
+  contractorId: v.id("contractors"),
+  role: v.union(v.literal("user"), v.literal("assistant")),
+  content: v.string(),
+}).index("by_lead_contractor", ["leadExternalId", "contractorId"]),
 ```
+
+### 6b. Create `convex/chat.ts`
+
+| Function | Type | Args | Do this |
+|----------|------|------|---------|
+| `listMessages` | `query` | `{ leadExternalId, contractorId }` | Index lookup, return ordered by `_creationTime` |
+| `sendMessage` | `mutation` | `{ leadExternalId, contractorId, content }` | Insert user message. Schedule `internal.chat.generateReply` |
+| `saveAssistantMessage` | `internalMutation` | `{ leadExternalId, contractorId, content }` | Insert assistant message |
+
+### 6c. Create `convex/chatActions.ts` (`"use node"`)
+
+| Function | Type | Args | Do this |
+|----------|------|------|---------|
+| `generateReply` | `internalAction` | `{ leadExternalId, contractorId, userContent }` | Load persona + last 10 messages + lead. OpenAI in-character reply. `saveAssistantMessage` |
+
+### 6d. Wire frontend
+
+| UI file | Component |
+|---------|-----------|
+| New `src/components/quest-board/PersonaChat.tsx` | `useQuery(api.chat.listMessages)` + `useMutation(api.chat.sendMessage)` |
+| `LeadSidePanel.tsx` | Render `<PersonaChat />` below cluster section |
 
 ---
 
-## Next.js ↔ Convex Integration
+## Slice 7 — Contact enrichment (Orange Slice)
 
-### Setup (App Router)
+### Add to `convex/leads.ts` or new `convex/enrichment.ts`
 
-```
-app/
-├── layout.tsx                 # Wrap children in ConvexClientProvider
-├── ConvexClientProvider.tsx   # "use client" — ConvexProvider + ConvexReactClient
-├── page.tsx                   # Landing / onboarding
-└── map/
-    └── page.tsx               # Bounty board (client component)
-```
+| Function | Type | Args | Do this |
+|----------|------|------|---------|
+| `requestContactInfo` | `mutation` | `{ externalId, contractorId }` | Schedule `internal.enrichment.fetchContact` |
+| `saveContactInfo` | `internalMutation` | `{ externalId, contactPhone?, contactEmail? }` | Patch lead |
+| `fetchContact` | `internalAction` | `{ externalId }` | Call Orange Slice API with address. `runMutation saveContactInfo` |
 
-**1. Install**
+### Wire frontend
 
-```bash
-npm install convex
-npx convex dev   # creates convex/ folder, links deployment, starts sync
-```
+| UI file | Change |
+|---------|--------|
+| `LeadSidePanel.tsx` | Remove `disabled` from "Get contact info" button → `useMutation(api.enrichment.requestContactInfo)` |
+| `LeadSidePanel.tsx` | Display `contactPhone` / `contactEmail` from lead query when present |
 
-**2. Environment**
-
-```env
-# .env.local
-NEXT_PUBLIC_CONVEX_URL=https://<deployment>.convex.cloud
-```
-
-**3. Provider** (`app/ConvexClientProvider.tsx`)
-
-```tsx
-"use client";
-
-import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { ReactNode } from "react";
-
-const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-
-export function ConvexClientProvider({ children }: { children: ReactNode }) {
-  return <ConvexProvider client={convex}>{children}</ConvexProvider>;
-}
-```
-
-**4. Root layout** — wrap `{children}` with `<ConvexClientProvider>`.
-
-### Hook usage by feature
-
-| Feature | Hook | Example |
-|---|---|---|
-| Map sprites | `useQuery` | `const leads = useQuery(api.households.queries.listForMap, { contractorId })` |
-| Side panel | `useQuery` | `const household = useQuery(api.households.queries.getById, { householdId })` |
-| Persona narrative | `useQuery` | `const persona = useQuery(api.personas.queries.getByHousehold, { householdId })` |
-| Chat history | `useQuery` | `const messages = useQuery(api.chat.queries.listMessages, { householdId, contractorId })` |
-| Send chat | `useMutation` | `const send = useMutation(api.chat.mutations.sendMessage)` |
-| Pursue lead | `useMutation` | `const update = useMutation(api.households.mutations.updateStatus)` |
-| Onboarding | `useMutation` | `const create = useMutation(api.contractors.mutations.create)` |
-
-All map/chat components must be `"use client"` — Convex reactive hooks require a browser WebSocket.
-
-### Session identity (MVP, no auth)
-
-```tsx
-// lib/session.ts
-export function getOrCreateSessionId(): string {
-  const KEY = "householdiq_session";
-  let id = localStorage.getItem(KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(KEY, id);
-  }
-  return id;
-}
-```
-
-On app load: `useQuery(api.contractors.queries.getBySession, { sessionId })` — if null, show onboarding.
-
-### Server Components (optional, non-reactive)
-
-For SSR-only pages that don't need live updates:
-
-```tsx
-import { fetchQuery } from "convex/nextjs";
-import { api } from "@/convex/_generated/api";
-
-const neighborhoods = await fetchQuery(api.households.queries.listNeighborhoods, {});
-```
-
-Prefer client `useQuery` for the map and chat. Use `fetchQuery` / `preloadQuery` only for static landing content.
-
-### Do NOT call actions from the client directly
-
-Use mutations that schedule actions (see pattern above). The only exception is fire-and-forget utilities with no DB state — none exist in this app.
+**Env:** `ORANGE_SLICE_API_KEY` in Convex dashboard
 
 ---
 
-## ETL Pipeline → Convex Data Insertion
+## Slice 8 — ETL HTTP routes (optional — for automated Python ingest)
 
-The Python ETL runs **offline** before deployment (see architecture diagram in `BRIEF.md`). It:
+Only needed if Python can't call `bulkUpsertLeads` via Convex client.
 
-1. Pulls SF Open Data permits, Assessor parcels, Census ACS block groups
-2. Joins and normalizes addresses
-3. Assigns demographic clusters from pre-processed AHS/CEX/GSS/Pew lookup tables
-4. Computes lead scores and sprite metadata
-5. **Pushes results to Convex**
+### Create `convex/http.ts`
 
-### Recommended ingestion path: HTTP action with shared secret
+| Route | Method | Handler | Do this |
+|-------|--------|---------|---------|
+| `/etl/leads` | POST | `bulkUpsertLeadsHttp` | Verify `Authorization: Bearer ${ETL_SECRET}`. Parse `{ leads: [...] }`. `ctx.runMutation(api.leads.bulkUpsertLeads, ...)` |
 
-```
-etl/
-├── load_to_convex.py          # Calls Convex HTTP endpoints
-├── output/
-│   ├── households.jsonl       # one JSON object per line
-│   └── clusters.json
-└── ...
-```
-
-**Convex side** (`convex/http.ts`):
-
-```typescript
-http.route({
-  path: "/etl/clusters",
-  method: "POST",
-  handler: upsertClustersHttp,   // validates ETL_SECRET header, calls internal mutation
-});
-
-http.route({
-  path: "/etl/households",
-  method: "POST",
-  handler: bulkUpsertHouseholdsHttp,  // batch ≤100 records per request
-});
-```
-
-**Python side** (`etl/load_to_convex.py`):
+### Python caller
 
 ```python
-import os, json, requests
-
-CONVEX_SITE_URL = os.environ["CONVEX_SITE_URL"]  # https://<dep>.convex.site
-ETL_SECRET = os.environ["ETL_SECRET"]
-
-def upsert_households_batch(records: list[dict]):
-    resp = requests.post(
-        f"{CONVEX_SITE_URL}/etl/households",
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {ETL_SECRET}",
-        },
-        json={"households": records, "batchId": "2025-06-28-run-1"},
-        timeout=60,
-    )
-    resp.raise_for_status()
-    return resp.json()
-
-# Stream JSONL in batches of 100
-batch = []
-with open("output/households.jsonl") as f:
-    for line in f:
-        batch.append(json.loads(line))
-        if len(batch) == 100:
-            upsert_households_batch(batch)
-            batch = []
-if batch:
-    upsert_households_batch(batch)
+requests.post(
+    f"{CONVEX_SITE_URL}/etl/leads",
+    headers={"Authorization": f"Bearer {ETL_SECRET}"},
+    json={"leads": batch},
+)
 ```
 
-### Alternative: Convex Python client
-
-```python
-from convex import ConvexClient
-client = ConvexClient(os.environ["CONVEX_URL"])
-client.mutation("etl/mutations:bulkUpsertHouseholds", {"households": records})
-```
-
-Use the HTTP path if you want auth middleware and request logging at the edge. Both are valid.
-
-### Upsert semantics
-
-`bulkUpsertHouseholds` internal mutation:
-
-1. For each record, query `by_normalizedAddress` index.
-2. If found → `ctx.db.patch` (update scores, permits, cluster — preserve `status` and `contactInfo` if already set).
-3. If not found → `ctx.db.insert` with `status: "available"`.
-4. Return `{ inserted, updated, errors }`.
-
-Run cluster upsert **before** household upsert so `clusterId` foreign keys resolve. ETL should map cluster slugs → Convex IDs on first run, or embed cluster slug in household payload and resolve server-side.
-
-### ETL payload shape (household)
-
-```json
-{
-  "normalizedAddress": "123 MISSION ST|SF|94103",
-  "streetAddress": "123 Mission St",
-  "zipCode": "94103",
-  "neighborhood": "Mission",
-  "lat": 37.7749,
-  "lng": -122.4194,
-  "ownerOccupied": true,
-  "assessedValue": 1250000,
-  "homeAgeYears": 85,
-  "permits": [{ "permitType": "HVAC REPLACEMENT", "vertical": "hvac", "datePulled": "2008-03-15", "dateFinaled": "2008-06-01", "isOpen": false }],
-  "lastHvacPermitAgeYears": 17,
-  "censusBlockGroup": "060750615021",
-  "clusterSlug": "long-time-budget-conscious-owner",
-  "matchScore": 82,
-  "urgencyFlag": true,
-  "spriteColor": "green",
-  "spriteVariant": 2,
-  "excluded": false
-}
-```
+**Env:** `ETL_SECRET` in Convex dashboard + Python env
 
 ---
 
-## OpenAI Persona Generation Flow
+## Function → UI cheat sheet
 
-Two distinct OpenAI use cases — do not conflate them.
-
-### A. Contractor profile extraction (onboarding)
-
-```
-Contractor submits form
-        │
-        ▼
-contractors.create (mutation)
-        │── insert contractor (profileExtractionStatus: "pending")
-        │── scheduler → contractors.extractContractorProfile (action)
-        ▼
-Action calls OpenAI with structured output schema
-        │
-        ▼
-contractors.saveExtractedProfile (internal mutation)
-        │── patch extractedProfile, status → "ready"
-        ▼
-Frontend useQuery auto-updates → map loads with correct vertical filter
-```
-
-**Structured output fields:** `serviceTypes`, `verticals`, `pricePoint`, `targetHomeAge`, `targetNeighborhoods`, `customerPreferences`.
-
-### B. Persona narration (first household open)
-
-```
-Contractor clicks sprite
-        │
-        ▼
-households.markViewed (mutation)
-personas.ensurePersona (mutation)
-        │── insert persona (status: "pending") if absent
-        │── scheduler → personas.generatePersonaNarrative (action)
-        ▼
-Action:
-  1. runQuery → load household, cluster, contractor profile
-  2. assemble systemPrompt from cluster.personaTemplate + property data
-  3. call OpenAI → narrative, summary, objections, conversionTips
-  4. runMutation → personas.saveNarrative
-        ▼
-Frontend useQuery(personas.getByHousehold) reacts:
-  status "pending"/"generating" → skeleton loader
-  status "ready" → render narrative in side panel
-```
-
-### C. Persona chat (ongoing)
-
-```
-Contractor sends message
-        │
-        ▼
-chat.sendMessage (mutation)
-        │── insert user chatMessage
-        │── scheduler → chat.generatePersonaReply (action)
-        ▼
-Action:
-  1. runQuery → persona (for system prompt), recent chatMessages, household
-  2. call OpenAI chat with message history + in-character system prompt
-  3. runMutation → chat.saveAssistantMessage
-        ▼
-Frontend useQuery(chat.listMessages) appends assistant bubble
-```
-
-### Prompt assembly (`convex/lib/prompts.ts`)
-
-Keep all prompt templates in one file. Actions import from here — never hardcode prompts in action handlers.
-
-```
-buildPersonaSystemPrompt({ cluster, household, contractorProfile }) → string
-buildPersonaNarrationPrompt({ cluster, household, contractorProfile }) → string
-buildChatSystemPrompt({ persona, household, cluster }) → string
-buildContractorExtractionPrompt({ businessDescription }) → string
-```
-
-Store the assembled `systemPrompt` on the persona document for debugging and reproducibility.
-
-### OpenAI action runtime
-
-Use `"use node"` at the top of action files that need the OpenAI npm SDK:
-
-```typescript
-"use node";
-import OpenAI from "openai";
-// ...
-```
-
-Set `OPENAI_API_KEY` in the Convex dashboard under Settings → Environment Variables.
+| User action | Convex function(s) | UI file |
+|-------------|-------------------|---------|
+| App loads | `contractors.getBySession`, `leads.listLeads` | `QuestBoard.tsx` |
+| Submit onboarding | `contractors.create` | `OnboardingForm.tsx` (new) |
+| See map sprites | `leads.listLeads` | `QuestMap.tsx` ← data from `QuestBoard` |
+| Click sprite | `leads.markViewed`, `personas.ensurePersona` | `QuestBoard.tsx` |
+| View property details | `leads.getByExternalId` | `LeadSidePanel.tsx` |
+| Read persona | `personas.getByLead` | `LeadSidePanel.tsx` |
+| Send chat message | `chat.sendMessage` | `PersonaChat.tsx` (new) |
+| Pursue / skip | `leads.updateStatus` | `LeadSidePanel.tsx` |
+| Get contact info | `enrichment.requestContactInfo` | `LeadSidePanel.tsx` |
+| ETL batch load | `leads.bulkUpsertLeads` | Python / seed script |
 
 ---
 
-## Environment Variables & Secrets
+## Rules (don't skip)
 
-| Variable | Where | Purpose |
-|---|---|---|
-| `NEXT_PUBLIC_CONVEX_URL` | Next.js `.env.local` | Client WebSocket + API |
-| `OPENAI_API_KEY` | Convex dashboard | Persona + extraction actions |
-| `ORANGE_SLICE_API_KEY` | Convex dashboard | Contact enrichment action |
-| `ETL_SECRET` | Convex dashboard + ETL env | Authenticate HTTP ingestion |
-| `CONVEX_SITE_URL` | ETL env | `https://<dep>.convex.site` for HTTP actions |
-| `CONVEX_URL` | ETL env (optional) | For Python client alternative |
-
-Never put `OPENAI_API_KEY` or `ETL_SECRET` in Next.js env — they would be exposed to the browser.
+1. **Client never calls actions directly.** Mutation writes + `ctx.scheduler.runAfter(0, internalAction, ...)`.
+2. **OpenAI / Orange Slice keys stay in Convex env**, not Next.js.
+3. **Keep `Lead` type in sync** — update `src/types/lead.ts` and `leadFields` in `convex/leads.ts` together.
+4. **Use `externalId` as the stable key** — UI `lead.id` === Convex `externalId`.
+5. **Internal functions** = prefix `internal.` — not callable from browser.
 
 ---
 
-## Agent Checklist (Implementation Order)
+## Env vars checklist
 
-Use this sequence to avoid blocked dependencies:
-
-- [ ] **1. Scaffold** — `npx convex dev`, create `schema.ts` with all tables
-- [ ] **2. ETL mutations** — `etl.bulkUpsertHouseholds`, `etl.upsertClusters` (internal)
-- [ ] **3. ETL HTTP** — wire `convex/http.ts`, test with curl + sample JSON
-- [ ] **4. Run Python ETL** — load clusters, then households for 3–5 neighborhoods
-- [ ] **5. Household queries** — `listForMap`, `getById`, verify in Convex dashboard
-- [ ] **6. Contractor mutations** — `create` + profile extraction action
-- [ ] **7. Next.js provider** — `ConvexClientProvider`, onboarding flow
-- [ ] **8. Map page** — `useQuery(listForMap)`, render sprites from Convex data
-- [ ] **9. Persona flow** — `ensurePersona` + generation action + side panel
-- [ ] **10. Chat flow** — `sendMessage` + reply action + chat UI
-- [ ] **11. Enrichment** — Orange Slice action on "Get contact info"
-- [ ] **12. Polish** — error states, loading skeletons, status transitions
+| Variable | Where | Needed for |
+|----------|-------|------------|
+| `NEXT_PUBLIC_CONVEX_URL` | Vercel / `.env.local` | All UI queries |
+| `NEXT_PUBLIC_MAPBOX_TOKEN` | Vercel / `.env.local` | Map |
+| `OPENAI_API_KEY` | Convex dashboard | Slices 3, 5, 6 |
+| `ORANGE_SLICE_API_KEY` | Convex dashboard | Slice 7 |
+| `ETL_SECRET` | Convex + Python | Slice 8 |
+| `CONVEX_DEPLOY_KEY` | Vercel | Production deploy |
 
 ---
 
-## Quick Reference Links
+## Who builds what
 
-- [Convex Next.js Quickstart](https://docs.convex.dev/quickstart/nextjs)
-- [Convex Schema docs](https://docs.convex.dev/database/schemas)
-- [Convex Actions](https://docs.convex.dev/functions/actions)
-- [Convex HTTP Actions](https://docs.convex.dev/functions/http-actions)
-- [Convex Python Client](https://docs.convex.dev/client/python)
-- [Product Brief](./BRIEF.md)
+| Teammate | Pick up |
+|----------|---------|
+| **Frontend** | Slice 1 (loading fix), onboarding form, `PersonaChat`, wire mutations in `LeadSidePanel` |
+| **Convex / full-stack** | Slices 3–7 function files |
+| **ETL / data** | Slice 2 — call `bulkUpsertLeads` with scored SF addresses from `backend/issues` pipeline |
+| **Anyone blocked** | Seed demo with `convex/seed.example.json` + `bulkUpsertLeads` |
+
+---
+
+## References
+
+- Live UI branch: `feature/quest-board-ui`
+- Data field guide: `docs/DATA_INTEGRATION.md` (on UI branch)
+- ETL issues: `backend/issues` branch
+- Product scoring rules: `BRIEF.md`
