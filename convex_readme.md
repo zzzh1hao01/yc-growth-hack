@@ -1,364 +1,488 @@
 # Convex Build Guide — HouseholdIQ
 
-> **For:** teammates picking up backend / integration work  
-> **Branch with live UI:** `feature/quest-board-ui`  
-> **Product context:** [`BRIEF.md`](./BRIEF.md)
-
-This doc is a **build list**, not an architecture essay. Each section = exact functions to implement, where they live, and where the frontend calls them.
+> **Audience:** frontend + backend teammates  
+> **UI branch:** `feature/quest-board-ui`  
+> **Rule:** Frontend imports only from `api.*` public queries/mutations — never `internal.*`
 
 ---
 
-## What's already done
+## Priority queue — build in this order
 
-| Function | File | Status |
-|----------|------|--------|
-| `listLeads` | `convex/leads.ts` | ✅ Shipped |
-| `upsertLead` | `convex/leads.ts` | ✅ Shipped |
-| `bulkUpsertLeads` | `convex/leads.ts` | ✅ Shipped |
-| `clearAllLeads` | `convex/leads.ts` | ✅ Shipped |
-| `leads` table | `convex/schema.ts` | ✅ Shipped |
-| UI reads Convex | `QuestBoard.tsx` → `useQuery(api.leads.listLeads)` | ✅ Shipped (blocks map while loading — see fix below) |
+| Pri | Function | File | Owner | Blocks |
+|-----|----------|------|-------|--------|
+| **P0** | `leads.listLeads` | `convex/leads.ts` | — | ✅ done |
+| **P0** | `leads.bulkUpsertLeads` | `convex/leads.ts` | ETL | ✅ done |
+| **P0** | Fix map loading gate | `QuestBoard.tsx` | FE | Vercel demo |
+| **P1** | `leads.getByExternalId` | `convex/leads.ts` | BE | Side panel live refresh |
+| **P1** | `leads.markViewed` | `convex/leads.ts` | BE | Lead state |
+| **P1** | `leads.updateStatus` | `convex/leads.ts` | BE | Pursue / skip buttons |
+| **P2** | `contractors.getBySession` | `convex/contractors.ts` | BE | Onboarding gate |
+| **P2** | `contractors.create` | `convex/contractors.ts` | BE | Onboarding form |
+| **P3** | `personas.getByLead` | `convex/personas.ts` | BE | Persona panel |
+| **P3** | `personas.ensurePersona` | `convex/personas.ts` | BE | Persona generation |
+| **P4** | `chat.listMessages` | `convex/chat.ts` | BE | Chat UI |
+| **P4** | `chat.sendMessage` | `convex/chat.ts` | BE | Chat UI |
+| **P5** | `enrichment.requestContactInfo` | `convex/enrichment.ts` | BE | Contact button |
+| **P6** | `POST /etl/leads` | `convex/http.ts` | BE | Python auto-ingest |
 
-**Not built yet:** contractors, personas, chat, enrichment, ETL HTTP, onboarding UI.
-
----
-
-## Build order (do in this sequence)
-
-```
-1. Fix map loading gate          ← unblocks Vercel demo
-2. Seed / ETL → bulkUpsertLeads  ← real pins on map
-3. contractors.create + getBySession
-4. leads.getByExternalId + markViewed + updateStatus
-5. personas.ensurePersona + getByLead
-6. chat.listMessages + sendMessage
-7. enrichment.requestContactInfo
-8. http.ts ETL routes            ← Python team calls these
-```
+Internal only (never call from UI): `extractProfile`, `generate`, `generateReply`, `fetchContact`, all `save*` / `mark*` internals.
 
 ---
 
-## Slice 1 — Unblock live demo (frontend + 0 new Convex functions)
+## Frontend API contract
 
-**Problem:** [yc-growth-hack.vercel.app](https://yc-growth-hack.vercel.app/) stuck on "Loading leads from Convex…"
+Copy these types into `src/types/api.ts`. Backend return shapes **must match exactly**.
 
-**Fix in `src/components/quest-board/QuestBoard.tsx`:**
+### Shared types
 
-Show `QuestMap` immediately with `PLACEHOLDER_LEADS` while `convexLeads === undefined`. Only swap to Convex data when the query resolves.
+```typescript
+// src/types/api.ts — frontend contract (keep in sync with convex handlers)
 
-```tsx
-// Remove this gate:
-{convexLeads === undefined && process.env.NEXT_PUBLIC_CONVEX_URL ? (
-  <div>Loading leads from Convex…</div>
-) : (
-  <QuestMap ... />
-)}
+export type LeadStatus = "available" | "viewed" | "pursued" | "skipped";
+export type PersonaStatus = "pending" | "generating" | "ready" | "error";
+export type ProfileStatus = "pending" | "ready" | "error";
+export type ChatRole = "user" | "assistant";
 
-// Always render QuestMap; leads memo already handles fallback
-<QuestMap leads={leads} ... />
-```
+/** Map + side panel — matches src/types/lead.ts Lead */
+export type LeadDTO = {
+  id: string;                    // === Convex externalId
+  address: string;
+  lat: number;
+  lng: number;
+  neighborhood?: string;
+  matchScore: number;            // 0–100
+  urgent: boolean;
+  spriteVariant: 0 | 1 | 2 | 3;
+  permitAgeYears: number;
+  lastPermitType?: string;
+  lastPermitDate?: string;
+  hasOpenPermit?: boolean;
+  homeAgeYears: number;
+  ownerOccupied?: boolean;
+  assessedValue?: number;
+  lastSaleDate?: string;
+  clusterId?: string;
+  cluster: string;
+  distanceMiles?: number;
+  vertical?: "hvac" | "electrical";
+  dataSource?: "placeholder" | "etl";
+  // P1 additions:
+  status?: LeadStatus;
+  contactPhone?: string;
+  contactEmail?: string;
+};
 
-**Owner:** frontend · **No new Convex functions**
+export type ContractorDTO = {
+  _id: string;
+  sessionId: string;
+  businessDescription: string;
+  businessAddress: string;
+  lat: number;
+  lng: number;
+  profileStatus: ProfileStatus;
+  extractedProfile?: {
+    verticals: ("hvac" | "electrical")[];
+    pricePoint: "budget" | "mid" | "premium";
+    serviceTypes: string[];
+    targetNeighborhoods?: string[];
+  };
+};
 
----
+export type PersonaDTO = {
+  _id: string;
+  leadExternalId: string;
+  status: PersonaStatus;
+  narrative?: string;
+  summary?: string;
+  errorMessage?: string;
+};
 
-## Slice 2 — Load real leads (ETL → existing functions)
-
-**Use what's shipped.** ETL does not need new Convex code until HTTP routes are added.
-
-### Call from Python / seed script
-
-```ts
-// convex/leads.ts — already exists
-api.leads.bulkUpsertLeads({ leads: [...] })
-```
-
-Each row must match `leadFields` in `convex/leads.ts`. Minimum fields:
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `externalId` | string | Stable key — parcel id or address hash. Maps to UI `id`. |
-| `address` | string | Side panel title |
-| `lat`, `lng` | number | Map pin — rooftop geocode, not neighborhood centroid |
-| `matchScore` | number | 0–100 |
-| `urgent` | boolean | Drives `!` badge on `LeadSprite` |
-| `spriteVariant` | number | 0–3 |
-| `permitAgeYears` | number | |
-| `homeAgeYears` | number | |
-| `cluster` | string | Side panel "Household Cluster" |
-| `dataSource` | `"etl"` | |
-
-Optional but fill when available: `neighborhood`, `lastPermitType`, `ownerOccupied`, `assessedValue`, `distanceMiles`, `vertical`, `clusterId`.
-
-**Example payload:** `convex/seed.example.json` on `feature/quest-board-ui`
-
-**Test locally:**
-
-```bash
-npx convex run leads:bulkUpsertLeads --args "$(cat convex/seed.example.json)"
-```
-
-**Owner:** ETL / data · **Functions: none new — use `bulkUpsertLeads`**
-
----
-
-## Slice 3 — Contractor onboarding
-
-### 3a. Add table to `convex/schema.ts`
-
-```ts
-contractors: defineTable({
-  sessionId: v.string(),
-  businessDescription: v.string(),
-  businessAddress: v.string(),
-  lat: v.number(),
-  lng: v.number(),
-  googlePlaceId: v.optional(v.string()),
-  extractedProfile: v.optional(v.object({
-    verticals: v.array(v.union(v.literal("hvac"), v.literal("electrical"))),
-    pricePoint: v.union(v.literal("budget"), v.literal("mid"), v.literal("premium")),
-    serviceTypes: v.array(v.string()),
-    targetNeighborhoods: v.optional(v.array(v.string())),
-  })),
-  profileStatus: v.union(v.literal("pending"), v.literal("ready"), v.literal("error")),
-}).index("by_sessionId", ["sessionId"]),
+export type ChatMessageDTO = {
+  _id: string;
+  leadExternalId: string;
+  contractorId: string;
+  role: ChatRole;
+  content: string;
+  _creationTime: number;
+};
 ```
 
-### 3b. Create `convex/contractors.ts`
-
-| Function | Type | Args | Returns | Do this |
-|----------|------|------|---------|---------|
-| `getBySession` | `query` | `{ sessionId: v.string() }` | contractor doc or `null` | Lookup by `by_sessionId` index |
-| `create` | `mutation` | `{ sessionId, businessDescription, businessAddress, lat, lng, googlePlaceId? }` | `Id<"contractors">` | Insert with `profileStatus: "pending"`. Schedule `internal.contractors.extractProfile` via `ctx.scheduler.runAfter(0, ...)` |
-
-### 3c. Create `convex/contractorsActions.ts` (`"use node"`)
-
-| Function | Type | Args | Do this |
-|----------|------|------|---------|
-| `extractProfile` | `internalAction` | `{ contractorId }` | Call OpenAI structured output on `businessDescription`. `ctx.runMutation(internal.contractors.saveProfile, { contractorId, extractedProfile })` |
-| `saveProfile` | `internalMutation` | `{ contractorId, extractedProfile }` | Patch contractor, set `profileStatus: "ready"` |
-
-### 3d. Wire frontend
-
-| UI file | Hook |
-|---------|------|
-| New `src/components/onboarding/OnboardingForm.tsx` | `useMutation(api.contractors.create)` |
-| `QuestBoard.tsx` header | Replace hardcoded "Mission HVAC Co." with `useQuery(api.contractors.getBySession, { sessionId })` |
-| `src/lib/session.ts` | `getOrCreateSessionId()` in localStorage |
-
-**Env:** `OPENAI_API_KEY` in Convex dashboard
-
 ---
 
-## Slice 4 — Lead interaction state
+## P0 — Shipped + unblock demo
 
-Add to `leads` table in `convex/schema.ts`:
+### `leads.listLeads` ✅
 
-```ts
-status: v.optional(v.union(
-  v.literal("available"),
-  v.literal("viewed"),
-  v.literal("pursued"),
-  v.literal("skipped"),
-)),
-contactPhone: v.optional(v.string()),
-contactEmail: v.optional(v.string()),
+```typescript
+// convex/leads.ts
+export const listLeads = query({
+  args: {},
+  returns: v.array(/* LeadDTO fields — see handler map below */),
+  handler: async (ctx) => LeadDTO[],
+});
 ```
 
-### Add to `convex/leads.ts`
-
-| Function | Type | Args | Do this |
-|----------|------|------|---------|
-| `getByExternalId` | `query` | `{ externalId: v.string() }` | Single lead for side panel refresh |
-| `markViewed` | `mutation` | `{ externalId: v.string() }` | Patch `status → "viewed"` if currently `"available"` or unset |
-| `updateStatus` | `mutation` | `{ externalId, status: "pursued" \| "skipped" }` | Patch status |
-
-### Wire frontend
-
-| UI file | When |
-|---------|------|
-| `QuestBoard.tsx` → `handleSelectLead` | Call `markViewed` on sprite click |
-| `LeadSidePanel.tsx` | Add Pursue / Skip buttons → `updateStatus` |
-| `LeadSidePanel.tsx` | Enable "Get contact info" after pursue (Slice 7) |
-
----
-
-## Slice 5 — Persona generation
-
-### 5a. Add table to `convex/schema.ts`
-
-```ts
-personas: defineTable({
-  leadExternalId: v.string(),       // matches leads.externalId
-  status: v.union(v.literal("pending"), v.literal("generating"), v.literal("ready"), v.literal("error")),
-  narrative: v.optional(v.string()),
-  summary: v.optional(v.string()),
-  errorMessage: v.optional(v.string()),
-}).index("by_lead", ["leadExternalId"]),
+**Frontend hook:**
+```typescript
+const leads = useQuery(api.leads.listLeads, {});
+// undefined = loading | LeadDTO[] = ready
 ```
 
-### 5b. Create `convex/personas.ts`
+**Response:** `LeadDTO[]`, sorted by `matchScore` desc. Excludes `hasOpenPermit === true`.
 
-| Function | Type | Args | Do this |
-|----------|------|------|---------|
-| `getByLead` | `query` | `{ leadExternalId: v.string() }` | Return persona doc for side panel |
-| `ensurePersona` | `mutation` | `{ leadExternalId, contractorId }` | If persona exists → return id. Else insert `{ status: "pending" }`, schedule `internal.personas.generate` |
-| `markGenerating` | `internalMutation` | `{ personaId }` | Patch status |
-| `saveNarrative` | `internalMutation` | `{ personaId, narrative, summary }` | Patch, set `status: "ready"` |
-| `markError` | `internalMutation` | `{ personaId, errorMessage }` | Patch, set `status: "error"` |
-
-### 5c. Create `convex/personasActions.ts` (`"use node"`)
-
-| Function | Type | Args | Do this |
-|----------|------|------|---------|
-| `generate` | `internalAction` | `{ personaId, contractorId }` | 1) `runQuery` lead + contractor 2) OpenAI chat with permit/cluster/property context 3) `runMutation saveNarrative` |
-
-**Prompt inputs (from existing lead fields):** `address`, `permitAgeYears`, `lastPermitType`, `homeAgeYears`, `cluster`, `ownerOccupied`, contractor `extractedProfile`.
-
-### 5d. Wire frontend
-
-| UI file | Hook |
-|---------|------|
-| `QuestBoard.tsx` → `handleSelectLead` | Also call `ensurePersona` |
-| `LeadSidePanel.tsx` | Replace "Persona chat coming soon" stub with `useQuery:Query(api.personas.getByLead, { leadExternalId: lead.id })` — show `narrative` when `status === "ready"`, spinner when pending |
+**Maps `externalId` → `id` in handler.** Already implemented.
 
 ---
 
-## Slice 6 — Persona chat
+### `leads.bulkUpsertLeads` ✅ (ETL only — not called from UI)
 
-### 6a. Add table to `convex/schema.ts`
-
-```ts
-chatMessages: defineTable({
-  leadExternalId: v.string(),
-  contractorId: v.id("contractors"),
-  role: v.union(v.literal("user"), v.literal("assistant")),
-  content: v.string(),
-}).index("by_lead_contractor", ["leadExternalId", "contractorId"]),
+```typescript
+export const bulkUpsertLeads = mutation({
+  args: { leads: v.array(v.object({ externalId: v.string(), /* ...leadFields */ })) },
+  returns: v.object({ inserted: v.number(), updated: v.number(), total: v.number() }),
+});
 ```
 
-### 6b. Create `convex/chat.ts`
+---
 
-| Function | Type | Args | Do this |
-|----------|------|------|---------|
-| `listMessages` | `query` | `{ leadExternalId, contractorId }` | Index lookup, return ordered by `_creationTime` |
-| `sendMessage` | `mutation` | `{ leadExternalId, contractorId, content }` | Insert user message. Schedule `internal.chat.generateReply` |
-| `saveAssistantMessage` | `internalMutation` | `{ leadExternalId, contractorId, content }` | Insert assistant message |
+### P0 frontend fix (no Convex)
 
-### 6c. Create `convex/chatActions.ts` (`"use node"`)
-
-| Function | Type | Args | Do this |
-|----------|------|------|---------|
-| `generateReply` | `internalAction` | `{ leadExternalId, contractorId, userContent }` | Load persona + last 10 messages + lead. OpenAI in-character reply. `saveAssistantMessage` |
-
-### 6d. Wire frontend
-
-| UI file | Component |
-|---------|-----------|
-| New `src/components/quest-board/PersonaChat.tsx` | `useQuery(api.chat.listMessages)` + `useMutation(api.chat.sendMessage)` |
-| `LeadSidePanel.tsx` | Render `<PersonaChat />` below cluster section |
+`QuestBoard.tsx` — always render `<QuestMap leads={leads} />`. Remove Convex loading gate.
 
 ---
 
-## Slice 7 — Contact enrichment (Orange Slice)
+## P1 — Lead detail + interaction
 
-### Add to `convex/leads.ts` or new `convex/enrichment.ts`
+**Schema add (3 fields on `leads`):** `status?`, `contactPhone?`, `contactEmail?`
 
-| Function | Type | Args | Do this |
-|----------|------|------|---------|
-| `requestContactInfo` | `mutation` | `{ externalId, contractorId }` | Schedule `internal.enrichment.fetchContact` |
-| `saveContactInfo` | `internalMutation` | `{ externalId, contactPhone?, contactEmail? }` | Patch lead |
-| `fetchContact` | `internalAction` | `{ externalId }` | Call Orange Slice API with address. `runMutation saveContactInfo` |
+### `leads.getByExternalId`
 
-### Wire frontend
-
-| UI file | Change |
-|---------|--------|
-| `LeadSidePanel.tsx` | Remove `disabled` from "Get contact info" button → `useMutation(api.enrichment.requestContactInfo)` |
-| `LeadSidePanel.tsx` | Display `contactPhone` / `contactEmail` from lead query when present |
-
-**Env:** `ORANGE_SLICE_API_KEY` in Convex dashboard
-
----
-
-## Slice 8 — ETL HTTP routes (optional — for automated Python ingest)
-
-Only needed if Python can't call `bulkUpsertLeads` via Convex client.
-
-### Create `convex/http.ts`
-
-| Route | Method | Handler | Do this |
-|-------|--------|---------|---------|
-| `/etl/leads` | POST | `bulkUpsertLeadsHttp` | Verify `Authorization: Bearer ${ETL_SECRET}`. Parse `{ leads: [...] }`. `ctx.runMutation(api.leads.bulkUpsertLeads, ...)` |
-
-### Python caller
-
-```python
-requests.post(
-    f"{CONVEX_SITE_URL}/etl/leads",
-    headers={"Authorization": f"Bearer {ETL_SECRET}"},
-    json={"leads": batch},
-)
+```typescript
+export const getByExternalId = query({
+  args: { externalId: v.string() },
+  returns: v.union(v.null(), /* LeadDTO validator */),
+  handler: async (ctx, { externalId }) => LeadDTO | null,
+});
 ```
 
-**Env:** `ETL_SECRET` in Convex dashboard + Python env
+**Frontend:**
+```typescript
+const lead = useQuery(api.leads.getByExternalId, { externalId: selectedId });
+```
+
+**Response:** full `LeadDTO` or `null`.
 
 ---
 
-## Function → UI cheat sheet
+### `leads.markViewed`
 
-| User action | Convex function(s) | UI file |
-|-------------|-------------------|---------|
-| App loads | `contractors.getBySession`, `leads.listLeads` | `QuestBoard.tsx` |
-| Submit onboarding | `contractors.create` | `OnboardingForm.tsx` (new) |
-| See map sprites | `leads.listLeads` | `QuestMap.tsx` ← data from `QuestBoard` |
-| Click sprite | `leads.markViewed`, `personas.ensurePersona` | `QuestBoard.tsx` |
-| View property details | `leads.getByExternalId` | `LeadSidePanel.tsx` |
-| Read persona | `personas.getByLead` | `LeadSidePanel.tsx` |
-| Send chat message | `chat.sendMessage` | `PersonaChat.tsx` (new) |
-| Pursue / skip | `leads.updateStatus` | `LeadSidePanel.tsx` |
-| Get contact info | `enrichment.requestContactInfo` | `LeadSidePanel.tsx` |
-| ETL batch load | `leads.bulkUpsertLeads` | Python / seed script |
+```typescript
+export const markViewed = mutation({
+  args: { externalId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { externalId }) => {
+    // patch status → "viewed" only if unset or "available"
+  },
+});
+```
 
----
-
-## Rules (don't skip)
-
-1. **Client never calls actions directly.** Mutation writes + `ctx.scheduler.runAfter(0, internalAction, ...)`.
-2. **OpenAI / Orange Slice keys stay in Convex env**, not Next.js.
-3. **Keep `Lead` type in sync** — update `src/types/lead.ts` and `leadFields` in `convex/leads.ts` together.
-4. **Use `externalId` as the stable key** — UI `lead.id` === Convex `externalId`.
-5. **Internal functions** = prefix `internal.` — not callable from browser.
+**Frontend:** call in `QuestBoard.handleSelectLead` on sprite click.
 
 ---
 
-## Env vars checklist
+### `leads.updateStatus`
 
-| Variable | Where | Needed for |
-|----------|-------|------------|
-| `NEXT_PUBLIC_CONVEX_URL` | Vercel / `.env.local` | All UI queries |
-| `NEXT_PUBLIC_MAPBOX_TOKEN` | Vercel / `.env.local` | Map |
-| `OPENAI_API_KEY` | Convex dashboard | Slices 3, 5, 6 |
-| `ORANGE_SLICE_API_KEY` | Convex dashboard | Slice 7 |
-| `ETL_SECRET` | Convex + Python | Slice 8 |
-| `CONVEX_DEPLOY_KEY` | Vercel | Production deploy |
+```typescript
+export const updateStatus = mutation({
+  args: {
+    externalId: v.string(),
+    status: v.union(v.literal("pursued"), v.literal("skipped")),
+  },
+  returns: v.null(),
+});
+```
+
+**Frontend:** `LeadSidePanel` Pursue / Skip buttons.
+
+```typescript
+const updateStatus = useMutation(api.leads.updateStatus);
+await updateStatus({ externalId: lead.id, status: "pursued" });
+```
 
 ---
 
-## Who builds what
+## P2 — Contractor session
 
-| Teammate | Pick up |
-|----------|---------|
-| **Frontend** | Slice 1 (loading fix), onboarding form, `PersonaChat`, wire mutations in `LeadSidePanel` |
-| **Convex / full-stack** | Slices 3–7 function files |
-| **ETL / data** | Slice 2 — call `bulkUpsertLeads` with scored SF addresses from `backend/issues` pipeline |
-| **Anyone blocked** | Seed demo with `convex/seed.example.json` + `bulkUpsertLeads` |
+**New table:** `contractors` · index `by_sessionId`
+
+### `contractors.getBySession`
+
+```typescript
+export const getBySession = query({
+  args: { sessionId: v.string() },
+  returns: v.union(v.null(), /* ContractorDTO */),
+  handler: async (ctx, { sessionId }) => ContractorDTO | null,
+});
+```
+
+**Frontend:**
+```typescript
+const sessionId = getOrCreateSessionId(); // src/lib/session.ts
+const contractor = useQuery(api.contractors.getBySession, { sessionId });
+// null → show OnboardingForm
+// profileStatus === "pending" → show spinner on map
+// profileStatus === "ready" → show QuestBoard
+```
+
+---
+
+### `contractors.create`
+
+```typescript
+export const create = mutation({
+  args: {
+    sessionId: v.string(),
+    businessDescription: v.string(),
+    businessAddress: v.string(),
+    lat: v.number(),
+    lng: v.number(),
+    googlePlaceId: v.optional(v.string()),
+  },
+  returns: v.id("contractors"),
+  handler: async (ctx, args) => {
+    // insert profileStatus: "pending"
+    // ctx.scheduler.runAfter(0, internal.contractors.extractProfile, { contractorId })
+    return contractorId;
+  },
+});
+```
+
+**Frontend:**
+```typescript
+const create = useMutation(api.contractors.create);
+const id = await create({ sessionId, businessDescription, businessAddress, lat, lng });
+```
+
+**Side effect:** schedules OpenAI profile extraction → `profileStatus` becomes `"ready"`. UI reacts via `getBySession` subscription.
+
+---
+
+## P3 — Persona
+
+**New table:** `personas` · index `by_lead` on `leadExternalId`
+
+### `personas.getByLead`
+
+```typescript
+export const getByLead = query({
+  args: { leadExternalId: v.string() },
+  returns: v.union(v.null(), /* PersonaDTO */),
+});
+```
+
+**Frontend (`LeadSidePanel`):**
+```typescript
+const persona = useQuery(api.personas.getByLead, { leadExternalId: lead.id });
+// null → not started
+// status pending|generating → <Spinner />
+// status ready → render persona.narrative
+// status error → render persona.errorMessage
+```
+
+---
+
+### `personas.ensurePersona`
+
+```typescript
+export const ensurePersona = mutation({
+  args: {
+    leadExternalId: v.string(),
+    contractorId: v.id("contractors"),
+  },
+  returns: v.id("personas"),
+  handler: async (ctx, args) => {
+    // idempotent: return existing _id if found
+    // else insert { status: "pending" }, schedule internal.personas.generate
+  },
+});
+```
+
+**Frontend:** call alongside `markViewed` on sprite click.
+
+```typescript
+await ensurePersona({ leadExternalId: lead.id, contractorId: contractor._id });
+```
+
+---
+
+## P4 — Chat
+
+**New table:** `chatMessages` · index `by_lead_contractor` on `[leadExternalId, contractorId]`
+
+### `chat.listMessages`
+
+```typescript
+export const listMessages = query({
+  args: {
+    leadExternalId: v.string(),
+    contractorId: v.id("contractors"),
+  },
+  returns: v.array(/* ChatMessageDTO */),
+  // ordered ascending by _creationTime
+});
+```
+
+**Frontend (`PersonaChat.tsx`):**
+```typescript
+const messages = useQuery(api.chat.listMessages, { leadExternalId, contractorId });
+```
+
+---
+
+### `chat.sendMessage`
+
+```typescript
+export const sendMessage = mutation({
+  args: {
+    leadExternalId: v.string(),
+    contractorId: v.id("contractors"),
+    content: v.string(),
+  },
+  returns: v.id("chatMessages"),
+  handler: async (ctx, args) => {
+    // insert { role: "user", content }
+    // schedule internal.chat.generateReply
+    return messageId;
+  },
+});
+```
+
+**Frontend:**
+```typescript
+const send = useMutation(api.chat.sendMessage);
+await send({ leadExternalId, contractorId, content: input });
+// assistant reply appears via listMessages subscription when action completes
+```
+
+**UX:** show typing indicator while last message is `user` and no newer `assistant` message exists.
+
+---
+
+## P5 — Enrichment
+
+### `enrichment.requestContactInfo`
+
+```typescript
+export const requestContactInfo = mutation({
+  args: {
+    externalId: v.string(),
+    contractorId: v.id("contractors"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // schedule internal.enrichment.fetchContact
+    // action patches lead.contactPhone / contactEmail
+  },
+});
+```
+
+**Frontend:** enable button when `lead.status === "pursued"`.
+
+```typescript
+const enrich = useMutation(api.enrichment.requestContactInfo);
+await enrich({ externalId: lead.id, contractorId });
+// re-fetch via getByExternalId or listLeads subscription
+```
+
+**Response fields on lead:** `contactPhone?`, `contactEmail?`
+
+---
+
+## P6 — ETL HTTP (backend-only)
+
+```typescript
+// convex/http.ts — POST /etl/leads
+// Request:  { leads: LeadIngestRow[] }
+// Response: { inserted: number, updated: number, total: number }
+// Auth:     Authorization: Bearer ${ETL_SECRET}
+```
+
+Python calls this; frontend never touches it.
+
+---
+
+## UI wiring map
+
+| Screen | Queries | Mutations |
+|--------|---------|-----------|
+| `QuestBoard.tsx` | `listLeads`, `getBySession` | — |
+| `OnboardingForm.tsx` | — | `create` |
+| `QuestMap.tsx` / `LeadSprite.tsx` | (props from parent) | — |
+| `QuestBoard` on sprite click | — | `markViewed`, `ensurePersona` |
+| `LeadSidePanel.tsx` | `getByExternalId`, `getByLead` | `updateStatus`, `requestContactInfo` |
+| `PersonaChat.tsx` | `listMessages` | `sendMessage` |
+
+---
+
+## Schema decisions (short)
+
+Don't re-litigate these — just implement.
+
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Lead primary key for UI | `externalId` → exposed as `id` | ETL idempotency; UI already uses `lead.id` |
+| One leads table (not `households`) | `leads` | Already shipped on UI branch |
+| Contractor identity (MVP) | `sessionId` in localStorage | No auth in BRIEF |
+| Persona keyed by | `leadExternalId` string | Avoid cross-table `_id` lookups from UI |
+| Chat scoped to | `leadExternalId` + `contractorId` | Per-contractor conversations |
+| Open permits | filter in `listLeads` | Don't show active construction |
+| Proximity | `distanceMiles` on lead doc | Computed at ETL time per contractor OR batch |
+| Async external APIs | mutation → scheduler → internalAction | Convex pattern; keys stay server-side |
+
+**Full validators:** mirror `leadFields` in `convex/leads.ts` + `src/types/lead.ts`. Add new tables only when implementing P2+.
+
+---
+
+## Internal functions (backend reference)
+
+Not part of frontend contract. Signatures for implementers:
+
+```typescript
+// convex/contractorsActions.ts ("use node")
+internal.contractors.extractProfile({ contractorId: Id<"contractors"> }): void
+internal.contractors.saveProfile({ contractorId, extractedProfile }): void
+
+// convex/personasActions.ts
+internal.personas.generate({ personaId: Id<"personas">, contractorId: Id<"contractors"> }): void
+internal.personas.markGenerating({ personaId }): void
+internal.personas.saveNarrative({ personaId, narrative, summary }): void
+internal.personas.markError({ personaId, errorMessage }): void
+
+// convex/chatActions.ts
+internal.chat.generateReply({ leadExternalId, contractorId, userContent }): void
+internal.chat.saveAssistantMessage({ leadExternalId, contractorId, content }): void
+
+// convex/enrichmentActions.ts
+internal.enrichment.fetchContact({ externalId }): void
+internal.enrichment.saveContactInfo({ externalId, contactPhone?, contactEmail? }): void
+```
+
+---
+
+## Env vars
+
+| Var | Where | Pri |
+|-----|-------|-----|
+| `NEXT_PUBLIC_CONVEX_URL` | Vercel / `.env.local` | P0 |
+| `NEXT_PUBLIC_MAPBOX_TOKEN` | Vercel / `.env.local` | P0 |
+| `OPENAI_API_KEY` | Convex dashboard | P2–P4 |
+| `ORANGE_SLICE_API_KEY` | Convex dashboard | P5 |
+| `ETL_SECRET` | Convex + Python | P6 |
 
 ---
 
 ## References
 
-- Live UI branch: `feature/quest-board-ui`
-- Data field guide: `docs/DATA_INTEGRATION.md` (on UI branch)
-- ETL issues: `backend/issues` branch
-- Product scoring rules: `BRIEF.md`
+- [`BRIEF.md`](./BRIEF.md) — scoring rules
+- `docs/DATA_INTEGRATION.md` on `feature/quest-board-ui` — ETL field list
+- `convex/seed.example.json` — sample `bulkUpsertLeads` payload
