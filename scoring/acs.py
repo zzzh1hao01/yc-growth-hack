@@ -39,7 +39,7 @@ USAGE
 
     Census API key (free): https://api.census.gov/data/key_signup.html
 
-    from explore.acs import build_block_group_index, batch_geocode
+    from scoring.acs import build_block_group_index, batch_geocode
 
     bg_index  = build_block_group_index(api_key)   # {geoid_12: ACSBlockGroup}
     geoid_map = batch_geocode([(lat, lng), ...])    # {(lat, lng): geoid_12 | None}

@@ -54,10 +54,10 @@ from typing import TYPE_CHECKING, Optional
 
 import requests
 
-from explore.sources import DATASETS, SOCRATA_BASE, fetch_all, normalize_block_lot
+from scoring.sources import DATASETS, SOCRATA_BASE, fetch_all, normalize_block_lot
 
 if TYPE_CHECKING:
-    from explore.acs import ACSBlockGroup
+    from scoring.acs import ACSBlockGroup
 
 PROP13_ANNUAL_CAP = 1.02  # CA Prop 13 max assessed-value growth per year
 THIS_YEAR = datetime.date.today().year
@@ -553,7 +553,7 @@ def _acs_lookup_fn(acs_index, geoid_map):
 
 def _build_acs_geoid_map(parcels, acs_index, geocoder_cache):
     """Geocode all parcels' lat/lngs and return a (lat, lng) → GEOID map."""
-    from explore.acs import batch_geocode
+    from scoring.acs import batch_geocode
     lat_lngs = []
     for p in parcels:
         lat, lng = _latlng(p)
@@ -575,7 +575,7 @@ def assemble_sample(
     Assemble a REVIEW sample: per neighborhood, spread `sample_per_nb` records across
     the composite-score range so the reviewer sees variety (not just the top leads).
 
-    Pass `acs_index` (from explore.acs.build_block_group_index) to incorporate ACS
+    Pass `acs_index` (from scoring.acs.build_block_group_index) to incorporate ACS
     behavioural dimensions into the composite score.
     """
     nbs = neighborhoods or TARGET_NEIGHBORHOODS
@@ -623,7 +623,7 @@ def assemble_full(
     Full run: per neighborhood, fetch all SFR/owner-occ parcels, score, and keep the
     TOP `per_nb_keep` by composite score (not a spread). Sums to ~`per_nb_keep` × 5.
 
-    Pass `acs_index` (from explore.acs.build_block_group_index) to incorporate ACS
+    Pass `acs_index` (from scoring.acs.build_block_group_index) to incorporate ACS
     behavioural dimensions into the composite score.
     """
     nbs = neighborhoods or TARGET_NEIGHBORHOODS
@@ -697,7 +697,7 @@ def main():
         if not args.no_acs:
             api_key = os.environ.get("CENSUS_API_KEY", "")
             if api_key:
-                from explore.acs import build_block_group_index
+                from scoring.acs import build_block_group_index
                 acs_index = build_block_group_index(api_key)
             else:
                 print("(ACS layer skipped: set CENSUS_API_KEY env var to enable)")

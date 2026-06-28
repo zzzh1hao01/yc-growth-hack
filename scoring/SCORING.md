@@ -106,8 +106,8 @@ export CENSUS_API_KEY=your_key   # free: https://api.census.gov/data/key_signup.
 
 python3 - <<'EOF'
 import json, os
-from explore.insurance import InsuranceScoringConfig, assemble_full, latest_roll_year, CITYWIDE_NEIGHBORHOODS
-from explore.acs import build_block_group_index
+from scoring.insurance import InsuranceScoringConfig, assemble_full, latest_roll_year, CITYWIDE_NEIGHBORHOODS
+from scoring.acs import build_block_group_index
 
 acs_index = build_block_group_index(os.environ["CENSUS_API_KEY"])
 records = assemble_full(50, InsuranceScoringConfig(), int(latest_roll_year()),
@@ -122,9 +122,9 @@ EOF
 
 | File | Purpose |
 |---|---|
-| `explore/sources.py` | SF Assessor SODA fetch layer |
-| `explore/insurance.py` | Scoring engine — need, timing, composite |
-| `explore/acs.py` | ACS block-group layer — dimensions, archetypes |
+| `scoring/sources.py` | SF Assessor SODA fetch layer |
+| `scoring/insurance.py` | Scoring engine — need, timing, composite |
+| `scoring/acs.py` | ACS block-group layer — dimensions, archetypes |
 | `data/household_records_acs_citywide.json` | Canonical output — 1,872 scored leads, all 40 SF neighborhoods |
 | `data/geocoder_cache.json` | Parcel → block group GEOID via local point-in-polygon |
 | `data/sf_block_groups_tiger.json` | TIGER block group polygons |
