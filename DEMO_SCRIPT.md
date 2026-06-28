@@ -1,182 +1,176 @@
-# HouseholdIQ Demo Script
+# HouseholdIQ — 3-Minute Demo Script
 
-**Target length:** ~4–5 minutes spoken (generous — cut freely)  
-**Branch reference:** `feature/quest-board-ui`  
-**Recording tip:** Run `npm run convex:dev` + `npm run dev`, set `NEXT_PUBLIC_MAPBOX_TOKEN` in `.env.local`. Demo works with `PLACEHOLDER_LEADS` even if Convex is empty.
-
----
-
-## 0:00 – 0:30 · Hook (the problem)
-
-**[Screen: blank or a quick cut of random door-knocking / a generic lead-gen site]**
-
-> If you're a home service contractor in San Francisco — HVAC, electrical, whatever — this is probably your week. You drive a route, knock doors, hope someone answers, and mostly get "we're not interested."
->
-> There's no data behind it. You don't know which homes actually need work. You don't know if the owner is even the type to hire someone out versus DIY. You're guessing — block by block, door by door.
->
-> That's the problem we're solving.
+**Target:** ~3 minutes spoken  
+**Live app:** [yc-growth-hack.vercel.app](https://yc-growth-hack.vercel.app)  
+**Tip:** One sentence per line — read straight down.
 
 ---
 
-## 0:30 – 1:00 · Product introduction
+## 1. The Problem (~0:45)
 
-**[Screen: load `http://localhost:3000` — the `QuestBoard` loads]**
+**[SHOW: blank screen, or quick b-roll of door knocking / driving a route]**
 
-> This is **HouseholdIQ**. We call it a **bounty board for homes**.
->
-> **[Point to header]** You can see the title up here — "Bounty Board" — and we're scoped to San Francisco. Each little character on the map is a **lead**: a real address, scored by public data, waiting to be clicked.
->
-> Think of it like a video game quest map — except every sprite is a household that might actually need your services.
+If you're a home service contractor in San Francisco, this is probably your week.
 
----
+You knock doors.
 
-## 1:00 – 1:45 · Onboarding (planned — narrate, don't click)
+You hope someone answers.
 
-**[Screen: stay on QuestBoard header — do NOT invent a form that isn't there]**
+Most of the time — nothing.
 
-> In the full product, a contractor lands here with no account. They type a free-text description of their business — something like *"I do HVAC in the Mission, mostly older homes"* — and enter their business address through Google Places autocomplete.
->
-> GPT extracts their service profile — HVAC versus electrical, price point, target neighborhoods — and that feeds into proximity scoring.
->
-> **[Point to badge: "Mission HVAC Co. · Demo placeholders"]**
->
-> For this demo recording, we've skipped onboarding and dropped you straight onto the board as **Mission HVAC Co.** The badge here tells you where data is coming from — right now it says **"Demo placeholders"** because we're showing sample leads from `src/data/placeholderLeads.ts`. When Convex has real ETL data loaded, that flips to **"Convex · householdiq"** via `useQuery(api.leads.listLeads)` in `QuestBoard.tsx`.
+- Yelp and Angi give you random leads.
+- Word of mouth is slow.
+- Door-to-door is a guess.
 
----
+You don't know which homes actually need work.
 
-## 1:45 – 2:30 · Map + sprites + scoring
+You don't know who lives there.
 
-**[Screen: pan and zoom `QuestMap` — Mission / Castro area]**
+You don't know if they'll hire someone out — or DIY it themselves.
 
-> **[Zoom in on the map]** This is our Mapbox layer — `QuestMap.tsx`. We use a custom cartoon style from `map-cartoon-style.ts` so it feels like a game board, not a corporate GIS tool.
->
-> **[Point at sprites]** Each pin is a `LeadSprite` — a CSS-positioned div over the Mapbox canvas, not a native Mapbox symbol. Inside is a pixel-character SVG. The body color tells you match quality:
->
-> **[Point to `BoardLegend` in the header]**
-> - **Green** — hot lead, score 70 plus  
-> - **Yellow** — warm, 40 to 69  
-> - **Red** — cold, under 40  
->
-> That score is a weighted composite from our ETL pipeline — permit age, owner-occupied status, home age, behavioral cluster fit, and proximity to the contractor. All defined in `BRIEF.md`.
->
-> **[Point at a sprite with the red `!` badge]**
-> And this exclamation mark — that's the **urgency flag**. It means the last HVAC or electrical permit is past the replacement threshold — like 15-plus years. That's a house that probably needs work *now*, not eventually.
->
-> Hot leads also **wave** — little animation on the sprite arm. You'll notice the green ones feel alive.
+So you waste hours on the wrong streets.
+
+That's the pain we built HouseholdIQ to fix.
 
 ---
 
-## 2:30 – 3:30 · Click a sprite → side panel
+## 2. The Product (~0:30)
 
-**[Screen: click a high-score urgent lead — e.g. "2847 24th St, Mission"]**
+**[SHOW: open the app — full map view]**
 
-> **[Click sprite]** Now I click a sprite — let's grab this one in the Mission.
->
-> **[`LeadSidePanel` slides in from the right]**
-> The side panel opens. Address up top, neighborhood underneath.
->
-> **[Scroll to Match Score section]**
-> Match score bar — 92 out of 100, labeled **Hot lead**. Distance from your business shows here when ETL computes it.
->
-> **[Point to urgent line]**
-> And there's our urgency callout again — "permit exceeds replacement threshold."
->
-> **[Scroll to Property Signals]**
-> Property signals: last permit age, home age, owner status, assessed value. Some fields show **"ETL: Assessor parcel"** placeholders — that's honest demo labeling. Real values populate when the Python pipeline ingests SF Assessor and permit data through `api.leads.bulkUpsertLeads`.
->
-> **[Scroll to Household Cluster]**
-> Behavioral cluster — like *"Long-time owner, budget-conscious"* — assigned offline from Census block groups plus AHS, CEX, GSS, and Pew survey distributions. This is how we know *what kind of homeowner* you're dealing with before you knock.
+This is **HouseholdIQ**.
 
----
+We call it a **bounty board for homes**.
 
-## 3:30 – 4:00 · AI persona chat (stub — narrate the vision)
+- Every little character on the map is a real SF address.
+- Scored by public data.
+- Ranked by how good the lead is.
 
-**[Screen: point to "Persona chat coming soon" text in `LeadSidePanel`]**
+**Green** — hot lead. Go now.
 
-> **[Read the stub text on screen]**
-> So right now the panel says **"Persona chat coming soon"** — that's a placeholder. The architecture is wired in our Convex spec: when you open a household, `personas.ensurePersona` schedules a GPT action that writes a narrative based on permit history, assessor data, and the cluster traits.
->
-> **[Gesture as if typing]**
-> In the finished flow, you'd type here — *"Would this homeowner respond to a cold knock, or do they prefer Yelp?"* — and the AI persona answers in character. It's not pitch training. It's **qualification** — understand the household before you spend a trip.
->
-> For the recording: we're showing the property intelligence layer today; chat lands on the next sprint via `convex/personas/` actions in our integration guide.
+**Yellow** — worth a look.
+
+**Red** — probably skip.
+
+**!** — urgent. This home likely needs work *right now*.
+
+It feels like a game board — but every sprite is a real opportunity.
 
 ---
 
-## 4:00 – 4:30 · Action moment — contact enrichment
+## 3. The Demo (~1:00)
 
-**[Screen: scroll to bottom of `LeadSidePanel`]**
+**[SHOW: zoom into the Mission — multiple sprites visible]**
 
-> **[Point to disabled button]**
-> Once you've qualified a lead, you hit **"Get contact info."** In the demo this button is disabled — Orange Slice enrichment isn't wired yet — but the flow is: `enrichment.requestContactInfo` mutation schedules an action, Orange Slice returns phone and email, and you can push to outreach through Gmail or HeyReach.
->
-> **[Click Pursue mentally / narrate]**
-> The contractor decides: pursue or skip. Pursued leads update status in Convex so the map reflects what you've already worked.
+Let me show you how it works.
 
----
+**[SHOW: click a green sprite with a ! badge]**
 
-## 4:30 – 5:15 · Technical credibility
+I click a house.
 
-**[Screen: optional quick cut — Convex dashboard showing `leads` table, or terminal with `npx convex dev`]**
+Side panel opens.
 
-> Quick architecture pass — because this isn't just a pretty map.
->
-> **[Optional: show `convex/leads.ts` or dashboard]**
-> **Convex** is our backend. `listLeads` powers the board reactively — `useQuery` in `QuestBoard.tsx` subscribes over WebSocket, so when ETL bulk-loads new addresses, sprites appear without a refresh. Schema is in `convex/schema.ts`; ingest is `bulkUpsertLeads`.
->
-> **Mapbox** handles the basemap and geolocation. Sprites are React components projected with `map.project()` — hackathon-feasible, no game engine.
->
-> **Python ETL** — on the `backend/issues` branch — pulls SF Open Data permits, Assessor parcels, Census ACS, runs cluster assignment and scoring, then pushes JSON into Convex. Public data in, ranked leads out.
+- Address up top.
+- Match score — say **92 out of 100**.
+- Urgent flag — old permit, aging systems.
 
----
+**[SHOW: scroll to Property Signals]**
 
-## 5:15 – 5:45 · Closing
+Property signals:
+- How old the home is.
+- When the last permit was pulled.
+- Whether it's owner-occupied.
 
-**[Screen: back to full map view, pan across sprites]**
+**[SHOW: scroll to Household Profile / cluster]**
 
-> Yelp and Angi sell you **leads** — random homeowners who filled out a form somewhere. HouseholdIQ sells you **context**: which doors, why now, and who answers.
->
-> It's **data-driven door knocking** for SF contractors. Know which homes need work. Know who lives there. Then decide if it's worth the knock.
->
-> That's HouseholdIQ. Thanks for watching.
+And a behavioral profile — what kind of homeowner this probably is.
 
----
+Before you knock, you already know *why* this door might be worth it.
 
-## Speaker Notes (visual emphasis)
+**[SHOW: Persona Chat section — type and send if live, or narrate]**
 
-| Moment | Emphasize on screen |
-|--------|---------------------|
-| Hook | Keep it faceless or b-roll — don't show the app yet |
-| Map reveal | Full-width `QuestMap`, cartoon green tint, multiple sprites visible |
-| Legend | Pause on `BoardLegend` — green / yellow / red / `!` |
-| Urgent sprite | Click one with `urgent: true` — red badge + green body is striking |
-| Side panel | Slow scroll: score bar → property signals → cluster |
-| Placeholder honesty | Briefly show italic "ETL: Assessor parcel" — judges appreciate transparency |
-| Stub sections | Don't linger on disabled chat/button — narrate confidently, move on |
-| Close | Wide map shot with 5+ sprites — feels alive |
+You can even chat with an AI persona of the household.
 
-### Pre-recording checklist
+Ask: *"Would they respond to a cold knock?"*
 
-- [ ] `.env.local` has valid `NEXT_PUBLIC_MAPBOX_TOKEN`
-- [ ] `npm run dev` running; optional `npm run convex:dev`
-- [ ] Browser zoom 100%; hide bookmarks bar
-- [ ] Pick a lead with `matchScore: 92` and `urgent: true` for the click demo (`lead-001`)
-- [ ] Test Escape key closes `LeadSidePanel`
-- [ ] If Convex has seeded leads, confirm header badge says "Convex · householdiq"
+* "What objections might they have?"
+
+It's not pitch training.
+
+It's qualification — so you don't waste the trip.
 
 ---
 
-## Demo Gaps / Risks
+## 4. The Data & AI (~0:25)
 
-| Gap | Impact on recording | Mitigation |
-|-----|----------------------|------------|
-| **No onboarding UI** | Section B/C requires narration, not clicks | Narrate planned flow; point at "Mission HVAC Co." header badge |
-| **Placeholder data only** (default) | Property fields partially stubbed | Click leads with full placeholder data; acknowledge "demo data" chip in panel |
-| **No persona chat UI** | Can't demo live GPT conversation | Narrate from `LeadSidePanel` stub text + `convex_readme.md` architecture |
-| **"Get contact info" disabled** | Can't show real enrichment | Narrate Orange Slice flow; show disabled button briefly |
-| **Convex may be empty** | Falls back to `PLACEHOLDER_LEADS` automatically | Works fine — badge shows "Demo placeholders" |
-| **No contractor proximity re-rank in UI** | `distanceMiles` often null on placeholders | Mention scoring conceptually; don't claim live proximity unless ETL loaded |
-| **Onboarding GPT extraction not built** | Can't demo profile parsing | Reference `contractors.create` from `convex_readme.md` as planned |
-| **ETL pipeline not merged to UI branch** | Backend data on separate branch | Mention `backend/issues` + `bulkUpsertLeads`; optional Convex dashboard B-roll |
-| **Mapbox token missing** | `QuestMap` shows error state instead of map | Verify token before recording |
-| **`convex_readme.md` vs live schema** | Spec describes future `households` table; UI uses `leads` | Demo the running app (`leads`); spec doc is forward-looking |
+**[SHOW: stay on side panel or cut back to map]**
+
+Under the hood, it's simple.
+
+- We pull public SF data — permits, property records, census signals.
+- Python pipelines turn raw records into scores.
+- OpenAI generates a persona from those signals.
+
+The contractor gets context *before* they spend time knocking.
+
+Not a phone number from a form.
+
+Actual intelligence about the home and the household.
+
+---
+
+## 5. Real-Time Backend (~0:15)
+
+**[SHOW: map view — optional quick flash of Convex dashboard]**
+
+Everything stays in sync through **Convex**.
+
+- Leads load live.
+- Chat history persists.
+- New data can hit the map without a refresh.
+
+No manual exports. No stale spreadsheets.
+
+---
+
+## 6. Outreach (~0:05)
+
+**[SHOW: "Get contact info" button at bottom of panel]**
+
+Once you've qualified a lead, one click can pull contact info through **Orange Slice** — so you're not guessing at the door *or* at the phone.
+
+---
+
+## 7. Close (~0:15)
+
+**[SHOW: wide map shot — pan across sprites]**
+
+Yelp sells you leads.
+
+HouseholdIQ gives you context.
+
+**Know which doors to knock on.**
+
+**And know who answers before you knock.**
+
+That's HouseholdIQ. Thank you.
+
+---
+
+## Quick Reference — What to Show When
+
+| Moment | [SHOW] |
+|--------|--------|
+| Hook | Blank / door-knock b-roll |
+| Reveal | Full map + legend |
+| Demo | Click sprite → side panel → scroll |
+| Chat | Type one message if live |
+| Close | Wide map, multiple sprites |
+
+## Pre-Record Checklist
+
+- [ ] App loads at [yc-growth-hack.vercel.app](https://yc-growth-hack.vercel.app)
+- [ ] Complete contractor setup if prompted
+- [ ] Pick a green + ! sprite in the Mission
+- [ ] Browser zoom 100%, hide bookmarks bar
+- [ ] Test Escape closes the side panel
