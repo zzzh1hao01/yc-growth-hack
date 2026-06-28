@@ -45,6 +45,7 @@ export function QuestMap({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const businessMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const moveFrameRef = useRef<number | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [spritePositions, setSpritePositions] = useState<SpritePosition[]>([]);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -68,6 +69,14 @@ export function QuestMap({
       }),
     );
   }, [leads]);
+
+  const scheduleSpriteUpdate = useCallback(() => {
+    if (moveFrameRef.current != null) return;
+    moveFrameRef.current = requestAnimationFrame(() => {
+      moveFrameRef.current = null;
+      updateSpritePositions();
+    });
+  }, [updateSpritePositions]);
 
   useEffect(() => {
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -99,19 +108,23 @@ export function QuestMap({
       updateSpritePositions();
     });
 
-    map.on("move", updateSpritePositions);
-    map.on("resize", updateSpritePositions);
+    map.on("move", scheduleSpriteUpdate);
+    map.on("resize", scheduleSpriteUpdate);
 
     mapRef.current = map;
 
     return () => {
+      if (moveFrameRef.current != null) {
+        cancelAnimationFrame(moveFrameRef.current);
+        moveFrameRef.current = null;
+      }
       businessMarkerRef.current?.remove();
       businessMarkerRef.current = null;
       map.remove();
       mapRef.current = null;
       setMapReady(false);
     };
-  }, [updateSpritePositions]);
+  }, [scheduleSpriteUpdate, updateSpritePositions]);
 
   useEffect(() => {
     const map = mapRef.current;

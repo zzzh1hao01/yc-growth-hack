@@ -17,9 +17,9 @@ export function BoardLegend() {
         <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
           !
         </span>
-        Urgent
+        High priority
       </span>
-      <span className="text-amber-900/50">· 30 demo pins (hot / warm / cold mix)</span>
+      <span className="text-amber-900/50">· ~400 pins · proportional sample</span>
     </div>
   );
 }

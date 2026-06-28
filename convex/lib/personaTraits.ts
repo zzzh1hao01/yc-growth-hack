@@ -1,27 +1,28 @@
 import {
-  clusterLabel,
-  clusterNarrative,
   homeAgeYears,
-  yearsSince,
-  type ScoreVertical,
-  type VerticalScoreEntry,
+  insuranceSegmentLabel,
+  insuranceSegmentNarrative,
+  type InsuranceLeadDoc,
+  type TimingConfidence,
 } from "./scoring";
 
-export const PERSONA_TRAITS_VERSION = 5;
+export const PERSONA_TRAITS_VERSION = 6;
 
 export type PersonaTraitProfile = {
   version: number;
-  clusterId: number;
-  clusterLabel: string;
-  clusterBaseline: string;
-  incomeBand: "high" | "mid" | "low";
+  segmentLabel: string;
+  segmentBaseline: string;
   tenure: "long_term" | "recent_mover" | "unknown";
   housing: "owner" | "renter";
   homeAgeYears: number;
   homeAgeBand: "historic" | "mid_age" | "newer";
   urgencyLevel: "high" | "medium" | "low";
-  primaryNeed: ScoreVertical;
   needScore: number;
+  timingScore: number;
+  timingConfidence: TimingConfidence;
+  gapPct: number;
+  gapDollars: number;
+  rebuildCost: number;
   budgetPosture: string;
   decisionStyle: string;
   communicationStyle: string;
@@ -47,138 +48,105 @@ function pickFrom<T>(items: T[], seed: string, salt: number): T {
   return items[hashString(`${seed}:${salt}`) % items.length];
 }
 
-function incomeBand(assessedValue: number): PersonaTraitProfile["incomeBand"] {
-  if (assessedValue >= 1_350_000) return "high";
-  if (assessedValue >= 650_000) return "mid";
-  return "low";
-}
-
 function urgencyLevel(
-  verticalScores: Record<string, VerticalScoreEntry>,
-  primary: ScoreVertical,
+  needScore: number,
+  worthOutreach: boolean,
 ): PersonaTraitProfile["urgencyLevel"] {
-  const vs = verticalScores[primary] ?? verticalScores.hvac;
-  if (!vs) return "low";
-  if (vs.urgency_flag && vs.score >= 0.75) return "high";
-  if (vs.urgency_flag || vs.score >= 0.55) return "medium";
+  if (worthOutreach && needScore >= 0.85) return "high";
+  if (needScore >= 0.6 || worthOutreach) return "medium";
   return "low";
-}
-
-function primaryVertical(verticalScores: Record<string, VerticalScoreEntry>): {
-  vertical: ScoreVertical;
-  score: number;
-} {
-  const entries: ScoreVertical[] = ["hvac", "panel", "ev"];
-  let best: ScoreVertical = "hvac";
-  let bestScore = 0;
-  for (const key of entries) {
-    const score = verticalScores[key]?.score ?? 0;
-    if (score > bestScore) {
-      best = key;
-      bestScore = score;
-    }
-  }
-  return { vertical: best, score: bestScore };
 }
 
 function budgetPosture(
-  clusterId: number,
-  band: PersonaTraitProfile["incomeBand"],
+  gapPct: number,
   urgency: PersonaTraitProfile["urgencyLevel"],
 ): string {
-  if (clusterId === 0 && band === "high") {
-    return "Quality-first — will pay for reliability and clean work, less price-sensitive if scope is clear.";
+  if (gapPct >= 0.4 && urgency === "high") {
+    return "May be shocked by a gap this large — needs education before price talk.";
   }
-  if (clusterId === 2) {
-    return "Upgrade-minded recent buyer — budget exists for fixes they did not plan for at purchase.";
+  if (gapPct >= 0.25) {
+    return "Aware something may be off but hasn't prioritized a review — responds to concrete dollar examples.";
   }
-  if (clusterId === 3) {
-    return "Fixed-income cautious — needs safety/comfort framing; dislikes feeling rushed or upsold.";
-  }
-  if (clusterId === 4 && urgency === "high") {
-    return "Practical family budget — will spend when failure risk is real, not for nice-to-haves.";
-  }
-  if (band === "low" && urgency === "low") {
-    return "Price-sensitive and deferring — pushes non-urgent work unless ROI is obvious.";
-  }
-  if (band === "mid" && urgency === "medium") {
-    return "Value shopper — compares quotes, open to work with clear timeline and warranty.";
-  }
-  if (band === "high") {
-    return "Premium-leaning — cares about credentials, reviews, and minimal disruption.";
-  }
-  return "Balanced — neither impulse buyer nor extreme penny-pincher; wants proof before committing.";
+  return "Moderate gap — may assume carrier keeps them current unless shown rebuild math.";
 }
 
-function decisionStyle(clusterId: number, tenure: PersonaTraitProfile["tenure"]): string {
-  if (clusterId === 0) return "Decides quickly when trust is established; delegates details to a reputable contractor.";
-  if (clusterId === 2 && tenure === "recent_mover") {
-    return "Still learning the house — gathers multiple opinions before big spends.";
+function decisionStyle(
+  tenure: PersonaTraitProfile["tenure"],
+  timingScore: number,
+): string {
+  if (tenure === "recent_mover") {
+    return "Still settling coverage after purchase — open to a second opinion if framed as protection, not sales.";
   }
-  if (clusterId === 3) return "Slow and deliberate — prefers familiar vendors and written scope.";
-  if (clusterId === 4) return "Joint decision with partner; schedules around work and school.";
-  if (clusterId === 1) return "Skeptical of sales pressure — wants itemized quotes and references.";
-  return "Varies by issue severity — urgent repairs fast, discretionary projects slow.";
+  if (timingScore >= 0.5) {
+    return "Renewal-minded — compares if you anchor to their anniversary or recent life change.";
+  }
+  if (tenure === "long_term") {
+    return "Set-and-forget policy holder — needs proof their Coverage A hasn't kept up with SF rebuild costs.";
+  }
+  return "Cautious — wants documentation and references before changing carriers.";
 }
 
 function opennessToOutreach(
-  clusterId: number,
-  housing: PersonaTraitProfile["housing"],
+  worthOutreach: boolean,
   urgency: PersonaTraitProfile["urgencyLevel"],
+  housing: PersonaTraitProfile["housing"],
 ): PersonaTraitProfile["opennessToOutreach"] {
   if (housing === "renter") return "low";
-  if (urgency === "high") return "high";
-  if (clusterId === 0 || clusterId === 2) return "medium";
-  if (clusterId === 1 || clusterId === 3) return "low";
-  return "medium";
+  if (worthOutreach || urgency === "high") return "high";
+  if (urgency === "medium") return "medium";
+  return "low";
 }
 
 const COMMUNICATION_STYLES = [
-  "Direct and skeptical — asks hard questions upfront.",
-  "Polite but guarded — listens, then verifies everything online.",
-  "Warm and chatty — opens up if you mention neighbors or local references.",
-  "Busy and impatient — wants the point in 30 seconds.",
-  "Detail-oriented — wants specs, permits, and brand names.",
-  "Relationship-driven — hires people who feel trustworthy over the lowest bid.",
+  "Direct — wants numbers and a clear gap explanation upfront.",
+  "Skeptical of insurance sales — trusts third-party rebuild estimates.",
+  "Relationship-oriented — prefers a local agent who explains options patiently.",
+  "Busy professional — wants a 10-minute review call, not a long pitch.",
+  "Detail-oriented — asks about ordinance/law, inflation guard, and endorsements.",
+  "Price-sensitive — compares premiums but will pay if underinsurance risk is real.",
 ];
 
 const CHANNELS = [
-  "Nextdoor neighbor recommendation",
-  "Friend or family referral",
-  "Google reviews with photos",
-  "Yelp / Angi after comparing 3 quotes",
-  "Repeat vendor they've used before",
-  "Building permit history / known local contractor",
+  "Email with a one-page coverage summary",
+  "Phone call after a mailed letter",
+  "Neighbor or Nextdoor referral introduction",
+  "Annual renewal notice follow-up",
+  "Post-renovation permit trigger outreach",
+  "Financial advisor or mortgage broker referral",
 ];
 
 const VARIATION_HINTS = [
-  "Recently had a bad contractor experience — extra skeptical.",
-  "Planning a kitchen remodel soon — bundling trades is appealing.",
-  "Has an elderly parent in the home — safety upgrades resonate.",
-  "Works from home — cares about noise and scheduling windows.",
-  "Environmentally motivated — interested in efficiency rebates.",
-  "Landlord-occupied duplex — decisions tied to tenant complaints.",
-  "Just got a high utility bill — receptive to efficiency pitch.",
-  "Handy themselves on small fixes — needs proof for big jobs.",
+  "Recently saw a neighbor's claim payout fall short of rebuild cost.",
+  "Planning a major remodel — worried current Coverage A won't cover it.",
+  "Has an older mortgage escrow bill — hasn't looked at declarations in years.",
+  "Adult children urging a policy review after a regional wildfire scare.",
+  "Bundled auto/home for a discount — hasn't stress-tested home limits.",
+  "Retired on fixed income — fears premium hikes but hates surprise gaps.",
+  "Just received a carrier non-renewal notice.",
+  "Handy and DIY-minded — underestimates professional rebuild costs.",
 ];
 
 export function buildPersonaTraits(lead: {
   householdId: string;
-  clusterId: number;
   ownerOccupied: boolean;
-  assessedValue: number;
-  yearBuilt: number;
-  lastSaleDate?: string;
-  verticalScores: Record<string, VerticalScoreEntry>;
+  yearBuilt?: number;
+  yearsOwned?: number;
+  purchaseYear?: number;
+  needScore: number;
+  timingScore: number;
+  timingConfidence: TimingConfidence;
+  replacementCostGapPct: number;
+  replacementCostGapDollars: number;
+  replacementCostToday: number;
+  worthOutreach: boolean;
   ownerFullName?: string;
   ownerFirstName?: string;
   contactRole?: "owner" | "resident" | "unknown";
 }): PersonaTraitProfile {
-  const saleYears = yearsSince(lead.lastSaleDate);
   const tenure: PersonaTraitProfile["tenure"] =
-    saleYears == null
+    lead.yearsOwned == null
       ? "unknown"
-      : saleYears <= 4
+      : lead.yearsOwned <= 4
         ? "recent_mover"
         : "long_term";
 
@@ -186,39 +154,67 @@ export function buildPersonaTraits(lead: {
   const homeAgeBand: PersonaTraitProfile["homeAgeBand"] =
     age >= 50 ? "historic" : age >= 25 ? "mid_age" : "newer";
 
-  const band = incomeBand(lead.assessedValue);
-  const { vertical, score } = primaryVertical(lead.verticalScores);
-  const urgency = urgencyLevel(lead.verticalScores, vertical);
+  const urgency = urgencyLevel(lead.needScore, lead.worthOutreach);
   const housing: PersonaTraitProfile["housing"] = lead.ownerOccupied
     ? "owner"
     : "renter";
 
-  const vs = lead.verticalScores[vertical] ?? lead.verticalScores.hvac;
+  const doc = lead as InsuranceLeadDoc;
+  const segmentLabel = insuranceSegmentLabel({
+    ...doc,
+    _id: "",
+    householdId: lead.householdId,
+    address: "",
+    lat: 0,
+    lng: 0,
+    neighborhood: "",
+    sqft: 0,
+    spriteVariant: 0,
+  });
+
   const topPropertySignals = [
-    ...(vs?.reasons?.slice(0, 3) ?? []),
-    housing === "renter" ? "Non-owner-occupied — may not control upgrade spend" : "Owner-occupied",
-    tenure === "recent_mover" ? `Moved in within ~${saleYears ?? "?"} years` : "Long-term tenure",
-    `Assessed value band: ${band}`,
+    `${Math.round(lead.replacementCostGapPct * 100)}% estimated underinsurance`,
+    `Rebuild ~$${lead.replacementCostToday.toLocaleString()} vs likely coverage anchor`,
+    lead.yearsOwned != null && lead.purchaseYear
+      ? `Owned since ${lead.purchaseYear}`
+      : `Timing confidence: ${lead.timingConfidence}`,
+    housing === "owner" ? "Owner-occupied SFR" : "Non-owner-occupied",
   ].slice(0, 5);
 
   return {
     version: PERSONA_TRAITS_VERSION,
-    clusterId: lead.clusterId,
-    clusterLabel: clusterLabel(lead.clusterId),
-    clusterBaseline: clusterNarrative(lead.clusterId),
-    incomeBand: band,
+    segmentLabel,
+    segmentBaseline: insuranceSegmentNarrative({
+      ...doc,
+      _id: "",
+      householdId: lead.householdId,
+      address: "",
+      lat: 0,
+      lng: 0,
+      neighborhood: "",
+      sqft: 0,
+      spriteVariant: 0,
+    }),
     tenure,
     housing,
     homeAgeYears: age,
     homeAgeBand,
     urgencyLevel: urgency,
-    primaryNeed: vertical,
-    needScore: score,
-    budgetPosture: budgetPosture(lead.clusterId, band, urgency),
-    decisionStyle: decisionStyle(lead.clusterId, tenure),
+    needScore: lead.needScore,
+    timingScore: lead.timingScore,
+    timingConfidence: lead.timingConfidence,
+    gapPct: lead.replacementCostGapPct,
+    gapDollars: lead.replacementCostGapDollars,
+    rebuildCost: lead.replacementCostToday,
+    budgetPosture: budgetPosture(lead.replacementCostGapPct, urgency),
+    decisionStyle: decisionStyle(tenure, lead.timingScore),
     communicationStyle: pickFrom(COMMUNICATION_STYLES, lead.householdId, 1),
     channelPreference: pickFrom(CHANNELS, lead.householdId, 2),
-    opennessToOutreach: opennessToOutreach(lead.clusterId, housing, urgency),
+    opennessToOutreach: opennessToOutreach(
+      lead.worthOutreach,
+      urgency,
+      housing,
+    ),
     topPropertySignals,
     variationHint: pickFrom(VARIATION_HINTS, lead.householdId, 3),
     ownerFullName: lead.ownerFullName,
@@ -228,7 +224,8 @@ export function buildPersonaTraits(lead: {
 }
 
 export function traitsPromptBlock(traits: PersonaTraitProfile): string {
-  const contactRole = traits.contactRole ?? (traits.housing === "renter" ? "resident" : "owner");
+  const contactRole =
+    traits.contactRole ?? (traits.housing === "renter" ? "resident" : "owner");
   const roleLabel =
     contactRole === "resident"
       ? "likely resident (may not be title holder)"
@@ -236,20 +233,21 @@ export function traitsPromptBlock(traits: PersonaTraitProfile): string {
         ? "likely homeowner"
         : "contact at this address";
   const ownerLine = traits.ownerFullName
-    ? `- Identified contact: ${traits.ownerFullName} (${roleLabel}; write the persona FOR this person; use their first name naturally; pronouns and narrative must match this name — never describe a different person)`
+    ? `- Identified contact: ${traits.ownerFullName} (${roleLabel}; write the persona FOR this person)`
     : "- Contact name: not yet verified — use neutral voice, do not invent a full name";
 
-  return `Derived household trait profile (use as ground truth — do NOT ignore):
+  return `Derived household trait profile (insurance / underinsurance context):
 ${ownerLine}
-- Cluster: ${traits.clusterLabel} — ${traits.clusterBaseline}
-- Income band (assessed value proxy): ${traits.incomeBand}
+- Segment: ${traits.segmentLabel} — ${traits.segmentBaseline}
 - Housing: ${traits.housing} · Tenure: ${traits.tenure} · Home age: ${traits.homeAgeYears}y (${traits.homeAgeBand})
-- Service need: ${traits.primaryNeed} (score ${traits.needScore.toFixed(2)}, urgency ${traits.urgencyLevel})
+- Need score: ${traits.needScore.toFixed(2)} · Timing score: ${traits.timingScore.toFixed(2)} (${traits.timingConfidence} confidence)
+- Coverage gap: ${Math.round(traits.gapPct * 100)}% (~$${traits.gapDollars.toLocaleString()}) vs ~$${traits.rebuildCost.toLocaleString()} rebuild
+- Urgency: ${traits.urgencyLevel}
 - Budget posture: ${traits.budgetPosture}
 - Decision style: ${traits.decisionStyle}
 - Communication: ${traits.communicationStyle}
 - Likely channel: ${traits.channelPreference}
-- Openness to cold outreach: ${traits.opennessToOutreach}
+- Openness to coverage review outreach: ${traits.opennessToOutreach}
 - Property signals: ${traits.topPropertySignals.join("; ")}
 - Unique nuance (must reflect in persona): ${traits.variationHint}`;
 }

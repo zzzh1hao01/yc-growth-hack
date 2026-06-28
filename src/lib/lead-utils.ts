@@ -31,3 +31,30 @@ export function getTierLabel(tier: MatchTier): string {
 export function getScoreBarColor(score: number): string {
   return getTierColor(getMatchTier(score));
 }
+
+/** Cold tier ceiling — leads below this are "low importance" on the map. */
+export const COLD_SCORE_CEILING = 40;
+
+export type LeadImportanceFilter = {
+  minScore: number;
+};
+
+/**
+ * Drop leads below `minScore`, lowest composite scores first as the threshold rises.
+ * At 0 everything shows; at 40+ cold pins are gone.
+ */
+export function filterLeadsByImportance<T extends { matchScore: number }>(
+  leads: T[],
+  { minScore }: LeadImportanceFilter,
+): T[] {
+  if (minScore <= 0) return leads;
+  return leads.filter((lead) => lead.matchScore >= minScore);
+}
+
+export function describeImportanceFilter(minScore: number): string {
+  if (minScore <= 0) return "All leads";
+  if (minScore < COLD_SCORE_CEILING) return `Hiding coldest (below ${minScore})`;
+  if (minScore === COLD_SCORE_CEILING) return "Warm & hot only";
+  if (minScore < 70) return `Warm+ (score ${minScore}+)`;
+  return "Hot leads only";
+}
