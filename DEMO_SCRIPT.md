@@ -1,34 +1,40 @@
 # HouseholdIQ — 3-Minute Demo Script
 
 **Target:** ~3 minutes spoken  
-**Live app:** [yc-growth-hack.vercel.app](https://householdiq-insurance.vercel.app/)  
+**Live app:** [householdiq-insurance.vercel.app](https://householdiq-insurance.vercel.app/)  
 **Tip:** One sentence per line — read straight down.
 
 ---
 
 ## 1. The Problem (~0:45)
 
-**[SHOW: blank screen, or quick b-roll of door knocking / driving a route]**
+**[SHOW: blank screen, or a spreadsheet / exported property roll]**
 
-If you're a home service contractor in San Francisco, this is probably your week.
+If you're a property insurance agent in San Francisco, this is probably your week.
 
-You knock doors.
+You get broad property lists.
 
-You hope someone answers.
+You don't know which homes actually matter.
 
-Most of the time — nothing.
+You open assessor sites.
 
-- Yelp and Angi give you random leads.
-- Word of mouth is slow.
-- Door-to-door is a guess.
+You check permit portals.
 
-You don't know which homes actually need work.
+You jump between spreadsheets.
 
-You don't know who lives there.
+Most of the time — you're searching blind.
 
-You don't know if they'll hire someone out — or DIY it themselves.
+- Lists give you volume, not signal.
+- CRM exports don't flag coverage gaps.
+- Territory planning is still mostly guesswork.
 
-So you waste hours on the wrong streets.
+You don't know which properties may be underinsured.
+
+You don't know which public records already show risk.
+
+You don't know where to focus first.
+
+So you waste hours on the wrong addresses.
 
 That's the pain we built HouseholdIQ to fix.
 
@@ -36,68 +42,74 @@ That's the pain we built HouseholdIQ to fix.
 
 ## 2. The Product (~0:30)
 
-**[SHOW: open the app — full map view]**
+**[SHOW: open the app — full Coverage Board / pixel map]**
 
 This is **HouseholdIQ**.
 
-We call it a **bounty board for homes**.
+We call it a **bounty board for properties**.
 
 - Every little character on the map is a real SF address.
-- Scored by public data.
-- Ranked by how good the lead is.
+- Scored from public property data.
+- Ranked by priority — not random lead order.
 
-**Green** — hot lead. Go now.
+**Green** — higher-priority opportunity. Look here first.
 
-**Yellow** — worth a look.
+**Yellow** — possible opportunity. Worth a review.
 
-**Red** — probably skip.
+**Red** — lower priority for now.
 
-**!** — urgent. This home likely needs work *right now*.
+**!** — stronger signal. This property fired something important.
 
-It feels like a game board — but every sprite is a real opportunity.
+It feels like a game board — but every sprite is real property intelligence.
 
 ---
 
 ## 3. The Demo (~1:00)
 
-**[SHOW: zoom into the Mission — multiple sprites visible]**
+**[SHOW: pan the map — neighborhood signs, sprites, legend]**
 
 Let me show you how it works.
 
 **[SHOW: click a green sprite with a ! badge]**
 
-I click a house.
+I click a property.
 
 Side panel opens.
 
 - Address up top.
-- Match score — say **92 out of 100**.
-- Urgent flag — old permit, aging systems.
+- Priority score — say **85 out of 100**.
+- Short list of **risk signals** — why it ranked high.
 
-**[SHOW: scroll to Property Signals]**
+**[SHOW: scroll to Coverage Signals]**
 
-Property signals:
-- How old the home is.
-- When the last permit was pulled.
-- Whether it's owner-occupied.
+Coverage signals:
+- Replacement cost today.
+- Likely coverage gap — dollars and percent.
+- Square footage and home age.
+- Owner-occupied status.
+- Tenure and timing confidence.
 
-**[SHOW: scroll to Household Profile / cluster]**
+**[SHOW: scroll to permit / property fields if visible]**
 
-And a behavioral profile — what kind of homeowner this probably is.
+Permit history where we have it.
 
-Before you knock, you already know *why* this door might be worth it.
+Public record context — not a guess.
 
-**[SHOW: Persona Chat section — type and send if live, or narrate]**
+**[SHOW: AI property context / Persona Chat — type one question if live, or narrate]**
 
-You can even chat with an AI persona of the household.
+AI-generated **property context** at the bottom.
 
-Ask: *"Would they respond to a cold knock?"*
+Not a behavioral homeowner profile.
 
-* "What objections might they have?"
+Not "who lives there."
 
-It's not pitch training.
+Ask: *"Why was this property flagged?"*
 
-It's qualification — so you don't waste the trip.
+Or: *"What coverage concern should I lead with?"*
+
+The AI summarizes the signals.
+
+It helps you understand the property — before you reach out.
 
 ---
 
@@ -105,17 +117,19 @@ It's qualification — so you don't waste the trip.
 
 **[SHOW: stay on side panel or cut back to map]**
 
-Under the hood, it's simple.
+Under the hood, it's structured.
 
-- We pull public SF data — permits, property records, census signals.
-- Python pipelines turn raw records into scores.
-- OpenAI generates a persona from those signals.
+- **SF Open Data** — assessor records, building permits.
+- **Python scoring pipeline** — cleans messy records, builds risk signals.
+- **OpenAI** — turns scores and fields into agent-readable context.
 
-The contractor gets context *before* they spend time knocking.
+We combine replacement-cost estimates with timing and property signals.
+
+The agent gets intelligence *before* cold outreach.
 
 Not a phone number from a form.
 
-Actual intelligence about the home and the household.
+Actual reasons this property surfaced.
 
 ---
 
@@ -125,19 +139,25 @@ Actual intelligence about the home and the household.
 
 Everything stays in sync through **Convex**.
 
-- Leads load live.
-- Chat history persists.
-- New data can hit the map without a refresh.
+- Properties load live on the map.
+- Chat history persists per property.
+- New scored data can appear without a refresh.
 
-No manual exports. No stale spreadsheets.
+No manual exports.
+
+No stale spreadsheets.
+
+Thousands of addresses — one visual board.
 
 ---
 
 ## 6. Outreach (~0:05)
 
-**[SHOW: "Get contact info" button at bottom of panel]**
+**[SHOW: "Reach out" button at bottom of panel]**
 
-Once you've qualified a lead, one click can pull contact info through **Orange Slice** — so you're not guessing at the door *or* at the phone.
+Once you've reviewed a property, one click starts outreach.
+
+Contact enrichment can flow through our pipeline — so you're not starting from zero.
 
 ---
 
@@ -145,15 +165,17 @@ Once you've qualified a lead, one click can pull contact info through **Orange S
 
 **[SHOW: wide map shot — pan across sprites]**
 
-Yelp sells you leads.
+Most tools give agents lists.
 
-HouseholdIQ gives you context.
+HouseholdIQ gives you a map.
 
-**Know which doors to knock on.**
+**Know which properties to prioritize.**
 
-**And know who answers before you knock.**
+**And know why — before you call.**
 
-That's HouseholdIQ. Thank you.
+HouseholdIQ helps insurance professionals move from broad searching to data-driven property discovery.
+
+Thank you.
 
 ---
 
@@ -161,16 +183,17 @@ That's HouseholdIQ. Thank you.
 
 | Moment | [SHOW] |
 |--------|--------|
-| Hook | Blank / door-knock b-roll |
-| Reveal | Full map + legend |
-| Demo | Click sprite → side panel → scroll |
-| Chat | Type one message if live |
+| Hook | Spreadsheet / property roll / scattered data tabs |
+| Reveal | Full Coverage Board + legend |
+| Demo | Click green + ! sprite → side panel → scroll |
+| AI | One chat question about why property was flagged |
 | Close | Wide map, multiple sprites |
 
 ## Pre-Record Checklist
 
-- [ ] App loads at [yc-growth-hack.vercel.app](https://yc-growth-hack.vercel.app)
-- [ ] Complete contractor setup if prompted
-- [ ] Pick a green + ! sprite in the Mission
+- [ ] App loads at [householdiq-insurance.vercel.app](https://householdiq-insurance.vercel.app/)
+- [ ] Complete **agent** setup if prompted (name + SF office address)
+- [ ] Pick a green + ! sprite (Mission, Sunset, or Richmond work well)
 - [ ] Browser zoom 100%, hide bookmarks bar
+- [ ] Confirm panel shows address, priority score, coverage gap, AI context
 - [ ] Test Escape closes the side panel
